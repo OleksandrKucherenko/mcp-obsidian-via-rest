@@ -1,0 +1,13 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": ["src/index.ts", "src/cli.ts"],
+  "project": ["src/**/*.ts", "!src/**/*.test.ts"],
+  "ignoreDependencies": ["typescript"],
+  "ignoreBinaries": ["bun", "bunx", "tsc", "biome"],
+  "ignoreExportsUsedInFile": true,
+  "rules": {
+    "dependencies": "error",
+    "devDependencies": "error",
+    "exports": "error"
+  }
+}

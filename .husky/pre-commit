@@ -1,0 +1,8 @@
+# formatting
+bun run checks:format
+
+# unused dependencies
+bun run checks:knip
+
+# unit tests
+bun run test
