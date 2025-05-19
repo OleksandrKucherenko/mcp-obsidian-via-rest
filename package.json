@@ -3,8 +3,28 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "scripts": {
+    "pre-commit": "lint-staged",
+    "prepare": "husky",
+    "start": "bun run src/index.ts",
+    "start:dev": "bun run src/index.ts --watch",
+    "test": "bun test ./src",
+    "docker:latest": "docker build -t mcp/obsidian:latest -f Dockerfile .",
+    "docker:run": "docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -i mcp/obsidian:latest",
+    "docker:cleanup": "docker image prune --all && docker volume prune --all",
+    "checks:knip": "knip",
+    "checks:types": "tsc --noEmit",
+    "checks:format": "biome format --write --no-errors-on-unmatched",
+    "checks:lint": "biome lint --no-errors-on-unmatched",
+    "mcp:inspector:docker": "bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\\* -e API_KEY=$API_KEY -e API_HOST=https://$WSL_GATEWAY_IP docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -a STDOUT -i mcp/obsidian:latest",
+    "mcp:inspector:local": "bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\\* -e API_KEY=$API_KEY -e API_HOST=https://$WSL_GATEWAY_IP bun run src/index.ts"
+  },
   "devDependencies": {
-    "@types/bun": "latest"
+    "@biomejs/biome": "^1.9.4",
+    "@types/bun": "latest",
+    "husky": "^9.1.7",
+    "knip": "^5.56.0",
+    "lint-staged": "^16.0.0"
   },
   "peerDependencies": {
     "typescript": "^5"
