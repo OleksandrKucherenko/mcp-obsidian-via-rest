@@ -1,1 +1,84 @@
-console.log("MCP Template")
+import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
+import { z } from "zod"
+import { debug } from "debug"
+
+import PackageJson from "../package.json" assert { type: "json" }
+import { ObsidianAPI } from "./client/obsidian-api.js"
+
+const configuration = {
+  apiKey: process.env.API_KEY ?? "<secret>",
+  port: Number.parseInt(process.env.API_PORT ?? "27124", 10),
+  host: process.env.API_HOST ?? "https://127.0.0.1",
+}
+
+const logger = debug("mcp:server")
+
+const server = new McpServer({
+  name: PackageJson.name,
+  version: PackageJson.version,
+})
+
+const api = new ObsidianAPI(configuration)
+
+// @ts-expect-error
+server.tool(
+  "get_note_content", // name
+  "Get content of the obsidian note by file path", // description
+  { filePath: z.string() }, // shape
+  async ({ filePath }) => {
+    const note = await api.readNote(filePath)
+
+    return {
+      contents: [
+        { type: "text", text: filePath },
+        { type: "text", text: note.content },
+        { type: "text", text: JSON.stringify(note.metadata) },
+      ],
+    }
+  },
+)
+
+// @ts-expect-error
+server.tool(
+  "search_by_text", // name
+  "Search for notes using a query string", // description
+  { query: z.string() }, // shape
+  async ({ query }) => {
+    const notes = await api.searchNotes(query)
+
+    return {
+      contents: notes.map((note) => ({
+        type: "text",
+        text: note.path,
+      })),
+    }
+  },
+)
+
+// declared resources
+server.resource("obsidian", new ResourceTemplate("obsidian://{name}", { list: undefined }), async (uri, { name }) => {
+  return {
+    contents: [
+      {
+        uri: uri.href,
+        text: `Content of the ${name}`,
+      },
+    ],
+  }
+})
+
+// test REST API connection and server status
+api
+  .getServerInfo()
+  .then((info) => {
+    logger(`Obsidian API: %O`, info)
+  })
+  .catch((error) => {
+    logger(`Obsidian API error: %O`, error)
+  })
+
+const transport = new StdioServerTransport()
+await server.connect(transport)
+
+logger(`MCP Server: ${PackageJson.name} / ${PackageJson.version} started`)
