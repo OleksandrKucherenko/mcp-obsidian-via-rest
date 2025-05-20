@@ -28,11 +28,10 @@
     "@types/bun": "latest",
     "husky": "^9.1.7",
     "knip": "^5.56.0",
-    "lint-staged": "^16.0.0",
-    "nock": "^14.0.4"
+    "lint-staged": "^16.0.0"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.0.0"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.11.4",

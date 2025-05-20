@@ -8,7 +8,7 @@ import type { Note, NoteJson, ObsidianConfig, ServerStatus } from "./types.ts"
 
 /** Obsidian Local REST API client. */
 export class ObsidianAPI {
-  private client: AxiosInstance
+  protected client: AxiosInstance
   private timeout = 10_000
   private readonly logger: ReturnType<typeof debug>
 
@@ -38,7 +38,7 @@ export class ObsidianAPI {
     // configure retry-logic
     axiosRetry(this.client, { retries: 3 })
 
-    this.logger = debug("mcp:api")
+    this.logger = debug("mcp:client")
 
     // @ts-ignore
     addLogger(this.client, this.logger)
@@ -66,13 +66,15 @@ export class ObsidianAPI {
   // #region Version 1 of API
 
   /** List all notes (*.md files) in the vault or a specific folder. */
-  async listNotes(folder?: string): Promise<string[]> {
+  async listNotes(folder?: string, ends = ".md"): Promise<string[]> {
     return this.safeCall(async () => {
       const subPath = folder ? `${encodeURIComponent(folder)}/` : ""
       const response = await this.client.get(`/vault/${subPath}`)
       const files = response.data.files || []
 
-      return files.filter((file: string) => file.endsWith(".md"))
+      this.logger(`listNotes by path: '${subPath}', extension: %s, files: %d`, ends, files.length)
+
+      return files.filter((file: string) => file.endsWith(ends))
     })
   }
 
@@ -135,8 +137,10 @@ export class ObsidianAPI {
   /** Retrieves metadata for a specific note. */
   async getMetadata(path: string): Promise<NoteJson> {
     const headers = { Accept: "application/vnd.olrapi.note+json" }
+
     return this.safeCall(async () => {
       const response = await this.client.get<NoteJson>(`/vault/${encodeURIComponent(path)}`, { headers })
+
       return response.data
     })
   }
