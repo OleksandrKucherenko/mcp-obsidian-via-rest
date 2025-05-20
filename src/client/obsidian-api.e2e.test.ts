@@ -57,8 +57,11 @@ async function isHostAvailable(url: string): Promise<boolean> {
 
     await instance.get(url)
     return true
-  } catch (error) {
-    console.error("e2e testing host is not available. Error:", error.message)
+  } catch (error: unknown) {
+    if (error !== null && typeof error === "object" && "message" in error) {
+      console.error("e2e testing host is not available. Error:", (error as Error).message)
+    }
+
     if (axios.isAxiosError(error) && error.response) {
       // If we get any response, the host is available even if it returns an error code
       return true
@@ -74,7 +77,7 @@ describe("ObsidianAPI - E2E Tests", async () => {
   /** We'll conditionally skip the entire describe block if host is not available */
   const describeIf = hostAvailable ? describe : describe.skip
 
-  let api: IObsidianAPI
+  let api: ObsidianAPI
 
   beforeAll(async () => {
     debug("config")("config: %o", config)
@@ -120,7 +123,7 @@ describe("ObsidianAPI - E2E Tests", async () => {
         return
       }
 
-      const notePath = notes[0]
+      const notePath = <string>notes[0]
       const note = await api.readNote(notePath)
 
       expect(note).toBeDefined()

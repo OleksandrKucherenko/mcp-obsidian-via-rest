@@ -1,0 +1,42 @@
+# dependencies
+node_modules
+.yarn
+
+# git files
+.git
+.gitignore
+
+# support files
+README.md
+LICENSE
+assets
+
+# IDE files
+.vscode
+.editorconfig
+.idea
+Makefile
+helm-charts
+
+# environments
+.env
+
+# Docker related files
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Unit test files
+src/**/*.test.ts
+src/**/*.spec.ts
+
+# Temporary files
+coverage*
+report*
+dist
+
+# secrets
+.secrets
+
+# git hooks
+.husky
