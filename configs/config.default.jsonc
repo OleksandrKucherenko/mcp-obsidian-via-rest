@@ -1,3 +1,6 @@
 {
   // JSON with comments
+  "apiKey": "",
+  "host": "https://127.0.0.1",
+  "port": 27124
 }
