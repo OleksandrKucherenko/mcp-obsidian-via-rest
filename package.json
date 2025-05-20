@@ -9,7 +9,8 @@
   "private": true,
   "scripts": {
     "pre-commit": "lint-staged",
-    "prepare": "husky",
+    "prepare": "husky || true",
+    "build": "bun build --minify --target=bun --outdir=dist src/index.ts",
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=mcp:\\* bun run src/index.ts --watch",
     "test": "bun test ./src",
