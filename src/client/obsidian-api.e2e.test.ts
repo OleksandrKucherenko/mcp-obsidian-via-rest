@@ -80,6 +80,7 @@ describe("ObsidianAPI - E2E Tests", async () => {
   let api: ObsidianAPI
 
   beforeAll(async () => {
+    console.dir(config)
     debug("config")("config: %o", config)
 
     if (!hostAvailable) {
