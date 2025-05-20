@@ -2,6 +2,7 @@ import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mc
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod"
 import { debug } from "debug"
+import { dedent } from "ts-dedent"
 
 import PackageJson from "../package.json" assert { type: "json" }
 import { ObsidianAPI } from "./client/obsidian-api.js"
@@ -36,10 +37,10 @@ server.tool(
   },
 )
 
-// @ts-expect-error
+// @ts-expect-error Typescript cannot infer the return type, too deep
 server.tool(
-  "search_by_text", // name
-  "Search for notes using a query string", // description
+  "obsidian_search", // name
+  dedent`Search for notes using a query string`, // description
   { query: z.string() }, // shape
   async ({ query }) => {
     const notes = await api.searchNotes(query)
@@ -53,17 +54,39 @@ server.tool(
   },
 )
 
+// @ts-expect-error Typescript cannot infer the return type, too deep
+server.tool(
+  "obsidian_semantic_search",
+  dedent`Search for notes using a query string`,
+  { query: z.string() },
+  async ({ query }) => {
+    const notes = await api.searchNotes(query)
+
+    return {
+      contents: notes.map((note) => ({
+        type: "text",
+        text: note.path,
+      })),
+    }
+  },
+)
+
 // declared resources
-server.resource("obsidian", new ResourceTemplate("obsidian://{name}", { list: undefined }), async (uri, { name }) => {
-  return {
-    contents: [
-      {
-        uri: uri.href,
-        text: `Content of the ${name}`,
-      },
-    ],
-  }
-})
+server.resource(
+  "obsidian",
+  new ResourceTemplate("obsidian://{name}", { list: undefined }),
+  // handler
+  async (uri, { name }) => {
+    return {
+      contents: [
+        {
+          uri: uri.href,
+          text: `Content of the ${name}`,
+        },
+      ],
+    }
+  },
+)
 
 // test REST API connection and server status
 api
