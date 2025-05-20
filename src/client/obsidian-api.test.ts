@@ -1,108 +1,182 @@
 import axios from "axios"
-import nock from "nock"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, spyOn, jest, mock } from "bun:test"
 
 import { ObsidianAPI } from "./obsidian-api.ts"
-import type { IObsidianAPI, ObsidianConfig } from "./types.ts"
+import type { ObsidianConfig } from "./types.ts"
+
+mock.module("axios-retry", () => ({ default: jest.fn() }))
+mock.module("axios-debug-log", () => ({ addLogger: jest.fn() }))
+mock.module("axios", () => ({
+  default: {
+    create: jest.fn(() => ({
+      get: jest.fn(),
+      put: jest.fn(),
+      post: jest.fn(),
+    })),
+    isAxiosError: jest.fn((error) => error && error.response !== undefined),
+  },
+}))
 
 const config: ObsidianConfig = {
   apiKey: "test-api-key",
-  port: 27124,
+  port: 55555,
   host: "127.0.0.1",
 }
 
+const baseURL = `http://${config.host}:${config.port}`
+
 describe("ObsidianAPI - Unit Tests", () => {
-  let api: IObsidianAPI
-  let baseURL: string
-  let axiosCreateSpy: vi.MockInstance<ReturnType<typeof axios.create>, Parameters<typeof axios.create>>
+  // biome-ignore lint/suspicious/noExplicitAny: necessary for dynamic API response
+  let axiosCreateSpy: any
 
   beforeEach(() => {
-    axiosCreateSpy = vi.spyOn(axios, "create")
-    baseURL = `http://${config.host}:${config.port}`
-    api = new ObsidianAPI(config)
-    nock.cleanAll()
-    nock.disableNetConnect()
+    axiosCreateSpy = spyOn(axios, "create")
   })
 
   afterEach(() => {
-    axiosCreateSpy.mockRestore()
-    nock.cleanAll()
-    nock.enableNetConnect()
+    jest.clearAllMocks()
   })
 
   describe("constructor", () => {
     it("should create an axios client with the correct configuration", () => {
+      // GIVEN: api client created
+      const api = new ObsidianAPI(config)
+
+      // WHEN: constructor is called
+
+      // THEN: axios client is created with the correct configuration
       expect(axiosCreateSpy).toHaveBeenCalledTimes(1)
+
       const createCall = axiosCreateSpy.mock.calls[0][0]
-      expect(createCall.baseURL).toBe("http://127.0.0.1:27124")
+      expect(createCall.baseURL).toBe("http://127.0.0.1:55555")
       expect(createCall.headers.Authorization).toBe("Bearer test-api-key")
       expect(createCall.headers["Content-Type"]).toBe("application/json")
       expect(createCall.proxy).toBe(false)
+
       // Check that httpsAgent is defined (for self-signed certificates)
       expect(createCall.httpsAgent).toBeDefined()
     })
 
     it("should handle https URLs correctly", () => {
-      const httpsConfig = { ...config, host: "https://localhost" }
-      new ObsidianAPI(httpsConfig)
-      const createCall = (axios.create as ReturnType<typeof vi.fn>).mock.calls[1][0]
-      expect(createCall.baseURL).toBe("https://localhost:27124")
+      // GIVEN: creating api client with custom config
+      const httpsConfig = { ...config, host: "https://localhost", port: 55556 }
+
+      // WHEN: constructor is called
+      const api = new ObsidianAPI(httpsConfig)
+
+      // THEN: axios client is created with the correct configuration
+      const createCall = axiosCreateSpy.mock.calls[0][0]
+      expect(createCall.baseURL).toBe("https://localhost:55556")
     })
   })
 
   describe("listNotes", () => {
     it("should retrieve all markdown files", async () => {
-      nock(baseURL)
-        .get("/vault/")
-        .reply(200, {
-          files: ["note1.md", "note2.md", "file.txt", "folder/note3.md"],
-        })
+      // GIVEN: api client created
+      const api = new ObsidianAPI(config)
+      const mockClient = axiosCreateSpy.mock.results[0].value
+
+      // AND: mock server is running
+      const data = {
+        files: ["note1.md", "note2.md", "file.txt", "folder/note3.md"],
+      }
+      mockClient.get.mockResolvedValue({ data })
+
+      // WHEN: listNotes is called
       const result = await api.listNotes()
+
+      // THEN: correct files are returned
       expect(result).toEqual(["note1.md", "note2.md", "folder/note3.md"])
     })
 
     it("should filter by folder when provided", async () => {
-      nock(baseURL)
-        .get("/vault/folder/")
-        .reply(200, {
-          files: ["note1.md", "folder/note2.md", "folder/subfolder/note3.md"],
-        })
+      // GIVEN: mock server is running
+      const api = new ObsidianAPI(config)
+      expect(axiosCreateSpy).toHaveBeenCalledTimes(1) // be sure that mock reseted propoerly from prev runs
+
+      const mockClient = axiosCreateSpy.mock.results[0].value
+
+      const data = {
+        files: ["note1.md", "folder/note2.md", "folder/subfolder/note3.md"],
+      }
+      mockClient.get.mockResolvedValue({ data })
+
+      // WHEN: listNotes is called with folder
       const result = await api.listNotes("folder")
-      expect(result).toEqual(["note1.md", "folder/note2.md", "folder/subfolder/note3.md"])
+
+      // THEN: correct files are returned
+      expect(result).toEqual(data.files)
     })
 
     it("should handle empty response", async () => {
-      nock(baseURL).get("/vault/").reply(200, {})
+      // GIVEN: mock server is running
+      const api = new ObsidianAPI(config)
+      const mockClient = axiosCreateSpy.mock.results[0].value
+
+      const data = {}
+      mockClient.get.mockResolvedValue({ data })
+
+      // WHEN: listNotes is called
       const result = await api.listNotes()
+
+      // THEN: empty array is returned
       expect(result).toEqual([])
     })
   })
 
   describe("readNote", () => {
     it("should retrieve a note by path", async () => {
+      // GIVEN: mock server is running
+      const api = new ObsidianAPI(config)
+      const mockClient = axiosCreateSpy.mock.results[0].value
+
       const path = "folder/note.md"
       const content = "Note content"
       const metadata = { tags: ["test"] }
-      nock(baseURL)
-        .get("/vault/folder%2Fnote.md")
-        .matchHeader("accept", "application/vnd.olrapi.note+json")
-        .reply(200, { path, content, ...metadata })
+      const data = { path, content, ...metadata }
+      mockClient.get.mockResolvedValue({ data })
+
+      // WHEN: readNote is called
       const result = await api.readNote(path)
+
+      // THEN: correct note is returned
       expect(result).toEqual({ path, content, metadata })
     })
   })
 
   describe("writeNote", () => {
     it("should save a note with the given content", async () => {
+      // GIVEN: mock server is running
+      const api = new ObsidianAPI(config)
+      const mockClient = axiosCreateSpy.mock.results[0].value
+
       const path = "folder/note.md"
       const content = "Updated content"
-      nock(baseURL).put("/vault/folder%2Fnote.md", content).matchHeader("content-type", "text/markdown").reply(200, {})
+      mockClient.put.mockResolvedValue({})
+
+      // WHEN: writeNote is called
       await api.writeNote(path, content)
+
+      // THEN: note is saved
+      expect(mockClient.put).toHaveBeenCalledWith(
+        "/vault/folder%2Fnote.md", // path
+        "Updated content", // content
+        {
+          // extras
+          headers: {
+            "Content-Type": "text/markdown",
+          },
+        },
+      )
     })
   })
 
   describe("searchNotes", () => {
     it("should search for notes matching the query", async () => {
+      // GIVEN: mock server is running
+      const api = new ObsidianAPI(config)
+      const mockClient = axiosCreateSpy.mock.results[0].value
+
       const query = "test query"
       const apiResponse = [
         {
@@ -120,21 +194,33 @@ describe("ObsidianAPI - Unit Tests", () => {
         { path: "note1.md", content: "content1", metadata: { score: 0.75 } },
         { path: "note2.md", content: "content2", metadata: { score: 0.5 } },
       ]
-      nock(baseURL).post("/search/simple/").query({ query, contextLength: 100 }).reply(200, apiResponse)
+
+      mockClient.post.mockResolvedValue({ data: apiResponse })
+
+      // WHEN: searchNotes is called
       const result = await api.searchNotes(query)
+
+      // THEN: correct notes are returned
       expect(result).toEqual(expectedResults)
     })
   })
 
   describe("getMetadata", () => {
     it("should retrieve metadata for a note", async () => {
+      // GIVEN: mock server is running
+      const api = new ObsidianAPI(config)
+      const mockClient = axiosCreateSpy.mock.results[0].value
+
       const path = "folder/note.md"
       const metadata = { tags: ["test"], created: "2025-03-23" }
-      nock(baseURL)
-        .get("/vault/folder%2Fnote.md")
-        .matchHeader("accept", "application/vnd.olrapi.note+json")
-        .reply(200, metadata)
+
+      mockClient.get.mockResolvedValue({ data: metadata })
+
+      // WHEN: getMetadata is called
       const result = await api.getMetadata(path)
+
+      // THEN: correct metadata is returned
+      // @ts-expect-error
       expect(result).toEqual(metadata)
     })
   })
