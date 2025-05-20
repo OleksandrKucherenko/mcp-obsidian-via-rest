@@ -5,7 +5,7 @@ import findConfig from "find-config"
 import JSON5 from "json5"
 import { existsSync, readFileSync } from "node:fs"
 import path from "node:path"
-import { z } from "zod"
+import { z } from "zod/v4"
 
 declare namespace NodeJS {
   interface ProcessEnv {

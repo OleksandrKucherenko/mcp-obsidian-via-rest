@@ -13,7 +13,7 @@
     "build": "bun build --minify --target=bun --outdir=dist src/index.ts",
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=mcp:\\* bun run src/index.ts --watch",
-    "test": "bun test ./src",
+    "test": "DEBUG=mcp:\\* bun test ./src",
     "docker:latest": "docker build -t mcp/obsidian:latest -f Dockerfile .",
     "docker:run": "docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -i mcp/obsidian:latest",
     "docker:cleanup": "docker image prune --all && docker volume prune --all",
@@ -46,6 +46,6 @@
     "find-config": "^1.0.0",
     "json5": "^2.2.3",
     "ts-dedent": "^2.2.0",
-    "zod": "^3.25.3"
+    "zod": "^3.25.7"
   }
 }

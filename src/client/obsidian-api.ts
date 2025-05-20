@@ -72,7 +72,7 @@ export class ObsidianAPI {
       const response = await this.client.get(`/vault/${subPath}`)
       const files = response.data.files || []
 
-      this.logger(`listNotes by path: '${subPath}', extension: %s, files: %d`, ends, files.length)
+      this.logger(`listNotes by path: '%s', extension: %s, files: %d`, subPath, ends, files.length)
 
       return files.filter((file: string) => file.endsWith(ends))
     })
