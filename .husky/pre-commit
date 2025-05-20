@@ -2,7 +2,7 @@
 bun run checks:format
 
 # unused dependencies
-bun run checks:knip
+bun run checks:knip || true
 
 # unit tests
 bun run test

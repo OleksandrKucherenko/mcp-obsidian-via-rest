@@ -1,5 +1,9 @@
 {
   "name": "mcp-obsidiant",
+  "description": "MCP Server for Obsidian Vault Access and Integration",
+  "version": "0.0.1",
+  "license": "MIT",
+  "author": "Oleksandr Kucherenko <oleksandr.kucherenko@artfulbits.se>",
   "module": "index.ts",
   "type": "module",
   "private": true,
@@ -7,7 +11,7 @@
     "pre-commit": "lint-staged",
     "prepare": "husky",
     "start": "bun run src/index.ts",
-    "start:dev": "bun run src/index.ts --watch",
+    "start:dev": "DEBUG=mcp:\\* bun run src/index.ts --watch",
     "test": "bun test ./src",
     "docker:latest": "docker build -t mcp/obsidian:latest -f Dockerfile .",
     "docker:run": "docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -i mcp/obsidian:latest",
@@ -24,9 +28,22 @@
     "@types/bun": "latest",
     "husky": "^9.1.7",
     "knip": "^5.56.0",
-    "lint-staged": "^16.0.0"
+    "lint-staged": "^16.0.0",
+    "nock": "^14.0.4"
   },
   "peerDependencies": {
     "typescript": "^5"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.4",
+    "axios": "^1.9.0",
+    "axios-debug-log": "^1.0.0",
+    "axios-retry": "^4.5.0",
+    "debug": "^4.4.1",
+    "dotenv": "^16.5.0",
+    "dotenv-expand": "^12.0.2",
+    "json5": "^2.2.3",
+    "ts-dedent": "^2.2.0",
+    "zod": "^3.25.3"
   }
 }
