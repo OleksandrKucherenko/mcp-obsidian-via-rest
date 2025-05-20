@@ -5,14 +5,11 @@ import { debug } from "debug"
 
 import PackageJson from "../package.json" assert { type: "json" }
 import { ObsidianAPI } from "./client/obsidian-api.js"
-
-const configuration = {
-  apiKey: process.env.API_KEY ?? "<secret>",
-  port: Number.parseInt(process.env.API_PORT ?? "27124", 10),
-  host: process.env.API_HOST ?? "https://127.0.0.1",
-}
+import { loadConfiguration } from "./config.js"
 
 const logger = debug("mcp:server")
+
+const configuration = loadConfiguration()
 
 const server = new McpServer({
   name: PackageJson.name,
