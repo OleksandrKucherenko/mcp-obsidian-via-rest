@@ -1,21 +1,8 @@
 import axios from "axios"
-import { afterEach, beforeEach, describe, expect, it, spyOn, jest, mock } from "bun:test"
+import { afterEach, beforeEach, describe, expect, it, jest, mock, spyOn } from "bun:test"
 
 import { ObsidianAPI } from "./obsidian-api.ts"
 import type { ObsidianConfig } from "./types.ts"
-
-mock.module("axios-retry", () => ({ default: jest.fn() }))
-mock.module("axios-debug-log", () => ({ addLogger: jest.fn() }))
-mock.module("axios", () => ({
-  default: {
-    create: jest.fn(() => ({
-      get: jest.fn(),
-      put: jest.fn(),
-      post: jest.fn(),
-    })),
-    isAxiosError: jest.fn((error) => error && error.response !== undefined),
-  },
-}))
 
 const config: ObsidianConfig = {
   apiKey: "test-api-key",
@@ -24,6 +11,23 @@ const config: ObsidianConfig = {
 }
 
 const baseURL = `http://${config.host}:${config.port}`
+
+mock.module("axios-retry", () => ({ default: jest.fn() }))
+mock.module("axios-debug-log", () => ({ addLogger: jest.fn() }))
+mock.module("axios", async () => {
+  return {
+    default: {
+      create: jest.fn(() => ({
+        get: jest.fn(),
+        put: jest.fn(),
+        post: jest.fn(),
+        patch: jest.fn(),
+      })),
+      isAxiosError: jest.fn((error) => error && error.response !== undefined),
+      actual: axios,
+    },
+  }
+})
 
 describe("ObsidianAPI - Unit Tests", () => {
   // biome-ignore lint/suspicious/noExplicitAny: necessary for dynamic API response

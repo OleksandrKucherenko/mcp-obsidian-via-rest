@@ -36,11 +36,10 @@ export class ObsidianAPI {
     })
 
     // configure retry-logic
-    axiosRetry(this.client, { retries: 3 })
+    axiosRetry(this.client, { retries: 5 })
 
     this.logger = debug("mcp:client")
 
-    // @ts-ignore
     addLogger(this.client, this.logger)
   }
 
@@ -55,10 +54,11 @@ export class ObsidianAPI {
         const code = errorData.errorCode ?? -1
         const message = errorData.message ?? "<unknown>"
 
-        console.error(error)
+        this.logger(`Error ${code}: ${message}`)
         throw new Error(`Error ${code}: ${message}`)
       }
 
+      this.logger(error ?? "Exception happens from unknown reasons")
       throw Object.assign(new Error(`Request failed.`), { cause: error })
     }
   }
@@ -70,9 +70,8 @@ export class ObsidianAPI {
     return this.safeCall(async () => {
       const subPath = folder ? `${encodeURIComponent(folder)}/` : ""
       const response = await this.client.get(`/vault/${subPath}`)
-      const files = response.data.files || []
 
-      this.logger(`listNotes by path: '%s', extension: %s, files: %d`, subPath, ends, files.length)
+      const files = response.data.files || []
 
       return files.filter((file: string) => file.endsWith(ends))
     })

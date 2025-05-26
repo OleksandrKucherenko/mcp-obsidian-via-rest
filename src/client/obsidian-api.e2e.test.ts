@@ -1,9 +1,9 @@
+import axios from "axios"
+import { afterEach, beforeAll, describe, expect, it, mock } from "bun:test"
+import { debug } from "debug"
 import { execSync } from "node:child_process"
 import https from "node:https"
-import axios from "axios"
-import { debug } from "debug"
 import { dedent as de } from "ts-dedent"
-import { afterEach, beforeAll, describe, expect, it } from "bun:test"
 
 import { ObsidianAPI } from "./obsidian-api.ts"
 import type { ObsidianConfig } from "./types.ts"
@@ -44,6 +44,11 @@ const wslConfig: ObsidianConfig = {
   host: `https://${process.env.WSL_GATEWAY_IP ?? extractGatewayIp()}`,
 }
 
+mock.module("axios", async () => {
+  if ("actual" in axios) return axios.actual
+  return axios
+})
+
 // Helper function to check if host is available
 async function isHostAvailable(url: string): Promise<boolean> {
   try {
@@ -80,8 +85,7 @@ describe("ObsidianAPI - E2E Tests", async () => {
   let api: ObsidianAPI
 
   beforeAll(async () => {
-    console.dir(config)
-    debug("config")("config: %o", config)
+    debug("mcp:e2e:config")("config: %o", config)
 
     if (!hostAvailable) {
       console.error(
@@ -201,6 +205,7 @@ describe("ObsidianAPI - E2E Tests", async () => {
 
       // Read it back
       const note = await api.readNote(notePath)
+      // console.log("Note:", note)
 
       expect(note.path).toBe(notePath)
       expect(note.content).toBe(testContent)
