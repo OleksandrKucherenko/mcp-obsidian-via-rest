@@ -55,14 +55,26 @@ cleanup() {
 trap 'cleanup' SIGTERM SIGINT
 
 echo "Xvfb, Fluxbox, and x11vnc started. Running command: $@"
+# Make sure the vault directory exists and has proper structure for Obsidian
+VAULT_PATH="/config/obsidian/vault-tests"
+OBSIDIAN_CONFIG_DIR="${VAULT_PATH}/.obsidian"
+
+# Create .obsidian directory if it doesn't exist to ensure Obsidian recognizes this as a vault
+if [ ! -d "${OBSIDIAN_CONFIG_DIR}" ]; then
+    echo "Creating Obsidian config directory at ${OBSIDIAN_CONFIG_DIR}"
+    mkdir -p "${OBSIDIAN_CONFIG_DIR}"
+    # Set permissions for the appuser
+    chown -R "${USERNAME}:${USERNAME}" "${VAULT_PATH}"
+fi
+
 # Execute the command passed to the entrypoint (e.g., Obsidian AppImage)
 # The CMD from Dockerfile will be passed as arguments here
 # Run the main application in the background and wait for it.
 # This allows the script's trap to handle signals.
-# Launch Obsidian as appuser, with no sandbox, and specify the test vault.
+# Launch Obsidian as appuser, with no sandbox, and use the '--vault' flag to properly open the vault
 # OBSIDIAN_APPIMAGE_PATH is set in the Dockerfile.
-echo "Running command: gosu ${USERNAME} $1 $2 /config/obsidian/vault-tests"
-gosu "${USERNAME}" "$1" "$2" "/config/obsidian/vault-tests" &
+echo "Running command: gosu ${USERNAME} $1 $2 --vault=${VAULT_PATH}"
+gosu "${USERNAME}" "$1" "$2" "--vault=${VAULT_PATH}" &
 MAIN_APP_PID=$!
 
 wait $MAIN_APP_PID
