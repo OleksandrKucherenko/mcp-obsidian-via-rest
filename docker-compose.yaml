@@ -45,11 +45,7 @@ services:
       - ./dockerize/obsidian:/config/obsidian # Ensure this matches your volume needs
     ports:
       - "5900:5900" # For VNC
-      # - "3000:3000" # Remove if not used by your custom setup
-      # - "3001:3001" # Remove if not used by your custom setup
-      # devices: # Likely not needed unless you require specific hardware access
-      #   - /dev/dri:/dev/dri
-      # shm_size: "1gb" # Consider if your custom setup needs this
+      - "27124:27124" # For Obsidian Local REST API
     cap_add:
       - SYS_ADMIN
     devices:
