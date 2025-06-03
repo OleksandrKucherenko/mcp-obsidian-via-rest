@@ -1,5 +1,15 @@
 #!/bin/bash
+# shellcheck disable=SC2155
+
 set -e
+
+# --- Color Definitions ---
+# Only including colors that we'll actually use
+export cl_reset=$(tput sgr0)
+export cl_green=$(tput setaf 2)
+export cl_yellow=$(tput setaf 3)
+export cl_purple=$(tput setaf 5)
+export cl_gray=$(tput setaf 8)
 
 # --- Configuration Defaults ---
 SCR_DEFAULT_SCREENSHOT_COUNT=5
@@ -22,17 +32,25 @@ SCR_INITIAL_DELAY_SECONDS=${SCR_INITIAL_DELAY_SECONDS:-"${SCR_DEFAULT_INITIAL_DE
 SCR_INFINITE_MODE=${SCR_INFINITE_MODE:-false}
 
 # --- Helper Functions ---
+# Setup the pipes to preserve command exit status when using sed for coloring
+setup_pipe_status() {
+  set -o pipefail # Ensures exit status of a pipeline is the status of the last command to exit with non-zero status
+}
+
+# Call at the beginning of the script
+setup_pipe_status
+
 show_help() {
   echo "Usage: $0 [options]"
   echo ""
   echo "Options:"
-  echo "  -n, --count <num>       Number of screenshots to take (default: ${SCR_DEFAULT_SCREENSHOT_COUNT})."
+  echo "  -n, --count ${cl_purple}<num>${cl_reset}       Number of screenshots to take (default: ${cl_purple}${SCR_DEFAULT_SCREENSHOT_COUNT}${cl_reset})."
   echo "                          Overrides infinite mode if set."
   echo "  -i, --infinite          Run in infinite mode (takes screenshots indefinitely until timeout or manual stop)."
-  echo "  -t, --timeout <sec>     Maximum script runtime in seconds (default: ${SCR_DEFAULT_MAX_RUNTIME_SECONDS}s)."
-  echo "  -k, --keep <num>        Number of latest screenshots to keep (cleanup on startup, default: ${SCR_DEFAULT_KEEP_COUNT})."
-  echo "  -s, --interval <sec>    Interval between screenshots in seconds (default: ${SCR_DEFAULT_INTERVAL_SECONDS}s)."
-  echo "  -d, --delay <sec>       Initial delay before starting screenshots (default: ${SCR_DEFAULT_INITIAL_DELAY_SECONDS}s)."
+  echo "  -t, --timeout ${cl_purple}<sec>${cl_reset}     Maximum script runtime in seconds (default: ${cl_purple}${SCR_DEFAULT_MAX_RUNTIME_SECONDS}${cl_reset}s)."
+  echo "  -k, --keep ${cl_purple}<num>${cl_reset}        Number of latest screenshots to keep (cleanup on startup, default: ${cl_purple}${SCR_DEFAULT_KEEP_COUNT}${cl_reset})."
+  echo "  -s, --interval ${cl_purple}<sec>${cl_reset}    Interval between screenshots in seconds (default: ${cl_purple}${SCR_DEFAULT_INTERVAL_SECONDS}${cl_reset}s)."
+  echo "  -d, --delay ${cl_purple}<sec>${cl_reset}       Initial delay before starting screenshots (default: ${cl_purple}${SCR_DEFAULT_INITIAL_DELAY_SECONDS}${cl_reset}s)."
   echo "  -h, --help              Show this help message."
   exit 0
 }
@@ -42,24 +60,25 @@ cleanup_screenshots() {
   local screenshot_dir=$2
 
   if [[ ! -d "${screenshot_dir}" ]]; then
-    echo "Screenshot directory '${screenshot_dir}' does not exist. No cleanup needed."
+    echo "${cl_gray}Screenshot directory '${cl_yellow}${screenshot_dir}${cl_gray}' does not exist. No cleanup needed.${cl_reset}"
     return
   fi
 
-  echo "Cleaning up screenshots in '${screenshot_dir}', keeping the last ${keep_count}..."
+  echo "${cl_gray}Cleaning up screenshots in '${cl_yellow}${screenshot_dir}${cl_gray}', keeping the last ${cl_purple}${keep_count}${cl_gray}...${cl_reset}"
   local current_file_count
   current_file_count=$(find "${screenshot_dir}" -maxdepth 1 -type f -name 'obsidian_screen_*.png' -printf '.' | wc -c)
 
   if [[ "${current_file_count}" -le "${keep_count}" ]]; then
-    echo "Found ${current_file_count} screenshots, which is less than or equal to keep_count (${keep_count}). No files deleted."
+    echo "${cl_gray}Found ${cl_purple}${current_file_count}${cl_gray} screenshots, which is less than or equal to keep_count (${cl_purple}${keep_count}${cl_gray}). No files deleted.${cl_reset}"
     return
   fi
 
+  # Use process substitution to capture and colorize rm output
   find "${screenshot_dir}" -maxdepth 1 -type f -name 'obsidian_screen_*.png' -print0 |
     sort -z -r |
     tail -z -n +$((keep_count + 1)) |
-    xargs -0 --no-run-if-empty rm -v
-  echo "Cleanup finished."
+    xargs -0 --no-run-if-empty -I{} bash -c "rm -v {} | sed 's/^/${cl_gray}/; s/$/${cl_reset}/'"
+  echo "${cl_gray}Cleanup finished.${cl_reset}"
 }
 
 # --- Main Function ---
@@ -70,24 +89,28 @@ main() {
   # Create screenshot directory if it doesn't exist (relative to script location)
   mkdir -p "${SCREENSHOT_DIR_HOST}"
 
+  # Ensure proper display of ANSI colors
+  export TERM=xterm-256color
+
   # Perform cleanup before starting
   cleanup_screenshots "${SCR_KEEP_COUNT}" "${SCREENSHOT_DIR_HOST}"
 
   # Check if container is running
   if ! docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
-    echo "Error: Container '${CONTAINER_NAME}' is not running."
+    echo "Error: Container '${cl_yellow}${CONTAINER_NAME}${cl_reset}' is not running."
     echo "Please start it with: docker compose up -d obsidian"
     exit 1
   fi
 
-  echo "Waiting for Obsidian to initialize (${SCR_INITIAL_DELAY_SECONDS} seconds)..."
+  echo "Waiting for Obsidian to initialize (${cl_purple}${SCR_INITIAL_DELAY_SECONDS}${cl_reset} seconds)..."
   sleep "${SCR_INITIAL_DELAY_SECONDS}"
 
   if [ "${SCR_INFINITE_MODE}" = true ]; then
-    echo "Starting infinite screenshot mode (every ${SCR_INTERVAL_SECONDS} seconds, timeout ${SCR_MAX_RUNTIME_SECONDS}s)..."
+    echo "Starting infinite screenshot mode (every ${cl_purple}${SCR_INTERVAL_SECONDS}${cl_reset} seconds, timeout ${cl_purple}${SCR_MAX_RUNTIME_SECONDS}${cl_reset}s)..."
   else
-    echo "Starting screenshot mode: ${SCR_SCREENSHOT_COUNT} screenshots every ${SCR_INTERVAL_SECONDS} seconds (timeout ${SCR_MAX_RUNTIME_SECONDS}s)..."
+    echo "Starting screenshot mode: ${cl_purple}${SCR_SCREENSHOT_COUNT}${cl_reset} screenshots every ${cl_purple}${SCR_INTERVAL_SECONDS}${cl_reset} seconds (timeout ${cl_purple}${SCR_MAX_RUNTIME_SECONDS}${cl_reset} seconds)..."
   fi
+  echo ""
 
   TAKEN_SCREENSHOTS=0
 
@@ -96,38 +119,39 @@ main() {
     ELAPSED_TIME=$((CURRENT_TIME - START_TIME))
 
     if [ "${ELAPSED_TIME}" -ge "${SCR_MAX_RUNTIME_SECONDS}" ]; then
-      echo "Maximum runtime of ${SCR_MAX_RUNTIME_SECONDS} seconds reached. Exiting."
+      echo "Maximum runtime of ${cl_purple}${SCR_MAX_RUNTIME_SECONDS}${cl_reset} seconds reached. Exiting."
       break
     fi
 
     if [ "${SCR_INFINITE_MODE}" = false ] && [ "${TAKEN_SCREENSHOTS}" -ge "${SCR_SCREENSHOT_COUNT}" ]; then
-      echo "Target screenshot count of ${SCR_SCREENSHOT_COUNT} reached. Exiting."
+      echo "Target screenshot count of ${cl_purple}${SCR_SCREENSHOT_COUNT}${cl_reset} reached. Exiting."
       break
     fi
 
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     CURRENT_SCREENSHOT_FILE_HOST="${SCREENSHOT_DIR_HOST}/obsidian_screen_${TIMESTAMP}.png"
 
-    echo "Taking screenshot #${TAKEN_SCREENSHOTS} (${TIMESTAMP})..."
+    echo "Taking screenshot ${cl_purple}#${TAKEN_SCREENSHOTS}${cl_reset} (${cl_green}${TIMESTAMP}${cl_reset})..."
     # Run scrot inside the container
     docker exec -u appuser -e DISPLAY=${DISPLAY_NUM} "${CONTAINER_NAME}" scrot -o "${SCREENSHOT_FILE_CONTAINER}"
 
-    echo "Copying screenshot to ${CURRENT_SCREENSHOT_FILE_HOST}"
-    docker cp "${CONTAINER_NAME}:${SCREENSHOT_FILE_CONTAINER}" "${CURRENT_SCREENSHOT_FILE_HOST}"
+    echo "Copying screenshot to ${cl_yellow}${CURRENT_SCREENSHOT_FILE_HOST}${cl_reset}"
+    # Capture the docker cp output and colorize the path
+    docker cp "${CONTAINER_NAME}:${SCREENSHOT_FILE_CONTAINER}" "${CURRENT_SCREENSHOT_FILE_HOST}" | sed "s|\(Successfully copied [0-9]*[kKmMgG]\?B to \)\(.*\)|\1${cl_yellow}\2${cl_reset}|"
 
-    echo "Screenshot saved to ${CURRENT_SCREENSHOT_FILE_HOST}"
+    echo "Screenshot saved to ${cl_yellow}${CURRENT_SCREENSHOT_FILE_HOST}${cl_reset}"
     cleanup_screenshots "${SCR_KEEP_COUNT}" "${SCREENSHOT_DIR_HOST}"
     TAKEN_SCREENSHOTS=$((TAKEN_SCREENSHOTS + 1))
 
     if [ "${SCR_INFINITE_MODE}" = true ] || [ "${TAKEN_SCREENSHOTS}" -lt "${SCR_SCREENSHOT_COUNT}" ]; then
       if [ "${ELAPSED_TIME}" -lt "${SCR_MAX_RUNTIME_SECONDS}" ]; then # Avoid sleep if timeout is very near
-        echo "Waiting ${SCR_INTERVAL_SECONDS} seconds..."
+        echo "Waiting ${cl_purple}${SCR_INTERVAL_SECONDS}${cl_reset} seconds..." && echo ""
         sleep "${SCR_INTERVAL_SECONDS}"
       fi
     fi
   done
 
-  echo "Test script finished. Total screenshots taken: ${TAKEN_SCREENSHOTS}."
+  echo "Test script finished. Total screenshots taken: ${cl_purple}${TAKEN_SCREENSHOTS}${cl_reset}."
 }
 
 # --- Argument Parsing ---
