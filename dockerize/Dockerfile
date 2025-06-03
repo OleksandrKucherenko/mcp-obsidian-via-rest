@@ -9,12 +9,13 @@ ENV DISPLAY=:99
 ENV USERNAME=appuser
 ENV APP_DIR=/app
 ENV OBSIDIAN_CONFIG_DIR=/config/obsidian
+ENV OBSIDIAN_APP_CONFIG_DIR=/home/${USERNAME}/.config/obsidian
 
 # Install dependencies
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
+RUN apt-get update  \
+    && apt-get install -y --no-install-recommends \
     # generic tools
-    wget ca-certificates \
+    wget curl ca-certificates git unzip bsdextrautils \
     # x11 virtual display, fluxbox window manager, x11vnc (VNC server)
     xvfb fluxbox x11vnc \
     # Dependencies for Electron/Obsidian AppImage
@@ -25,13 +26,14 @@ RUN apt-get update && \
     libxrandr2 libxrender1 libxtst6 fonts-liberation libappindicator3-1 xdg-utils \
     # For screenshots and UI automation
     scrot xdotool \
+    # For desktop background and basic tools
+    feh xterm x11-xserver-utils \
     # For running commands as a different user
     gosu \
     # For AppImage
     fuse \
     # Clean up
-    && apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash ${USERNAME}
@@ -47,16 +49,20 @@ RUN wget -O Obsidian.AppImage "${OBSIDIAN_APPIMAGE_URL}" && \
     chmod +x Obsidian.AppImage
 
 # Copy entrypoint script
-# Note: The Dockerfile is in dockerize/, so entrypoint.sh is in the same context.
 COPY --chown=${USERNAME}:${USERNAME} entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
 # Expose VNC port and a port for Obsidian Sync (if needed, adjust as necessary)
 EXPOSE 5900
-# EXPOSE 8080 # Example if Obsidian needs to expose a port for local services/plugins
+
+# Local REST API port
+EXPOSE 27124
 
 # Set up a volume for Obsidian configuration/vaults
 VOLUME ${OBSIDIAN_CONFIG_DIR}
+# Obsidian app configuration, global settings
+VOLUME ${OBSIDIAN_APP_CONFIG_DIR} 
 
 ENTRYPOINT ["/entrypoint.sh"]
+
 CMD ["./Obsidian.AppImage", "--no-sandbox"]
