@@ -5,6 +5,8 @@
 
 services:
   obsidian-old:
+    networks:
+      - vnc-net
     image: lscr.io/linuxserver/obsidian:latest # 3.5Gb size!
     container_name: obsidian-old
     profiles:
@@ -26,6 +28,8 @@ services:
     restart: unless-stopped
 
   obsidian:
+    networks:
+      - vnc-net
     build:
       context: ./dockerize # Path to the directory containing your Dockerfile
       dockerfile: Dockerfile
@@ -53,3 +57,7 @@ services:
     security_opt:
       - apparmor:unconfined
     restart: unless-stopped
+
+networks:
+  vnc-net:
+    driver: bridge
