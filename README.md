@@ -10,6 +10,17 @@ bun install
 bun run src/index.ts
 ```
 
+## Dockerized Obsidian for Automated Testing
+
+![Obsidian Main Screenshot](./dockerize/obsidian_main_screenshot.png)
+
+```bash
+# run script for getting a visual feedback on Obsidian inside the docker container
+./dockerize/test_obsidian_gui.sh
+
+# Screenshot will be saved in the 'reports/screenshots' directory, relative to project root
+```
+
 ## Troubleshooting
 
 ```bash
