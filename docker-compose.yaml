@@ -31,7 +31,7 @@ services:
     networks:
       - vnc-net
     build:
-      context: ./dockerize # Path to the directory containing your Dockerfile
+      context: ./dockerize
       dockerfile: Dockerfile
     container_name: obsidian-vnc
     environment:
