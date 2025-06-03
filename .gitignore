@@ -41,3 +41,10 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Secrets
 .secrets
+
+# Test reports and screenshots
+reports/
+reports/screenshots/
+
+# Local Obsidian test data (vaults, configs)
+# dockerize/obsidian/ # Temporarily commented out to allow test vault creation

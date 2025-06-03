@@ -1,0 +1,55 @@
+# Plugin: https://github.com/coddingtonbear/obsidian-local-rest-api
+# Obsidian: https://github.com/obsidianmd/obsidian-releases
+# Docker: https://github.com/linuxserver/docker-obsidian
+# Beta Reviewer's Auto-update Tool: https://tfthacker.com/BRAT
+
+services:
+  obsidian-old:
+    image: lscr.io/linuxserver/obsidian:latest # 3.5Gb size!
+    container_name: obsidian-old
+    profiles:
+      - old
+    security_opt:
+      - seccomp:unconfined # optional
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Etc/UTC
+    volumes:
+      - /path/to/config:/config
+    ports:
+      - 3000:3000
+      - 3001:3001
+    devices:
+      - /dev/dri:/dev/dri # optional
+    shm_size: "1gb"
+    restart: unless-stopped
+
+  obsidian:
+    build:
+      context: ./dockerize # Path to the directory containing your Dockerfile
+      dockerfile: Dockerfile
+    container_name: obsidian-vnc
+    environment:
+      - PUID=1000 # You might want to remove PUID/PGID if not used by your custom image's entrypoint
+      - PGID=1000 # Or ensure your entrypoint.sh respects them if needed
+      - TZ=Etc/UTC
+      - VNC_PASSWORD=yoursecurepassword # Set VNC password here
+      - SCREEN_RESOLUTION=1280x1024x24
+      # DISPLAY=:99 # This is set inside the Dockerfile, usually not needed here
+    volumes:
+      - ./dockerize/obsidian:/config/obsidian # Ensure this matches your volume needs
+    ports:
+      - "5900:5900" # For VNC
+      # - "3000:3000" # Remove if not used by your custom setup
+      # - "3001:3001" # Remove if not used by your custom setup
+      # devices: # Likely not needed unless you require specific hardware access
+      #   - /dev/dri:/dev/dri
+      # shm_size: "1gb" # Consider if your custom setup needs this
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    restart: unless-stopped
