@@ -10,7 +10,8 @@
       "node_modules/*",
       "tmp/*",
       "yarn.lock",
-      ".secrets/*"
+      ".secrets/*",
+      "dockerize/obsidian/*"
     ]
   },
   "formatter": {
