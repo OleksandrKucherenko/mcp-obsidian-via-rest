@@ -40,7 +40,9 @@ RUN useradd --create-home --shell /bin/bash ${USERNAME}
 
 # Create app and config directories
 RUN mkdir -p ${APP_DIR} ${OBSIDIAN_CONFIG_DIR} && \
-    chown -R ${USERNAME}:${USERNAME} ${APP_DIR} ${OBSIDIAN_CONFIG_DIR}
+    mkdir -p ${OBSIDIAN_APP_CONFIG_DIR} && \
+    chown -R ${USERNAME}:${USERNAME} ${APP_DIR} ${OBSIDIAN_CONFIG_DIR} && \
+    chown -R ${USERNAME}:${USERNAME} ${OBSIDIAN_APP_CONFIG_DIR}
 
 WORKDIR ${APP_DIR}
 
