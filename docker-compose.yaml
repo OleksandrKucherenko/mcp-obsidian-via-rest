@@ -43,6 +43,7 @@ services:
       # DISPLAY=:99 # This is set inside the Dockerfile, usually not needed here
     volumes:
       - ./dockerize/obsidian:/config/obsidian # Ensure this matches your volume needs
+      - ./dockerize/obsidian/obsidian.json:/home/appuser/.config/obsidian/obsidian.json
     ports:
       - "5900:5900" # For VNC
       - "27124:27124" # For Obsidian Local REST API

@@ -21,8 +21,8 @@ if [ -n "${VNC_PASSWORD}" ]; then
   # Verify password was stored
   if [ -f "${VNC_PASSWD_FILE}" ]; then
     echo "VNC password file created successfully at ${VNC_PASSWD_FILE}"
-    echo "Password file contents (hex dump with content masked):"
-    hexdump -C "${VNC_PASSWD_FILE}" | sed 's/[0-9a-f][0-9a-f]/XX/g'
+    echo "Password file contents:"
+    hexdump -C "${VNC_PASSWD_FILE}"
   else
     echo "ERROR: Failed to create VNC password file at ${VNC_PASSWD_FILE}"
   fi
@@ -53,7 +53,7 @@ XVFB_PID=$!
 
 # Create Fluxbox configuration for better window management
 mkdir -p "${HOME}/.fluxbox"
-cat > "${HOME}/.fluxbox/init" << EOF
+cat >"${HOME}/.fluxbox/init" <<EOF
 session.screen0.toolbar.visible: false
 session.screen0.toolbar.autoHide: true
 session.screen0.rootCommand: xsetroot -solid steelblue
