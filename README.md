@@ -12,7 +12,9 @@ bun run src/index.ts
 
 ## Dockerized Obsidian for Automated Testing
 
-![Obsidian Main Screenshot](./dockerize/obsidian_main_screenshot.png)
+| Startup | Verification |
+| --- | --- |
+| ![Obsidian Main Screenshot](./dockerize/obsidian-screenshot.jpg) | ![Docker](./assets/obsidian-docker-setup.jpg) |
 
 ```bash
 # run script for getting a visual feedback on Obsidian inside the docker container

@@ -10,7 +10,7 @@ Change "Binding Host" to `0.0.0.0` - this will allow the API to be accessible fr
 
 > Notes: Highly recommende to activate firewall, to protect API from unauthorized access. We still have one last line of defense active - the API key.
 
-![Obsidian Setup](obsidian-setup.png)
+![Obsidian Setup](obsidian-setup.jpg)
 
 ## Make Obsidian Local REST Server API trusted
 
