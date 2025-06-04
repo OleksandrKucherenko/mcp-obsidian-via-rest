@@ -1,6 +1,11 @@
 #!/bin/bash
 set -e
 
+# Function to log messages with timestamps
+log() {
+  echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+}
+
 # Screen resolution for Xvfb
 SCREEN_RESOLUTION=${SCREEN_RESOLUTION:-1280x1024x24}
 
@@ -51,6 +56,19 @@ echo "Starting Xvfb on display ${DISPLAY} with resolution ${SCREEN_RESOLUTION}"
 Xvfb ${DISPLAY} -screen 0 ${SCREEN_RESOLUTION} -nolisten tcp -nolisten unix &
 XVFB_PID=$!
 
+# Wait for Xvfb to be ready
+for i in {1..20}; do
+  if xdpyinfo -display ${DISPLAY} >/dev/null 2>&1; then
+    break
+  fi
+  sleep 0.2
+done
+
+# Start dbus-daemon for the user (needed for Electron/Obsidian)
+eval $(dbus-launch --sh-syntax)
+export DBUS_SESSION_BUS_ADDRESS
+export DBUS_SESSION_BUS_PID
+
 # Create Fluxbox configuration for better window management
 mkdir -p "${HOME}/.fluxbox"
 cat >"${HOME}/.fluxbox/init" <<EOF
@@ -73,39 +91,46 @@ xsetroot -solid steelblue
 # Wait for Fluxbox to initialize
 sleep 2
 
-# Set background color using feh as an alternative method
-feh --bg-scale /usr/share/backgrounds/debian-default || echo "Background setting with feh failed, using xsetroot as fallback"
+# Set desktop background (wallpaper) using feh or fallback to xsetroot
+WALLPAPER="/usr/share/backgrounds/debian-default"
+if [ -f "$WALLPAPER" ]; then
+  feh --bg-scale "$WALLPAPER" || xsetroot -solid grey
+else
+  echo "Skipping feh: $WALLPAPER does not exist"
+  xsetroot -solid grey
+fi
 
-# Start x11vnc
-echo "Starting x11vnc (VNC server) on port 5900"
-# Use -nopw if VNC_PASSWORD_ARG is not set (i.e., VNC_PASSWORD was empty)
-# Removed -create flag as it can cause issues with blank screens
-x11vnc -display ${DISPLAY} -forever -shared ${VNC_PASSWORD_ARG:--nopw} -rfbport 5900 -noxdamage &
-X11VNC_PID=$!
+# Start x11vnc (VNC server)
+echo "Starting x11vnc (VNC server) on port 5900 (IPv4 only)"
+if ! pgrep -x x11vnc >/dev/null; then
+  x11vnc -display ${DISPLAY} -forever -shared -rfbport 5900 ${VNC_PASSWORD_ARG} &
+else
+  echo "x11vnc is already running, skipping duplicate start."
+fi
 
 # Clean up function
 cleanup() {
-  echo "Caught signal, cleaning up background processes..."
-  if kill -0 $X11VNC_PID 2>/dev/null; then
-    echo "Stopping x11vnc (PID $X11VNC_PID)..."
-    kill $X11VNC_PID
-    wait $X11VNC_PID 2>/dev/null
-  fi
-  if kill -0 $FLUXBOX_PID 2>/dev/null; then
-    echo "Stopping Fluxbox (PID $FLUXBOX_PID)..."
-    kill $FLUXBOX_PID
-    wait $FLUXBOX_PID 2>/dev/null
-  fi
-  if kill -0 $XVFB_PID 2>/dev/null; then
-    echo "Stopping Xvfb (PID $XVFB_PID)..."
-    kill $XVFB_PID
-    wait $XVFB_PID 2>/dev/null
-  fi
-  echo "Cleanup finished."
+  log "Caught signal, cleaning up background processes..."
+
+  # Stop processes in reverse order of starting
+  for pid_var in X11VNC_PID FLUXBOX_PID XVFB_PID; do
+    pid=${!pid_var}
+    if kill -0 "$pid" 2>/dev/null; then
+      log "Stopping ${pid_var%_PID} (PID $pid)..."
+      kill -s TERM "$pid"
+      if ! wait "$pid" 2>/dev/null; then
+        log "${pid_var%_PID} (PID $pid) stopped"
+      fi
+    fi
+  done
+
+  log "Cleanup finished."
+  exit 0
 }
 
-# Trap SIGTERM and SIGINT to call cleanup
-trap 'cleanup' SIGTERM SIGINT
+# Set up signal handlers for graceful shutdown
+# Tini will forward signals to our entrypoint script
+trap 'cleanup' SIGTERM SIGINT SIGQUIT
 
 echo "Xvfb, Fluxbox, and x11vnc started."
 
@@ -119,13 +144,15 @@ echo "Ensuring vault directory exists at ${VAULT_PATH}"
 mkdir -p "${VAULT_PATH}"
 chown -R ${USERNAME}:${USERNAME} "${VAULT_PATH}"
 
-# --- Launch Obsidian with the vault ---
-#echo "Launching Obsidian with URI: obsidian://open?vault=${VAULT_NAME}"
-#gosu ${USERNAME} "$@" "obsidian://open?vault=${VAULT_NAME}" &
+# Run Obsidian as the appuser with gosu
+log "Ensuring Obsidian user config directory exists at ${OBSIDIAN_APP_CONFIG_DIR}"
+mkdir -p "${OBSIDIAN_APP_CONFIG_DIR}"
 
-# Using "$@" to pass all arguments from CMD, which is more robust and addresses shellcheck warnings.
-# Using $* for simpler echo string representation, vault path as direct arg
-echo "Running command: gosu ${USERNAME} $* ${VAULT_PATH}"
+log "Ensuring vault directory exists at ${VAULT_PATH}"
+mkdir -p "${VAULT_PATH}"
+
+log "Running command: gosu appuser ./Obsidian.AppImage --no-sandbox --enable-unsafe-swiftshader ${VAULT_PATH}"
+gosu appuser ./Obsidian.AppImage --no-sandbox --enable-unsafe-swiftshader "${VAULT_PATH}"
 # Using "$@" to correctly pass all CMD arguments, and vault path as direct arg
 gosu "${USERNAME}" "$@" "${VAULT_PATH}" &
 MAIN_APP_PID=$!
@@ -138,10 +165,14 @@ echo "Positioning Obsidian window..."
 xdotool search --class "obsidian" windowactivate windowmove 0 0 windowsize 1200 900 || echo "Failed to position Obsidian window with xdotool"
 
 # --- Wait for Obsidian to exit ---
+set +e
 wait $MAIN_APP_PID
+MAIN_APP_STATUS=$?
+set -e
 
 # --- Final cleanup ---
-echo "Main application exited. Performing final cleanup..."
-
+log "Main application exited with status $MAIN_APP_STATUS. Performing final cleanup..."
 cleanup
-echo "Entrypoint script finished."
+
+# Exit with the same status as the main application
+exit $MAIN_APP_STATUS

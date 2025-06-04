@@ -1,15 +1,23 @@
 # Use a minimal Debian-based image
 FROM debian:bullseye-slim
 
-ARG OBSIDIAN_APPIMAGE_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v1.8.10/Obsidian-1.8.10.AppImage"
+# Obsidian version
 ARG OBSIDIAN_VERSION="1.8.10"
 
-ENV DEBIAN_FRONTEND=noninteractive
-ENV DISPLAY=:99
+# Set up TINI
+ENV TINI_VERSION v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
+
+ARG OBSIDIAN_APPIMAGE_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/Obsidian-${OBSIDIAN_VERSION}.AppImage"
+
 ENV USERNAME=appuser
-ENV APP_DIR=/app
 ENV OBSIDIAN_CONFIG_DIR=/config/obsidian
 ENV OBSIDIAN_APP_CONFIG_DIR=/home/${USERNAME}/.config/obsidian
+ENV DEBIAN_FRONTEND=noninteractive
+ENV DISPLAY=:99
+ENV APP_DIR=/app
+ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 
 # Install dependencies
 RUN apt-get update  \
@@ -18,6 +26,8 @@ RUN apt-get update  \
     wget curl ca-certificates git unzip bsdextrautils \
     # x11 virtual display, fluxbox window manager, x11vnc (VNC server)
     xvfb fluxbox x11vnc \
+    # dbus for Electron/Obsidian notifications and IPC
+    dbus dbus-x11 \
     # Dependencies for Electron/Obsidian AppImage
     libgtk-3-0 libnotify4 libnss3 libxss1 libasound2 libxtst6 libx11-xcb1 libsecret-1-0 libgbm1 libuuid1 \
     libasound2 libatk-bridge2.0-0 libatk1.0-0 libatspi2.0-0 libcairo2 libcups2 libdbus-1-3 libdrm2 \
@@ -65,6 +75,8 @@ VOLUME ${OBSIDIAN_CONFIG_DIR}
 # Obsidian app configuration, global settings
 VOLUME ${OBSIDIAN_APP_CONFIG_DIR} 
 
-ENTRYPOINT ["/entrypoint.sh"]
+# Use Tini as the entrypoint
+ENTRYPOINT ["/tini", "--", "/entrypoint.sh"]
 
+# Default command (can be overridden)
 CMD ["./Obsidian.AppImage", "--no-sandbox"]

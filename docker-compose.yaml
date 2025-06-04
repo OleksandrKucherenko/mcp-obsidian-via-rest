@@ -33,6 +33,9 @@ services:
     build:
       context: ./dockerize
       dockerfile: Dockerfile
+      args:
+        - IMAGE_NAME=obsidian-vnc
+        - IMAGE_TAG=latest
     container_name: obsidian-vnc
     environment:
       - PUID=1000 # You might want to remove PUID/PGID if not used by your custom image's entrypoint
@@ -43,7 +46,9 @@ services:
       # DISPLAY=:99 # This is set inside the Dockerfile, usually not needed here
     volumes:
       - ./dockerize/obsidian:/config/obsidian # Ensure this matches your volume needs
+      # vault pre-configuration
       - ./dockerize/obsidian/obsidian.json:/home/appuser/.config/obsidian/obsidian.json
+      - ./dockerize/obsidian/42641f3f7a998682.json:/home/appuser/.config/obsidian/42641f3f7a998682.json
     ports:
       - "5900:5900" # For VNC
       - "27124:27124" # For Obsidian Local REST API
