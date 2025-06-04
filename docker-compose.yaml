@@ -45,10 +45,10 @@ services:
       - SCREEN_RESOLUTION=1280x1024x24
       # DISPLAY=:99 # This is set inside the Dockerfile, usually not needed here
     volumes:
-      - ./dockerize/obsidian:/config/obsidian # Ensure this matches your volume needs
-      # vault pre-configuration
-      - ./dockerize/obsidian/obsidian.json:/home/appuser/.config/obsidian/obsidian.json
-      - ./dockerize/obsidian/42641f3f7a998682.json:/home/appuser/.config/obsidian/42641f3f7a998682.json
+      # vault data
+      - ./dockerize/obsidian/data:/config/obsidian
+      # application global settings
+      - ./dockerize/obsidian/.config/obsidian:/home/appuser/.config/obsidian
     ports:
       - "5900:5900" # For VNC
       - "27124:27124" # For Obsidian Local REST API

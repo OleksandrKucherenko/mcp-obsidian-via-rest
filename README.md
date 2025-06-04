@@ -17,10 +17,20 @@ bun run src/index.ts
 | ![Obsidian Main Screenshot](./dockerize/obsidian-screenshot.jpg) | ![Docker](./assets/obsidian-docker-setup.jpg) |
 
 ```bash
+# run dockerized Obsidian
+./docker-compose up -d
+
+# ALTERNATIVE: run with re-build
+./docker-compose up --build -d
+
 # run script for getting a visual feedback on Obsidian inside the docker container
-./dockerize/test_obsidian_gui.sh
+./dockerize/ci_screenshot_obsidian_gui.sh
 
 # Screenshot will be saved in the 'reports/screenshots' directory, relative to project root
+
+# Verify the Obsidian REST API is running
+http --verify=no https://localhost:27124
+curl --insecure https://localhost:27124
 ```
 
 ## Troubleshooting
