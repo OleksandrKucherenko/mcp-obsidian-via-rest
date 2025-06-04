@@ -76,7 +76,7 @@ async function isHostAvailable(url: string): Promise<boolean> {
 }
 
 describe("ObsidianAPI - E2E Tests", async () => {
-  const config: ObsidianConfig = isWSL() ? wslConfig : locahostConfig
+  const config: ObsidianConfig = /*isWSL() ? wslConfig :*/ locahostConfig
 
   const hostAvailable = await isHostAvailable(`${config.host}:${config.port}`)
   /** We'll conditionally skip the entire describe block if host is not available */
@@ -166,7 +166,7 @@ describe("ObsidianAPI - E2E Tests", async () => {
     it("should retrieve metadata for a note if it exists", async () => {
       // First get a list of notes, then try to get metadata for the first one
       const folder = "Z - MCP Unit Testing"
-      const notePath = "test file.md"
+      const notePath = "write note.md"
 
       const notes = await api.listNotes(folder)
       expect(notes).toContain(notePath)
