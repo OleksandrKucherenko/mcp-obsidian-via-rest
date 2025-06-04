@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC2155
 
 # This script dynamically downloads the latest release ZIP of the
 # obsidian-local-rest-api plugin from GitHub API, unpacks it, and installs it
@@ -7,29 +8,25 @@
 # Requires: curl, jq, unzip
 
 set -e # Exit immediately if a command exits with a non-zero status.
-
-# colors
-cl_reset=$(tput sgr0)
-cl_purple=$(tput setaf 5)
-cl_yellow=$(tput setaf 3)
-cl_green=$(tput setaf 2)
-cl_gray=$(tput setaf 8) # User requested gray, tput setaf 8 is often gray/dark grey
-export cl_reset cl_purple cl_yellow cl_green cl_gray
-
 # set -x # Print commands and their arguments as they are executed.
 
-# --- Configuration ---
-REPO_OWNER="coddingtonbear"
-REPO_NAME="obsidian-local-rest-api"
-PLUGIN_ID="obsidian-local-rest-api" # This is also the directory name for the plugin files.
+# colors
+export cl_reset=$(tput sgr0)
+export cl_purple=$(tput setaf 5)
+export cl_yellow=$(tput setaf 3)
+export cl_green=$(tput setaf 2)
+export cl_gray=$(tput setaf 8) # User requested gray, tput setaf 8 is often gray/dark grey
 
 # Determine the script's directory and project root to make paths more robust
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." &>/dev/null && pwd)"
 
-# Target directory for the plugin files.
-PLUGINS_BASE_DIR="${PROJECT_ROOT}/dockerize/obsidian/vault-tests/.obsidian/plugins"
-PLUGIN_INSTALL_DIR="${PLUGINS_BASE_DIR}/${PLUGIN_ID}"
+# --- Configuration ---
+REPO_OWNER="coddingtonbear"
+REPO_NAME="obsidian-local-rest-api"
+PLUGIN_ID="obsidian-local-rest-api" # This is also the directory name for the plugin files.
+PLUGINS_BASE_DIR="${PROJECT_ROOT}/dockerize/obsidian/data/vault-tests/.obsidian/plugins"
+PLUGIN_INSTALL_DIR="${PLUGINS_BASE_DIR}/${PLUGIN_ID}" # Target directory for the plugin files.
 
 # --- Script Logic ---
 

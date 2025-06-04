@@ -2,6 +2,7 @@
 # shellcheck disable=SC2155
 
 set -e
+# set -x # Print commands and their arguments as they are executed.
 
 # --- Color Definitions ---
 # Only including colors that we'll actually use
