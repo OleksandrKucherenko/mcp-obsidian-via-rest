@@ -43,7 +43,7 @@ server.tool(
     return {
       content: [
         { type: "text", text: filePath },
-        { type: "text", text: `Resource template name: ${filePath}` },
+        { type: "text", text: `Resource templates name: ${filePath}` },
         { type: "text", text: note.content },
         { type: "text", text: JSON.stringify(meta) },
       ],

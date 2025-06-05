@@ -3,14 +3,18 @@ import { afterEach, beforeEach, describe, expect, it, jest, mock, spyOn } from "
 
 import { ObsidianAPI } from "./obsidian-api.ts"
 import type { ObsidianConfig } from "./types.ts"
+import { composeBaseURL } from "../config.ts"
 
-const config: ObsidianConfig = {
+const configPartial: Omit<ObsidianConfig, "baseURL"> = {
   apiKey: "test-api-key",
   port: 55555,
   host: "127.0.0.1",
 }
 
-const baseURL = `http://${config.host}:${config.port}`
+const config: ObsidianConfig = {
+  ...configPartial,
+  baseURL: composeBaseURL(configPartial.host, configPartial.port),
+}
 
 mock.module("axios-retry", () => ({ default: jest.fn() }))
 mock.module("axios-debug-log", () => ({ addLogger: jest.fn() }))
@@ -63,7 +67,9 @@ describe("ObsidianAPI - Unit Tests", () => {
 
     it("should handle https URLs correctly", () => {
       // GIVEN: creating api client with custom config
-      const httpsConfig = { ...config, host: "https://localhost", port: 55556 }
+      const host = "https://localhost"
+      const port = 55556
+      const httpsConfig = { ...config, host, port, baseURL: composeBaseURL(host, port) }
 
       // WHEN: constructor is called
       const api = new ObsidianAPI(httpsConfig)
@@ -136,7 +142,7 @@ describe("ObsidianAPI - Unit Tests", () => {
 
       const path = "folder/note.md"
       const content = "Note content"
-      const metadata = { tags: ["test"] }
+      const metadata = { tags: ["test"], stat: { ctime: 1, mtime: 1, size: 1 } }
       const data = { path, content, ...metadata }
       mockClient.get.mockResolvedValue({ data })
 
