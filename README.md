@@ -1,4 +1,75 @@
-# mcp-obsidiant
+# mcp-obsidian
+
+## Configure MCP 
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "docker",
+      "type": "stdio",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian-windsurf",
+        "--interactive",
+        "--rm",
+        "-e", "API_KEY",
+        "-e", "API_HOST",
+        "-e", "API_PORT",
+        "-e", "DEBUG",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>", // required
+        "API_HOST": "172.26.32.1", // default: localhost
+        "API_PORT": "27124",       // default: 27124
+        "DEBUG": "mcp:*"           // default: disabled logs
+      },
+      "disabled": false
+    }
+  }
+}
+```
+
+- `--rm`  - Automatically remove the container and its associated anonymous volumes when it exits
+- `-i, --interactive` - Keep STDIN open even if not attached
+- `-e, --env` - Set environment variables
+- `--name string` - Assign a name to the container
+
+### Troubleshooting
+
+```bash
+# verify REST API availability
+curl --insecure https://localhost:27124 # macOs, Linux, Pure Windows
+
+# for WSL2 (when Obsidian is running on Windows host, but IDE is running on WSL2)
+export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+echo $WSL_GATEWAY_IP # expected something like: 172.26.32.1
+
+http --verify=no https://$WSL_GATEWAY_IP:27124
+```
+
+```bash
+# for WSL2 expected WSL_DISTRO_NAME variable to be set by OS
+if [ -n "$WSL_DISTRO_NAME" ]; then
+  export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+else
+  unset WSL_GATEWAY_IP
+fi
+
+export API_KEY=$(cat .secrets/obsidian_local_rest_api_key)
+export API_HOST="${WSL_GATEWAY_IP:-"localhost"}"
+export API_PORT="27124"
+export DEBUG="mcp:*"
+
+# manual docker run (for testing)
+docker run --name mcp-obsidian-windsurf -i --rm -e API_KEY -e API_HOST -e API_PORT -e DEBUG ghcr.io/oleksandrkucherenko/obsidian-mcp:latest
+```
+
+### References
+
+- https://www.aihero.dev/mcp-server-from-a-single-typescript-file
+
 
 ## Quick Development Start
 
@@ -53,6 +124,12 @@ curl --insecure https://localhost:27124
 
 # If using WSL with Obsidian REST API running on Windows host
 curl --insecure https://host.docker.internal:27124
+
+wget --no-check-certificate -S https://172.26.32.1:27124
+
+wget --no-check-certificate -S https://host.docker.internal:27124
+
+http --verify=no https://$WSL_GATEWAY_IP:27124
 ```
 
 ### Verify Windows Firewall
@@ -117,4 +194,60 @@ Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
 
 # Restore Firewall state
 Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
+```
+
+### Verify Connectivity
+
+Execute inside the WSL2 Ubuntu terminal:
+
+```bash
+export WSL_GATEWAY_IP=$(ip route | grep default | awk '{print $3}')
+echo "Windows host IP from WSL2: $WSL_GATEWAY_IP"
+# Output:
+# Windows host IP from WSL2: 172.26.32.1
+
+# run docker container to verify the connectivity from Docker inside
+docker run --rm -it --network=host busybox sh
+
+# inside the container run:
+which wget
+# /bin/wget
+
+export WINDOWS_HOST_IP="172.26.32.1"
+echo $WINDOWS_HOST_IP
+# 172.26.32.1
+
+wget -qO- --no-check-certificate "https://$WINDOWS_HOST_IP:27124"
+wget -qO- --no-check-certificate https://172.26.32.1:27124
+# Output:
+# {
+#   "status": "OK",
+#   "manifest": {
+#     "id": "obsidian-local-rest-api",
+#     "name": "Local REST API",
+#     "version": "3.2.0",
+#     "minAppVersion": "0.12.0",
+#     "description": "Get, change or otherwise interact with your notes in Obsidian via a REST API.",
+#     "author": "Adam Coddington",
+#     "authorUrl": "https://coddingtonbear.net/",
+#     "isDesktopOnly": true,
+#     "dir": ".obsidian/plugins/obsidian-local-rest-api"
+#   },
+#   "versions": {
+#     "obsidian": "1.8.10",
+#     "self": "3.2.0"
+#   },
+#   "service": "Obsidian Local REST API",
+#   "authenticated": false
+# }
+```
+
+```bash
+# build docker container
+docker build -t mcp/obs:latest -f Dockerfile .
+
+# run docker container
+docker run --name mcp-test -i --rm -e API_KEY -e API_HOST -e DEBUG=mcp:\* mcp/obs:latest
+
+bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\* -e API_KEY=$API_KEY -e API_HOST=$API_HOST  -- docker run --name mcp-test -i --rm -e API_KEY -e API_HOST -e DEBUG=mcp:\* mcp/obs:latest
 ```

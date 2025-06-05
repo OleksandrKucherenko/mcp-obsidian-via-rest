@@ -1,6 +1,6 @@
 import axios, { type AxiosInstance } from "axios"
 import { addLogger } from "axios-debug-log"
-import axiosRetry from "axios-retry"
+import axiosRetry, { type IAxiosRetryReturn } from "axios-retry"
 import { debug } from "debug"
 import https from "node:https"
 
@@ -9,36 +9,43 @@ import type { Note, NoteJson, ObsidianConfig, ServerStatus } from "./types.ts"
 /** Obsidian Local REST API client. */
 export class ObsidianAPI {
   protected client: AxiosInstance
-  private timeout = 10_000
-  private readonly logger: ReturnType<typeof debug>
+
+  private readonly timeout = 1000
+  private readonly retries = 5
+  private readonly logger = debug("mcp:client")
 
   constructor(config: ObsidianConfig) {
     // support HTTPs
-    const baseURL =
-      config.host.includes("https://") || config.host.includes("http://")
-        ? `${config.host}:${config.port}`
-        : `http://${config.host}:${config.port}`
+    const { baseURL } = config
 
     // Create https agent that accepts self-signed certificates
     const httpsAgent = new https.Agent({
       rejectUnauthorized: false, // Allow self-signed certificates
     })
 
+    // configure headers, auth and content type
+    const headers = {
+      Authorization: `Bearer ${config.apiKey}`,
+      "Content-Type": "application/json",
+    }
+
     this.client = axios.create({
       baseURL,
       proxy: false,
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       httpsAgent, // Use the custom agent for HTTPS requests
       timeout: this.timeout,
     })
 
     // configure retry-logic
-    axiosRetry(this.client, { retries: 5 })
-
-    this.logger = debug("mcp:client")
+    axiosRetry(this.client, {
+      retries: this.retries,
+      onRetry: async (counter, error) => {
+        this.logger(`Retrying... %o from %o, due to: %o`, counter, this.retries, error.message)
+      },
+      retryCondition: () => true,
+      shouldResetTimeout: true,
+    })
 
     addLogger(this.client, this.logger)
   }
@@ -48,16 +55,24 @@ export class ObsidianAPI {
     try {
       return await fn()
     } catch (error: unknown) {
-      // NOTE: logger will capture the error if its enabled
-      if (axios.isAxiosError(error) && error.response) {
-        const errorData = error.response.data || {}
-        const code = errorData.errorCode ?? -1
-        const message = errorData.message ?? "<unknown>"
+      // capture axios error
+      if (axios.isAxiosError(error)) {
+        let code: string | number = -1
+        let message = ""
+        if (error.response) {
+          const errorData = error.response.data || {}
+          code = errorData.errorCode ?? -1
+          message = errorData.message ?? "<unknown>"
+        } else {
+          code = error.code ?? -1
+          message = error.message ?? "<unknown>"
+        }
 
         this.logger(`Error ${code}: ${message}`)
-        throw new Error(`Error ${code}: ${message}`)
+        throw Object.assign(new Error(`Error ${code}: ${message}`), { cause: error })
       }
 
+      // capture all other errors (e.g. network errors)
       this.logger(error ?? "Exception happens from unknown reasons")
       throw Object.assign(new Error(`Request failed.`), { cause: error })
     }

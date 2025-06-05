@@ -3,6 +3,7 @@ export interface ObsidianConfig {
   apiKey: string
   port: number
   host: string
+  baseURL: string
 }
 
 /** Represents a note in Obsidian. */
