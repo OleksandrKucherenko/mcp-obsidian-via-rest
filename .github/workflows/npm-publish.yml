@@ -1,4 +1,4 @@
-name: Publish NPM Package to GitHub Packages
+name: Publish NPM Package
 
 on:
   release:
@@ -15,32 +15,48 @@ jobs:
       packages: write
       
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
-        
+      - uses: actions/checkout@v4
+
+      - name: Set lowercase repository name
+        id: repo_name
+        run: |
+          # Extract owner and repo name
+          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+      
       - name: Setup Node.js
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22'
           registry-url: 'https://npm.pkg.github.com'
-          scope: '@${{ github.repository_owner }}'
+          scope: '@${{ steps.repo_name.outputs.owner }}'
       
       - name: Setup Bun
-        uses: oven-sh/setup-bun@v1
+        uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+          registry-url: https://npm.pkg.github.com/
+          scope: '@${{ steps.repo_name.outputs.owner }}'
       
       - name: Install dependencies
         run: bun install
-      
-      - name: Run linting
-        run: bun run lint || echo "Linting failed but continuing"
-      
-      - name: Run tests
-        run: bun test
+
+      - name: Run docker compose
+        uses: hoverkraft-tech/compose-action@v2.2.0
+        with:
+          compose-file: ./docker-compose.yaml        
+
+      - name: Run Unit tests, including e2e tests
+        run: |
+          # run e2e and unit tests
+          bun test          
       
       - name: Build package
-        run: bun run build
+        run: |
+          # TODO: patch package.json version to match the tag version
+
+          # prepare the TGZ file for publishing
+          bun run publish:prepare
       
       - name: Prepare package for GitHub Packages
         run: |
@@ -56,6 +72,10 @@ jobs:
           fi
       
       - name: Publish to GitHub Packages
-        run: npm publish
+        run: |
+          # do the publishing
+          bun publish --tag next --registry "https://npm.pkg.github.com"
         env:
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
