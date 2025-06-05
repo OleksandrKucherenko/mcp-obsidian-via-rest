@@ -281,3 +281,25 @@ echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVe
   }
 }
 ```
+
+## Publish
+
+```bash
+# build release version of the JS file and prepare the package
+bun run publish:prepare
+
+# try to publish the package (dry run mode)
+bun publish --dry-run
+
+# prepare changelog
+bunx changelogithub --dry
+```
+
+ref1: https://bun.sh/docs/cli/publish
+ref2: https://bun.sh/guides/runtime/cicd
+ref3: https://docs.github.com/en/packages/quickstart
+ref4: https://github.com/docker/setup-buildx-action
+ref5: https://github.com/marketplace/actions/docker-compose-action
+ref6: https://bun.sh/guides/install/registry-scope
+ref7: https://www.npmjs.com/package/changelogithub
+ref8: https://github.com/oven-sh/bun/issues/15245
