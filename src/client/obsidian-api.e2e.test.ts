@@ -30,18 +30,21 @@ const locahostConfig: ObsidianConfig = {
   apiKey: process.env.API_KEY ?? "<secret>",
   port: 27124,
   host: "https://127.0.0.1",
+  baseURL: "https://127.0.0.1:27124",
 }
 
 const dockerConfig: ObsidianConfig = {
   apiKey: process.env.API_KEY ?? "<secret>",
   port: 27124,
   host: "https://host.docker.internal",
+  baseURL: "https://host.docker.internal:27124",
 }
 
 const wslConfig: ObsidianConfig = {
   apiKey: process.env.API_KEY ?? "<secret>",
   port: 27124,
   host: `https://${process.env.WSL_GATEWAY_IP ?? extractGatewayIp()}`,
+  baseURL: `https://${process.env.WSL_GATEWAY_IP ?? extractGatewayIp()}:27124`,
 }
 
 mock.module("axios", async () => {
