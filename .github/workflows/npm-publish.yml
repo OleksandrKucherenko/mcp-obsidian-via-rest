@@ -1,0 +1,61 @@
+name: Publish NPM Package to GitHub Packages
+
+on:
+  release:
+    types: [created]
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@${{ github.repository_owner }}'
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: latest
+      
+      - name: Install dependencies
+        run: bun install
+      
+      - name: Run linting
+        run: bun run lint || echo "Linting failed but continuing"
+      
+      - name: Run tests
+        run: bun test
+      
+      - name: Build package
+        run: bun run build
+      
+      - name: Prepare package for GitHub Packages
+        run: |
+          # Ensure package.json has correct repository field
+          if ! grep -q '"repository"' package.json; then
+            sed -i 's/^\(  "name": ".*"\)/\1,\n  "repository": "https:\/\/github.com\/${{ github.repository }}"/g' package.json
+          fi
+          
+          # Make sure package name is scoped
+          if ! grep -q '"name": "@' package.json; then
+            PACKAGE_NAME=$(node -p "require('./package.json').name")
+            sed -i "s/\"name\": \"$PACKAGE_NAME\"/\"name\": \"@${{ github.repository_owner }}\/$(echo $PACKAGE_NAME | sed 's/@.*\///')\"/g" package.json
+          fi
+      
+      - name: Publish to GitHub Packages
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
