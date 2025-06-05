@@ -250,4 +250,34 @@ docker build -t mcp/obs:latest -f Dockerfile .
 docker run --name mcp-test -i --rm -e API_KEY -e API_HOST -e DEBUG=mcp:\* mcp/obs:latest
 
 bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\* -e API_KEY=$API_KEY -e API_HOST=$API_HOST  -- docker run --name mcp-test -i --rm -e API_KEY -e API_HOST -e DEBUG=mcp:\* mcp/obs:latest
+
+# manual MCP server STDIN initialization
+echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}' | DEBUG=mcp:push,mcp:pull bun run src/index.ts
+```
+
+```json
+{
+  "obsidian": {
+    "command": "docker",
+    "type": "stdio",
+    "args": [
+      "run",
+      "--name", "mcp-obsidian-windsurf",
+      "--interactive",
+      "--rm",
+      "-e", "API_KEY",
+      "-e", "API_HOST",
+      "-e", "API_PORT",
+      "-e", "DEBUG",
+      "mcp/obs:latest"
+    ],
+    "env": {
+      "API_KEY": "190ba65d28ac1ba4797cb195bb06f20965395abbd9c39a0fa9b6cab2345c58b9",
+      "API_HOST": "172.26.32.1",
+      "API_PORT": "27124",
+      "DEBUG": "mcp:*"
+    },
+    "disabled": false
+  }
+}
 ```
