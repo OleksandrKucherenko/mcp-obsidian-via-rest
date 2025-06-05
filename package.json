@@ -1,5 +1,5 @@
 {
-  "name": "mcp-obsidiant",
+  "name": "mcp-obsidian",
   "description": "MCP Server for Obsidian Vault Access and Integration",
   "version": "0.0.1",
   "license": "MIT",
@@ -7,10 +7,13 @@
   "module": "index.ts",
   "type": "module",
   "private": true,
+  "bin": {
+    "mcp-obsidian": "./dist/index.js"
+  },
   "scripts": {
     "pre-commit": "lint-staged",
     "prepare": "husky || true",
-    "build": "bun build --minify --target=bun --outdir=dist src/index.ts",
+    "build": "bun build --minify --target=bun --outdir=dist --sourcemap=external src/index.ts",
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=mcp:\\* bun run src/index.ts --watch",
     "test": "DEBUG=mcp:\\* bun test ./src",
@@ -26,17 +29,17 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
-    "@types/bun": "latest",
+    "@types/bun": "^1.2.15",
     "@types/find-config": "^1.0.4",
     "husky": "^9.1.7",
-    "knip": "^5.56.0",
-    "lint-staged": "^16.0.0"
+    "knip": "^5.60.0",
+    "lint-staged": "^16.1.0"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.11.4",
+    "@modelcontextprotocol/sdk": "^1.12.1",
     "axios": "^1.9.0",
     "axios-debug-log": "^1.0.0",
     "axios-retry": "^4.5.0",
@@ -46,6 +49,6 @@
     "find-config": "^1.0.0",
     "json5": "^2.2.3",
     "ts-dedent": "^2.2.0",
-    "zod": "^3.25.7"
+    "zod": "^3.25.51"
   }
 }

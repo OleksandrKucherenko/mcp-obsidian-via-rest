@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { z } from "zod/v4"
@@ -93,12 +95,18 @@ api
   .getServerInfo()
   .then((info) => {
     logger(`Obsidian API: %O`, info)
+
+    logger(`MCP Server: ${PackageJson.name} / ${PackageJson.version} starting on stdio`)
+    const transport = new StdioServerTransport(process.stdin, process.stdout)
+    return server.connect(transport)
+  })
+  .then(() => {
+    logger("is connected: %o", server.isConnected())
+    // Initial newline to signal ready
+    // process.stdout.write(`${PackageJson.name} running on stdio\n`)
+    // process.stdout.write(`\n`)
   })
   .catch((error) => {
     logger(`Obsidian API error: %O`, error)
+    process.exit(1)
   })
-
-const transport = new StdioServerTransport()
-await server.connect(transport)
-
-logger(`MCP Server: ${PackageJson.name} / ${PackageJson.version} started`)
