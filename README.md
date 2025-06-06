@@ -102,7 +102,59 @@ bun run src/index.ts
 # Verify the Obsidian REST API is running
 http --verify=no https://localhost:27124
 curl --insecure https://localhost:27124
+
+# Run as a pre-compiled docker image
+docker run --rm -d --name obsidian-vnc \
+  -e VNC_PASSWORD=yoursecurepassword \
+  --cap-add SYS_ADMIN \
+  --device /dev/fuse:/dev/fuse \
+  --security-opt apparmor:unconfined \
+  -p 5900:5900 -p 27124:27124 \
+  ghcr.io/oleksandrkucherenko/obsidian-vnc:latest
 ```
+
+> Critical! Keep options: `--cap-add SYS_ADMIN --device /dev/fuse:/dev/fuse --security-opt apparmor:unconfined`, otherwise the docker container will exit.
+
+| Option | Needed For | What happens if omitted? | 
+|-----------------------|-------------------------|---------------------------------------------|
+| --cap-add SYS_ADMIN | FUSE/AppImage mounting | AppImage fails to mount, container exits |
+| --device /dev/fuse | FUSE/AppImage mounting | AppImage fails to mount, container exits |
+| --security-opt apparmor:unconfined | FUSE/AppImage on AppArmor-enabled hosts | AppImage may be blocked, container exits |
+
+To connect to the container I can recommend [TightVNC Viewer](https://www.tightvnc.com/).
+
+```bash
+# install TightVNC Viewer
+scoop install tightvnc
+
+# for MacOs can be used a fork of TightVnc: https://github.com/TigerVNC/tigervnc, https://tigervnc.org/
+brew install --cask tigervnc-viewer
+
+# connect to the container
+tvnviewer -host=localhost -port=5900 -password=yoursecurepassword -encoding=zrle
+# tvnviewer -host=localhost -port=5900 -password=yoursecurepassword -encoding=rre
+# tvnviewer -host=localhost -port=5900 -password=yoursecurepassword -encoding=hextile
+```
+
+Here's a concise comparison of the VNC encoding methods:
+
+1. RRE (Rising Rectangle Encoding)
+  - Pros: Simple, low CPU usage
+  - Cons: High bandwidth usage
+  - Best for: Simple, low-color desktops
+2. ZRLE (Zlib Run-Length Encoding)
+  - Pros: Good compression, handles complex images well
+  - Cons: Higher CPU usage
+  - Best for: Fast networks, modern clients
+3. Hextile
+  - Pros: Balanced performance, handles updates efficiently
+  - Cons: Moderate CPU usage
+  - Best for: General use, especially over LAN
+
+Recommendation:
+- ZRLE for modern clients and good networks
+- Hextile for a balance of performance and compatibility
+- RRE for minimal CPU usage (rarely needed)
 
 ## Troubleshooting
 

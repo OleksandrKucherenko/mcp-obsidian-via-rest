@@ -152,6 +152,7 @@ ensure_directories() {
 
 start_obsidian() {
   log "Running Obsidian with vault path: ${VAULT_PATH}"
+  log "exec: gosu ${USERNAME} $@ ${VAULT_PATH}"
   gosu "${USERNAME}" "$@" "${VAULT_PATH}" &>/tmp/obsidian.log &
   MAIN_APP_PID=$!
 
@@ -167,6 +168,7 @@ position_window() {
     log "Failed to position Obsidian window with xdotool"
 }
 
+# shellcheck disable=SC2317
 cleanup() {
   log "Caught signal, cleaning up background processes..."
 
