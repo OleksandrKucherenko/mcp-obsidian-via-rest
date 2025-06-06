@@ -57,6 +57,8 @@
 - [NPM Package Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/npm/mcp-obsidian)
 - [Docker Image Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/container/obsidian-mcp)
 
+- [Configuring .npmrc](https://docs.npmjs.com/cli/v9/configuring-npm/npmrc)
+
 ### Troubleshooting
 
 ```bash
@@ -368,6 +370,9 @@ bun publish --dry-run
 
 # prepare changelog
 bunx changelogithub --dry
+
+# verify that the package is available
+curl -H "Authorization: Bearer ${NPM_TOKEN}" https://npm.pkg.github.com/@oleksandrkucherenko/mcp-obsidian | jq
 ```
 
 - ref1: https://bun.sh/docs/cli/publish
