@@ -1,3 +1,6 @@
 {
   // Special configuration for Windows OS, WSL2 environment
+  "apiKey": "${API_KEY}",
+  "host": "https://${WSL_GATEWAY_IP:-host.docker.internal}",
+  "port": 27124
 }

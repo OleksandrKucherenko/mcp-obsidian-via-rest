@@ -20,13 +20,28 @@
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
-        "API_KEY": "<secret_key>", // required
-        "API_HOST": "172.26.32.1", // default: localhost
-        "API_PORT": "27124",       // default: 27124
-        "DEBUG": "mcp:*"           // default: disabled logs
+        "API_KEY": "<secret_key>",         // required
+        "API_HOST": "https://172.26.32.1", // default: localhost
+        "API_PORT": "27124",               // default: 27124
+        "DEBUG": "mcp:*"                   // default: disabled logs
       },
       "disabled": false
-    }
+    },
+    "obsidian-npm": {
+      "command": "bunx",
+      "type": "stdio",
+      "args": [
+        "@oleksandrkucherenko/mcp-obsidian"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",         // required
+        "API_HOST": "https://172.26.32.1", // default: localhost
+        "API_PORT": "27124",               // default: 27124
+        "DEBUG": "mcp:*",                  // default: disabled logs
+        "NPM_CONFIG_REGISTRY": "https://npm.pkg.github.com"
+      },
+      "disabled": false
+    } 
   }
 }
 ```
@@ -35,6 +50,9 @@
 - `-i, --interactive` - Keep STDIN open even if not attached
 - `-e, --env` - Set environment variables
 - `--name string` - Assign a name to the container
+
+- [NPM Package Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/npm/mcp-obsidian)
+- [Docker Image Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/container/obsidian-mcp)
 
 ### Troubleshooting
 
@@ -173,15 +191,26 @@ netstat -an | findstr 27124
 
 # curl with --insecure to accept self-signed certificate
 curl --insecure https://localhost:27124
+```
+
+Run on WSL2 side:
+
+```bash
+export WSL_GATEWAY_IP=$(ip route | grep default | awk '{print $3}')
+echo "Windows host IP from WSL2: $WSL_GATEWAY_IP"
+# Output:
+#   Windows host IP from WSL2: 172.26.32.1
+
+# Should work on WSL2 and inside the docker container.
+# Inside the container use host.docker.internal but it can be not always available, so use IP address.
+curl --insecure https://$WSL_GATEWAY_IP:27124
+wget --no-check-certificate -S https://$WSL_GATEWAY_IP:27124
+http --verify=no https://$WSL_GATEWAY_IP:27124
 
 # If using WSL with Obsidian REST API running on Windows host
 curl --insecure https://host.docker.internal:27124
-
-wget --no-check-certificate -S https://172.26.32.1:27124
-
 wget --no-check-certificate -S https://host.docker.internal:27124
-
-http --verify=no https://$WSL_GATEWAY_IP:27124
+http --verify=no https://host.docker.internal:27124
 ```
 
 ### Verify Windows Firewall
@@ -221,22 +250,7 @@ netsh advfirewall firewall show rule name=all | grep -A 13 WSL2
 netsh advfirewall firewall show rule name=all | grep -A 4 -B 9 27124
 ```
 
-### Verify Obsidian REST API is running (WSL2 Ubuntu)
-
-#### Quick test
-
-```bash
-# Get Windows host IP address (typically the first nameserver in resolv.conf)
-WINDOWS_HOST_IP=$(cat /etc/resolv.conf | grep nameserver | awk '{print $2}')
-
-# Get the gateway IP for default route
-WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
-
-# use gateway IP to access Obsidian REST API (windows host ip can be different)
-curl --insecure https://${WSL_GATEWAY_IP}:27124
-```
-
-#### Disable/enable firewall
+### Disable/Enable Firewall
 
 Execute in Windows PowerShell as Administrator:
 
@@ -248,7 +262,7 @@ Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
 Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
 ```
 
-### Verify Connectivity
+### Verify Connectivity on BusyBox Container
 
 Execute inside the WSL2 Ubuntu terminal:
 
@@ -294,44 +308,50 @@ wget -qO- --no-check-certificate https://172.26.32.1:27124
 # }
 ```
 
+### Verify From Our MCP Docker Container
+
 ```bash
-# build docker container
+# build docker container with a custom name 'mcp/obs' and tag 'latest'
 docker build -t mcp/obs:latest -f Dockerfile .
 
-# run docker container
+# run just build docker container (API_KEY and API_HOST are required on shell)
 docker run --name mcp-test -i --rm -e API_KEY -e API_HOST -e DEBUG=mcp:\* mcp/obs:latest
 
 bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\* -e API_KEY=$API_KEY -e API_HOST=$API_HOST  -- docker run --name mcp-test -i --rm -e API_KEY -e API_HOST -e DEBUG=mcp:\* mcp/obs:latest
-
-# manual MCP server STDIN initialization
-echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}' | DEBUG=mcp:push,mcp:pull bun run src/index.ts
 ```
 
-```json
-{
-  "obsidian": {
-    "command": "docker",
-    "type": "stdio",
-    "args": [
-      "run",
-      "--name", "mcp-obsidian-windsurf",
-      "--interactive",
-      "--rm",
-      "-e", "API_KEY",
-      "-e", "API_HOST",
-      "-e", "API_PORT",
-      "-e", "DEBUG",
-      "mcp/obs:latest"
-    ],
-    "env": {
-      "API_KEY": "190ba65d28ac1ba4797cb195bb06f20965395abbd9c39a0fa9b6cab2345c58b9",
-      "API_HOST": "172.26.32.1",
-      "API_PORT": "27124",
-      "DEBUG": "mcp:*"
-    },
-    "disabled": false
-  }
-}
+### Verify MCP Server STDIN initialization
+
+```bash
+# manual MCP server STDIN initialization
+echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}' | DEBUG=mcp:push,mcp:pull bun run src/index.ts
+#
+# Output:
+#
+#  mcp:push {
+#  mcp:push   jsonrpc: '2.0',
+#  mcp:push   id: 1,
+#  mcp:push   method: 'initialize',
+#  mcp:push   params: {
+#  mcp:push     protocolVersion: '2024-11-05',
+#  mcp:push     capabilities: {},
+#  mcp:push     clientInfo: { name: 'test-client', version: '1.0.0' }
+#  mcp:push   }
+#  mcp:push } +0ms
+#  mcp:pull {
+#  mcp:pull   result: {
+#  mcp:pull     protocolVersion: '2024-11-05',
+#  mcp:pull     capabilities: { tools: { listChanged: true }, resources: { listChanged: true } },
+#  mcp:pull     serverInfo: {
+#  mcp:pull       name: 'mcp-obsidian',
+#  mcp:pull       version: '0.0.1',
+#  mcp:pull       capabilities: { resources: {}, tools: {} }
+#  mcp:pull     }
+#  mcp:pull   },
+#  mcp:pull   jsonrpc: '2.0',
+#  mcp:pull   id: 1
+#  mcp:pull } +0ms
+# {"result":{"protocolVersion":"2024-11-05","capabilities":{"tools":{"listChanged":true},"resources":{"listChanged":true}},"serverInfo":{"name":"mcp-obsidian","version":"0.0.1","capabilities":{"resources":{},"tools":{}}}},"jsonrpc":"2.0","id":1}
 ```
 
 ## Publish
@@ -347,11 +367,11 @@ bun publish --dry-run
 bunx changelogithub --dry
 ```
 
-ref1: https://bun.sh/docs/cli/publish
-ref2: https://bun.sh/guides/runtime/cicd
-ref3: https://docs.github.com/en/packages/quickstart
-ref4: https://github.com/docker/setup-buildx-action
-ref5: https://github.com/marketplace/actions/docker-compose-action
-ref6: https://bun.sh/guides/install/registry-scope
-ref7: https://www.npmjs.com/package/changelogithub
-ref8: https://github.com/oven-sh/bun/issues/15245
+- ref1: https://bun.sh/docs/cli/publish
+- ref2: https://bun.sh/guides/runtime/cicd
+- ref3: https://docs.github.com/en/packages/quickstart
+- ref4: https://github.com/docker/setup-buildx-action
+- ref5: https://github.com/marketplace/actions/docker-compose-action
+- ref6: https://bun.sh/guides/install/registry-scope
+- ref7: https://www.npmjs.com/package/changelogithub
+- ref8: https://github.com/oven-sh/bun/issues/15245
