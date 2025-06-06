@@ -71,10 +71,13 @@ EXPOSE 5900
 # Local REST API port
 EXPOSE 27124
 
-# Set up a volume for Obsidian configuration/vaults
+# Embed default vault data and app config into the image
+COPY --chown=${USERNAME}:${USERNAME} obsidian/data/ ${OBSIDIAN_CONFIG_DIR}/
+COPY --chown=${USERNAME}:${USERNAME} obsidian/.config/obsidian/ ${OBSIDIAN_APP_CONFIG_DIR}/
+
+# Allow override/persistence via volumes
 VOLUME ${OBSIDIAN_CONFIG_DIR}
-# Obsidian app configuration, global settings
-VOLUME ${OBSIDIAN_APP_CONFIG_DIR} 
+VOLUME ${OBSIDIAN_APP_CONFIG_DIR}
 
 # Use Tini as the entrypoint
 ENTRYPOINT ["/tini", "--", "/entrypoint.sh"]
