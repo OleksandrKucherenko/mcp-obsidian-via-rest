@@ -21,7 +21,11 @@ jobs:
       packages: write
       
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        # get full history for release-it tool
+        with:
+          fetch-depth: 0 
 
       - name: Set lowercase repository name
         id: repo_name
@@ -44,27 +48,20 @@ jobs:
           registry-url: https://npm.pkg.github.com/
           scope: '@${{ steps.repo_name.outputs.owner }}'
       
-      - name: Install dependencies
+      - name: Install Dependencies
         run: bun install
 
-      - name: Run docker compose
-        uses: hoverkraft-tech/compose-action@v2.2.0
-        with:
-          compose-file: ./docker-compose.yaml        
+      # - name: Run Docker Compose
+      #   uses: hoverkraft-tech/compose-action@v2.2.0
+      #   with:
+      #     compose-file: ./docker-compose.yaml        
 
-      - name: Run Unit tests, including e2e tests
+      - name: Run Unit Tests, including e2e tests
         run: |
           # run e2e and unit tests
           bun test          
       
-      - name: Build package
-        run: |
-          # TODO: patch package.json version to match the tag version
-
-          # prepare the TGZ file for publishing
-          bun run publish:prepare
-      
-      - name: Prepare package for GitHub Packages
+      - name: Verify that Package is ready for GitHub Packages
         run: |
           # Ensure package.json has correct repository field
           if ! grep -q '"repository"' package.json; then
@@ -76,11 +73,37 @@ jobs:
             PACKAGE_NAME=$(node -p "require('./package.json').name")
             sed -i "s/\"name\": \"$PACKAGE_NAME\"/\"name\": \"@${{ github.repository_owner }}\/$(echo $PACKAGE_NAME | sed 's/@.*\///')\"/g" package.json
           fi
+          
+      - name: Extract Release Type (semantic commit)
+        id: release-type
+        continue-on-error: true
+        run: |
+          # Check release-it for next version based on commits between last tag and HEAD.
+          bun run release:dry --ci --no-increment 
+          
+          # Extract version from package.json
+          export PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          export SHA=${GITHUB_SHA::7}
+          export TAG="sha-${SHA}"
+          export UNIQUE_VERSION="${PACKAGE_VERSION}-${TAG}"
+
+          # Update package.json
+          jq ".version = \"$UNIQUE_VERSION\"" package.json > package.tmp.json
+          mv package.tmp.json package.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Build Package
+        run: |
+          # prepare the TGZ file for publishing
+          bun run publish:prepare
+
       - name: Publish to GitHub Packages
         run: |
-          # do the publishing
-          bun publish --tag next --registry "https://npm.pkg.github.com"
+          export SHA=${GITHUB_SHA::7}
+          export TAG="sha-${SHA}"
+          # do the publishing under unique 'sha-${SHA}' tag
+          bun publish --tag $TAG --registry "https://npm.pkg.github.com"
         env:
           BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
