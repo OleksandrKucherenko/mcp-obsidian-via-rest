@@ -57,8 +57,6 @@
 - [NPM Package Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/npm/mcp-obsidian)
 - [Docker Image Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/container/obsidian-mcp)
 
-- [Configuring .npmrc](https://docs.npmjs.com/cli/v9/configuring-npm/npmrc)
-
 ### Troubleshooting
 
 ```bash
@@ -375,11 +373,13 @@ bunx changelogithub --dry
 curl -H "Authorization: Bearer ${NPM_TOKEN}" https://npm.pkg.github.com/@oleksandrkucherenko/mcp-obsidian | jq
 ```
 
-- ref1: https://bun.sh/docs/cli/publish
-- ref2: https://bun.sh/guides/runtime/cicd
-- ref3: https://docs.github.com/en/packages/quickstart
-- ref4: https://github.com/docker/setup-buildx-action
-- ref5: https://github.com/marketplace/actions/docker-compose-action
-- ref6: https://bun.sh/guides/install/registry-scope
-- ref7: https://www.npmjs.com/package/changelogithub
-- ref8: https://github.com/oven-sh/bun/issues/15245
+- https://bun.sh/docs/cli/publish
+- https://bun.sh/guides/runtime/cicd
+- https://docs.github.com/en/packages/quickstart
+- https://github.com/docker/setup-buildx-action
+- https://github.com/marketplace/actions/docker-compose-action
+- https://bun.sh/guides/install/registry-scope
+- https://www.npmjs.com/package/changelogithub
+- https://github.com/oven-sh/bun/issues/15245
+- https://bun.sh/docs/runtime/bunfig
+- [Configuring .npmrc](https://docs.npmjs.com/cli/v9/configuring-npm/npmrc)
