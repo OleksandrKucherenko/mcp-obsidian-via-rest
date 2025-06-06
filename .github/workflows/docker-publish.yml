@@ -12,12 +12,21 @@ on:
       - '.dockerignore'
       - 'Dockerfile'
       - 'package.json'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (optional)'
+        required: false
+        type: string
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # for cross-platform builds
+      - uses: docker/setup-qemu-action@v3
 
       - uses: docker/setup-buildx-action@v3
 
@@ -43,6 +52,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=sha,format=short
             type=raw,value=latest
 
@@ -51,9 +62,12 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64,linux/arm64/v8
           tags: ${{ steps.metaMcp.outputs.tags }}
           labels: ${{ steps.metaMcp.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Extract metadata (tags, labels) for Docker (VNC Obsidian)
         id: metaVnc
@@ -63,6 +77,8 @@ jobs:
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
             type=sha,format=short
             type=raw,value=latest
   
@@ -71,7 +87,9 @@ jobs:
         with:
           context: ./dockerize
           file: ./dockerize/Dockerfile
-          push: true
+          push: ${{ github.event_name != 'pull_request' }}
+          platforms: linux/amd64,linux/arm64/v8
           tags: ${{ steps.metaVnc.outputs.tags }}
           labels: ${{ steps.metaVnc.outputs.labels }}
-  
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
