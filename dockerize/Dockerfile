@@ -5,7 +5,7 @@ FROM debian:bullseye-slim
 ARG OBSIDIAN_VERSION="1.8.10"
 
 # Set up TINI
-ENV TINI_VERSION v0.19.0
+ENV TINI_VERSION=v0.19.0
 ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 
@@ -19,6 +19,8 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV DISPLAY=:99
 ENV APP_DIR=/app
 ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
+ENV TZ=Etc/UTC
+ENV SCREEN_RESOLUTION=1280x1024x24
 
 # Install dependencies
 RUN apt-get update  \

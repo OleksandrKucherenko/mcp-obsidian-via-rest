@@ -4,29 +4,6 @@
 # Beta Reviewer's Auto-update Tool: https://tfthacker.com/BRAT
 
 services:
-  obsidian-old:
-    networks:
-      - vnc-net
-    image: lscr.io/linuxserver/obsidian:latest # 3.5Gb size!
-    container_name: obsidian-old
-    profiles:
-      - old
-    security_opt:
-      - seccomp:unconfined # optional
-    environment:
-      - PUID=1000
-      - PGID=1000
-      - TZ=Etc/UTC
-    volumes:
-      - /path/to/config:/config
-    ports:
-      - 3000:3000
-      - 3001:3001
-    devices:
-      - /dev/dri:/dev/dri # optional
-    shm_size: "1gb"
-    restart: unless-stopped
-
   obsidian:
     networks:
       - vnc-net
@@ -40,10 +17,7 @@ services:
     environment:
       - PUID=1000 # You might want to remove PUID/PGID if not used by your custom image's entrypoint
       - PGID=1000 # Or ensure your entrypoint.sh respects them if needed
-      - TZ=Etc/UTC
       - VNC_PASSWORD=yoursecurepassword # Set VNC password here
-      - SCREEN_RESOLUTION=1280x1024x24
-      # DISPLAY=:99 # This is set inside the Dockerfile, usually not needed here
     volumes:
       # vault data
       - ./dockerize/obsidian/data:/config/obsidian
