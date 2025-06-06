@@ -10,6 +10,7 @@ ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
 RUN chmod +x /tini
 
 ARG OBSIDIAN_APPIMAGE_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/Obsidian-${OBSIDIAN_VERSION}.AppImage"
+ARG OBSIDIAN_APPIMAGE_ARM64_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/Obsidian-${OBSIDIAN_VERSION}-arm64.AppImage"
 
 ENV USERNAME=appuser
 ENV OBSIDIAN_CONFIG_DIR=/config/obsidian
