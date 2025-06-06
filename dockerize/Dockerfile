@@ -23,7 +23,7 @@ ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 RUN apt-get update  \
     && apt-get install -y --no-install-recommends \
     # generic tools
-    wget curl ca-certificates git unzip bsdextrautils \
+    wget curl ca-certificates git unzip bsdextrautils procps \
     # x11 virtual display, fluxbox window manager, x11vnc (VNC server)
     xvfb fluxbox x11vnc \
     # dbus for Electron/Obsidian notifications and IPC
@@ -37,7 +37,7 @@ RUN apt-get update  \
     # For screenshots and UI automation
     scrot xdotool \
     # For desktop background and basic tools
-    feh xterm x11-xserver-utils \
+    feh xterm x11-xserver-utils x11-utils \
     # For running commands as a different user
     gosu \
     # For AppImage
