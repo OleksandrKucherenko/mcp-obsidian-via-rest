@@ -1,5 +1,7 @@
 # mcp-obsidian
 
+[![NPM](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml) [![Docker](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml)
+
 ## Configure MCP 
 
 ```jsonc
@@ -38,7 +40,8 @@
         "API_HOST": "https://172.26.32.1", // default: localhost
         "API_PORT": "27124",               // default: 27124
         "DEBUG": "mcp:*",                  // default: disabled logs
-        "NPM_CONFIG_REGISTRY": "https://npm.pkg.github.com"
+        "NPM_CONFIG_REGISTRY": "https://npm.pkg.github.com",
+        "NPM_AUTH_TOKEN": "<token>"        // https://github.com/settings/tokens
       },
       "disabled": false
     } 

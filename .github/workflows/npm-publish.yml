@@ -5,8 +5,14 @@ on:
     types: [created]
   push:
     branches: [main]
-    tags: ['v*.*.*']
-
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (optional)'
+        required: false
+        type: string
+  
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
