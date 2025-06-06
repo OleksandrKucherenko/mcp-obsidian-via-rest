@@ -10,6 +10,22 @@
   "bin": {
     "mcp-obsidian": "./dist/index.js"
   },
+  "contributors": [
+    {
+      "name": "OleksandrKucherenko",
+      "url": "https://github.com/OleksandrKucherenko"
+    },
+    {
+      "name": "alexkucherenko",
+      "email": "kucherenko.alex@gmail.com",
+      "url": "https://github.com/alexkucherenko"
+    },
+    {
+      "name": "oleksandrkucherenko",
+      "email": "oleksandr.kucherenko@artfulbits.se",
+      "url": "https://github.com/OleksandrKucherenko"
+    }
+  ],
   "publishConfig": {
     "registry": "https://npm.pkg.github.com",
     "@artfulbits:registry": "https://npm.pkg.github.com",

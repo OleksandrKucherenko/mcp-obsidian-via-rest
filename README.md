@@ -383,3 +383,5 @@ curl -H "Authorization: Bearer ${NPM_TOKEN}" https://npm.pkg.github.com/@oleksan
 - https://github.com/oven-sh/bun/issues/15245
 - https://bun.sh/docs/runtime/bunfig
 - [Configuring .npmrc](https://docs.npmjs.com/cli/v9/configuring-npm/npmrc)
+- [release-it](https://github.com/release-it/release-it)
+  - [GitHub Releases](https://github.com/release-it/release-it/blob/main/docs/github-releases.md)
