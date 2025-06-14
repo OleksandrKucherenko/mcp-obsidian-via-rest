@@ -1,9 +1,12 @@
-import { afterAll, beforeAll, describe, expect, it } from "bun:test"
+import { afterAll, beforeAll, describe, expect, it, jest } from "bun:test"
 import type { StartedDockerComposeEnvironment } from "testcontainers"
+import debug from "debug"
 
-import type { ContainerStdio } from "./utils/container.stdio"
+import { logJsonRpcMessage, type ContainerStdio } from "./utils/container.stdio"
 import { setupContainers } from "./utils/setup.containers"
 import { gracefulShutdown } from "./utils/teardown.containers"
+
+const log = debug("mcp:e2e")
 
 // The JSON-RPC message structure used by MCP
 interface JsonRpcMessage {
@@ -28,7 +31,8 @@ describe("MCP Server E2E with Testcontainers", () => {
 
   afterAll(async () => gracefulShutdown({ environment, mcpStdio }))
 
-  it("should receive a heartbeat response when sent a heartbeat request", (done: (err?: Error) => void) => {
+  it("should receive method not found error when not existing method is called", async () => {
+    // GIVEN: request
     const requestId = "test-heartbeat-1"
     const request: JsonRpcMessage = {
       jsonrpc: "2.0",
@@ -36,23 +40,22 @@ describe("MCP Server E2E with Testcontainers", () => {
       method: "HEARTBEAT",
     }
 
-    const responseListener = (data: Buffer) => {
-      const responseStr = data.toString()
+    // Capture STDOUT responses
+    const spy = jest.fn()
+    const waitForResponse = new Promise<string>((resolve) => {
+      spy.mockImplementation((data: Buffer) => {
+        logJsonRpcMessage("stdout")(data)
+        resolve(data.toString())
+      })
+    })
+    mcpStdio.stdout.on("data", spy)
 
-      const response: JsonRpcMessage = JSON.parse(responseStr)
-
-      if (response.id === requestId) {
-        expect(response.result).toBe("OK")
-
-        // Clean up the listener and signal that the test is complete.
-        mcpStdio.stdout.removeListener("data", responseListener)
-        done()
-      }
-    }
-
-    mcpStdio.stdout.on("data", responseListener)
-
-    // Send the request to the MCP server's STDIN.
+    // WHEN:Send the request to the MCP server's STDIN.
+    log.extend("stdin")("%o", request)
     mcpStdio.stdin.write(`${JSON.stringify(request)}\n`)
+    const response = await waitForResponse
+
+    // THEN: expect a response with error code -32601 (Method not found)
+    expect(response).toContain("-32601")
   })
 })

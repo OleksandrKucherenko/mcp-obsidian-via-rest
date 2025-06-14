@@ -43,7 +43,7 @@ export const setupContainers = async ({
   timeoutStdio,
   mcpServerName,
 } = DEFAULTS) => {
-  log("Starting Docker Compose environment for E2E tests...", composeFilePath, composeFile)
+  log(`Starting Docker Compose: %o`, `${composeFilePath}/${composeFile}`)
 
   // Clean up any existing containers that might conflict
   await cleanup()
