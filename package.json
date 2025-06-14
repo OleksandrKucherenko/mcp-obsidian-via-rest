@@ -46,6 +46,7 @@
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=mcp:\\* bun run src/index.ts --watch",
     "test": "DEBUG=mcp:\\* bun test ./src",
+    "test:e2e": "DEBUG=mcp:\\* bun test ./src/mcp-server.testcontainers.test.ts",
     "docker:latest": "docker build -t mcp/obsidian:latest -f Dockerfile .",
     "docker:run": "docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -i mcp/obsidian:latest",
     "docker:e2e:start": "docker compose up -d",
@@ -72,7 +73,8 @@
     "husky": "^9.1.7",
     "knip": "^5.60.0",
     "lint-staged": "^16.1.0",
-    "release-it": "^19.0.3"
+    "release-it": "^19.0.3",
+    "testcontainers": "^10.10.3"
   },
   "peerDependencies": {
     "typescript": "^5.0.0"
