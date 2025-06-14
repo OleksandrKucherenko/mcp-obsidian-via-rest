@@ -11,47 +11,72 @@ declare module "debug" {
     }
   }
 }
-const stdin = debug("mcp:push")
-const stdout = debug("mcp:pull")
+const logPush = debug("mcp:push")
+const logPull = debug("mcp:pull")
 
 // print JSON/object deep hierarchies
-stdin.inspectOpts = stdin.inspectOpts || {}
-stdin.inspectOpts.depth = null
-stdout.inspectOpts = stdout.inspectOpts || {}
-stdout.inspectOpts.depth = null
+logPush.inspectOpts = logPush.inspectOpts || {}
+logPush.inspectOpts.depth = null
+logPull.inspectOpts = logPull.inspectOpts || {}
+logPull.inspectOpts.depth = null
 
 export const interceptStdin = new PassThrough()
 export const interceptStdout = new PassThrough()
 
-// process.stdin.pipe(interceptStdin)
-process.stdin.on("data", (data) => {
-  const line = data.toString()
+// Ensure process.stdin is in flowing mode and properly set up
+process.stdin.resume()
+process.stdin.setEncoding("utf8")
 
+// Remove any previous listeners to avoid duplicate handling in hot reload/dev
+process.stdin.removeAllListeners("data")
+interceptStdout.removeAllListeners("data")
+
+// Log all incoming data on process.stdin and pipe to interceptStdin
+process.stdin.on("data", (data: Buffer) => {
   try {
-    // stdin(line)
-    stdin("%O", JSON.parse(line))
-  } catch (ignored) {}
+    logPush("%O", JSON.parse(data.toString()))
+  } catch {
+    logPush("%o", data.toString())
+  }
 
-  interceptStdin.write(data)
+  // interceptStdin.write(data)
 })
 
-// interceptStdout.pipe(process.stdout)
-interceptStdout.on("data", (data) => {
-  const line = data.toString()
-
+// Log all outgoing data on interceptStdout and pipe to process.stdout
+interceptStdout.on("data", (data: Buffer) => {
   try {
-    const json = JSON.parse(line)
-
-    // unpack error message from stringified JSON
+    const json = JSON.parse(data.toString())
     if ("error" in json && "message" in json.error) {
-      stdout("ERROR: %O", JSON.parse(json.error.message))
+      try {
+        logPull.extend("error")("%o", JSON.parse(json.error.message))
+      } catch {}
     }
+    logPull("%O", json)
+  } catch {
+    logPull("%o", data.toString())
+  }
 
-    stdout("%O", json)
-  } catch (ignored) {}
-
-  process.stdout.write(data)
+  // process.stdout.write(data)
 })
+
+// Use Symbols for type-safe custom flags
+const isPipedToIntercept = Symbol("isPipedToIntercept")
+const isPipedToStdout = Symbol("isPipedToStdout")
+
+// Only pipe if not already piped (avoid double piping)
+if (!(process.stdin as unknown as { [key: symbol]: boolean })[isPipedToIntercept]) {
+  process.stdin.pipe(interceptStdin)
+  ;(process.stdin as unknown as { [key: symbol]: boolean })[isPipedToIntercept] = true
+} else {
+  logPush("process.stdin already piped to interceptStdin")
+}
+
+if (!(interceptStdout as unknown as { [key: symbol]: boolean })[isPipedToStdout]) {
+  interceptStdout.pipe(process.stdout)
+  ;(interceptStdout as unknown as { [key: symbol]: boolean })[isPipedToStdout] = true
+} else {
+  logPull("interceptStdout already piped to process.stdout")
+}
 
 export const intercept = {
   stdin: interceptStdin,

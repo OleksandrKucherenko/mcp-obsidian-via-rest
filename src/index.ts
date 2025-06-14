@@ -9,10 +9,10 @@ import fs from "node:fs/promises"
 
 import PackageJson from "../package.json" assert { type: "json" }
 import { ObsidianAPI } from "./client/obsidian-api.js"
-import { loadConfiguration } from "./config.js"
+import { diagnostics, loadConfiguration } from "./config.js"
 import { intercept } from "./stdio.js"
 
-const logger = debug("mcp:server")
+const log = debug("mcp:server")
 
 const HEALTH_FILE_PATH = "/tmp/mcp_healthy"
 const HEALTH_INTERVAL_MS = 5_000 // 5 seconds
@@ -88,7 +88,7 @@ server.resource(
   // handler
   async (uri, { name }) => {
     // Resource requested: obsidian://Skills%2FJavaScript%2FCORS.md: Skills/JavaScript/CORS.md
-    logger(`Resource requested: ${uri.href}: ${decodeURIComponent(name as string)}`)
+    log(`Resource requested: ${uri.href}: ${decodeURIComponent(name as string)}`)
     const note = await api.readNote(decodeURIComponent(name as string))
 
     return { contents: [{ uri: uri.href, text: note.content, mimeType: "text/markdown" }] }
@@ -106,30 +106,27 @@ const timer = setInterval(() => {
     : fs.utimes(HEALTH_FILE_PATH, new Date(), new Date())
   )
     .then(() => {
-      if (counter >= 0) logger(`Heartbeat...`)
+      if (counter >= 0) log(`Heartbeat...`)
     })
     .catch((error) => {
-      logger(`Heartbeat failed: %O`, error)
+      log(`Heartbeat failed: %O`, error)
     })
 }, HEALTH_INTERVAL_MS)
 
-// test REST API connection and server status
-api
-  .getServerInfo()
+diagnostics()
+  // test REST API connection and server status
+  .then(() => api.getServerInfo())
   .then((info) => {
-    logger(`Obsidian API: %O`, info)
+    log(`Obsidian API: %O`, info)
+    log(`MCP Server: ${PackageJson.name} / ${PackageJson.version} starting on stdio`)
 
-    logger(`MCP Server: ${PackageJson.name} / ${PackageJson.version} starting on stdio`)
-
-    // This log message is crucial for the Testcontainers wait strategy.
-    process.stdout.write("MCP Server is ready\n")
     return server.connect(transport)
   })
   .then(() => {
-    logger("is connected: %o", server.isConnected())
+    log("is connected: %o", server.isConnected())
   })
   .catch((error) => {
-    logger(`Obsidian API error: %O`, error)
+    log(`Obsidian API error: %O`, error)
 
     clearInterval(timer)
     process.exit(1)

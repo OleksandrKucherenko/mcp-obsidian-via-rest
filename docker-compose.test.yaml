@@ -11,6 +11,7 @@ services:
       dockerfile: Dockerfile
     container_name: obsidian
     environment:
+      # VNC: tvnviewer -host=localhost -port=50001 -password=testpassword -encoding=zrle
       - VNC_PASSWORD=testpassword
     ports:
       - "50000:27124" # REST API
@@ -45,7 +46,7 @@ services:
       - API_PORT=27124 # REST API port
       - API_KEY=190ba65d28ac1ba4797cb195bb06f20965395abbd9c39a0fa9b6cab2345c58b9
     stdin_open: true # Keep STDIN open to allow the test runner to send MCP commands.
-    tty: true # Allocate a TTY for interactive communication.
+    tty: false # Allocate a TTY for interactive communication.
     healthcheck:
       #test: [ "CMD", "stat", "/tmp/mcp_healthy" ]
       # if file is older than 30 seconds, it is not healthy

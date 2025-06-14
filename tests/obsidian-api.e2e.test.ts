@@ -5,8 +5,8 @@ import { execSync } from "node:child_process"
 import https from "node:https"
 import { dedent as de } from "ts-dedent"
 
-import { ObsidianAPI } from "./obsidian-api.ts"
-import type { ObsidianConfig } from "./types.ts"
+import { ObsidianAPI } from "../src/client/obsidian-api.ts"
+import type { ObsidianConfig } from "../src/client/types.ts"
 
 // ref: https://github.com/sindresorhus/is-wsl/blob/main/index.js
 const isWSL = () => process.platform === "linux" && process.env.WSL_DISTRO_NAME
