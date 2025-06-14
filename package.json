@@ -46,7 +46,7 @@
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=mcp:\\* bun run src/index.ts --watch",
     "test": "DEBUG=mcp:\\* bun test ./src",
-    "test:e2e": "DEBUG=mcp:\\* bun test ./tests/mcp-server.testcontainers.test.ts",
+    "test:e2e": "DEBUG=mcp:\\* bun test ./tests",
     "docker:latest": "docker build -t mcp/obsidian:latest -f Dockerfile .",
     "docker:run": "docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -i mcp/obsidian:latest",
     "docker:e2e:start": "docker compose up -d",

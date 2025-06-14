@@ -63,17 +63,11 @@ export class ContainerStdio {
 
     // Log any errors from the attach process for debugging.
     this.process.stderr?.on("data", (data) => {
-      log.extend("stderr")(`[${containerName}]: ${data.toString()}`)
+      const line = data.toString().trim().replaceAll("\\n", "\n")
+      debug("docker:stderr")(line)
     })
-
-    this.process.on("error", (err) => {
-      log.extend("error")(`[${containerName}]: ${err.message}`)
-    })
-
-    this.process.on("exit", (code, signal) => {
-      // Added signal for more context
-      log(`Docker attach process exited for ${containerName} with code ${code}, signal ${signal}`)
-    })
+    this.process.on("error", (err) => log.extend("error")(`[${containerName}]: %O`, err))
+    this.process.on("exit", (code, signal) => log(`[${containerName}]: exited with code ${code}, signal ${signal}`))
   }
 
   /**
@@ -96,5 +90,13 @@ export class ContainerStdio {
     } else {
       log(`Process for ${this.containerName} already killed or not found, no detach needed.`)
     }
+  }
+}
+
+export const logJsonRpcMessage = (extend: string) => (data: Buffer) => {
+  try {
+    log.extend(extend)("%o", JSON.parse(data.toString()))
+  } catch {
+    log.extend(extend)(data.toString())
   }
 }

@@ -5,6 +5,9 @@ set -e
 # set -x # Print commands and their arguments as they are executed.
 
 # --- Color Definitions ---
+# Ensure proper display of ANSI colors
+export TERM=xterm-256color
+
 # Only including colors that we'll actually use
 export cl_reset=$(tput sgr0)
 export cl_green=$(tput setaf 2)
@@ -19,7 +22,7 @@ SCR_DEFAULT_KEEP_COUNT=5
 SCR_DEFAULT_INTERVAL_SECONDS=10
 SCR_DEFAULT_INITIAL_DELAY_SECONDS=15
 
-CONTAINER_NAME="obsidian-vnc"
+SCR_CONTAINER_NAME=${SCR_CONTAINER_NAME:-"obsidian-vnc"}
 DISPLAY_NUM=":99"
 SCREENSHOT_FILE_CONTAINER="/tmp/obsidian_screenshot.png"
 SCREENSHOT_DIR_HOST="reports/screenshots"
@@ -90,15 +93,12 @@ main() {
   # Create screenshot directory if it doesn't exist (relative to script location)
   mkdir -p "${SCREENSHOT_DIR_HOST}"
 
-  # Ensure proper display of ANSI colors
-  export TERM=xterm-256color
-
   # Perform cleanup before starting
   cleanup_screenshots "${SCR_KEEP_COUNT}" "${SCREENSHOT_DIR_HOST}"
 
   # Check if container is running
-  if ! docker ps --filter "name=${CONTAINER_NAME}" --filter "status=running" --format "{{.Names}}" | grep -q "^${CONTAINER_NAME}$"; then
-    echo "Error: Container '${cl_yellow}${CONTAINER_NAME}${cl_reset}' is not running."
+  if ! docker ps --filter "name=${SCR_CONTAINER_NAME}" --filter "status=running" --format "{{.Names}}" | grep -q "^${SCR_CONTAINER_NAME}$"; then
+    echo "Error: Container '${cl_yellow}${SCR_CONTAINER_NAME}${cl_reset}' is not running."
     echo "Please start it with: docker compose up -d obsidian"
     exit 1
   fi
@@ -134,11 +134,11 @@ main() {
 
     echo "Taking screenshot ${cl_purple}#${TAKEN_SCREENSHOTS}${cl_reset} (${cl_green}${TIMESTAMP}${cl_reset})..."
     # Run scrot inside the container
-    docker exec -u appuser -e DISPLAY=${DISPLAY_NUM} "${CONTAINER_NAME}" scrot -o "${SCREENSHOT_FILE_CONTAINER}"
+    docker exec -u appuser -e DISPLAY=${DISPLAY_NUM} "${SCR_CONTAINER_NAME}" scrot -o "${SCREENSHOT_FILE_CONTAINER}"
 
     echo "Copying screenshot to ${cl_yellow}${CURRENT_SCREENSHOT_FILE_HOST}${cl_reset}"
     # Capture the docker cp output and colorize the path
-    docker cp "${CONTAINER_NAME}:${SCREENSHOT_FILE_CONTAINER}" "${CURRENT_SCREENSHOT_FILE_HOST}" | sed "s|\(Successfully copied [0-9]*[kKmMgG]\?B to \)\(.*\)|\1${cl_yellow}\2${cl_reset}|"
+    docker cp "${SCR_CONTAINER_NAME}:${SCREENSHOT_FILE_CONTAINER}" "${CURRENT_SCREENSHOT_FILE_HOST}" | sed "s|\(Successfully copied [0-9]*[kKmMgG]\?B to \)\(.*\)|\1${cl_yellow}\2${cl_reset}|"
 
     echo "Screenshot saved to ${cl_yellow}${CURRENT_SCREENSHOT_FILE_HOST}${cl_reset}"
     cleanup_screenshots "${SCR_KEEP_COUNT}" "${SCREENSHOT_DIR_HOST}"
