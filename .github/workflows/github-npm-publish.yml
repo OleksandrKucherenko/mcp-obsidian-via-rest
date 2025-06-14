@@ -96,19 +96,13 @@ jobs:
       packages: write
     needs:
       - testing-e2e
-      - testing-containers
+      - testing-containers  
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
-
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Set lowercase repository name
         id: repo_name
@@ -134,31 +128,36 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
-      - name: Run Unit Tests
-        run: |
-          # run unit tests
-          bun run test
+      # - name: Run Docker Compose
+      #   uses: hoverkraft-tech/compose-action@v2.2.0
+      #   with:
+      #     compose-file: ./docker-compose.yaml        
 
+      - name: Run Unit Tests, including e2e tests
+        run: |
+          # run e2e and unit tests
+          bun test          
+      
       - name: Verify that Package is ready for GitHub Packages
         run: |
           # Ensure package.json has correct repository field
           if ! grep -q '"repository"' package.json; then
             sed -i 's/^\(  "name": ".*"\)/\1,\n  "repository": "https:\/\/github.com\/${{ github.repository }}"/g' package.json
           fi
-
+          
           # Make sure package name is scoped
           if ! grep -q '"name": "@' package.json; then
             PACKAGE_NAME=$(node -p "require('./package.json').name")
             sed -i "s/\"name\": \"$PACKAGE_NAME\"/\"name\": \"@${{ github.repository_owner }}\/$(echo $PACKAGE_NAME | sed 's/@.*\///')\"/g" package.json
           fi
-
+          
       - name: Extract Release Type (semantic commit)
         id: release-type
         continue-on-error: true
         run: |
           # Check release-it for next version based on commits between last tag and HEAD.
-          bun run release:dry --ci --no-increment
-
+          bun run release:dry --ci --no-increment 
+          
           # Extract version from package.json
           export PACKAGE_VERSION=$(node -p "require('./package.json').version")
           export SHA=${GITHUB_SHA::7}
@@ -170,7 +169,7 @@ jobs:
           mv package.tmp.json package.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
+      
       - name: Build Package
         run: |
           # prepare the TGZ file for publishing
