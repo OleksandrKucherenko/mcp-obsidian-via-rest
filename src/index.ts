@@ -98,6 +98,9 @@ api
     logger(`Obsidian API: %O`, info)
 
     logger(`MCP Server: ${PackageJson.name} / ${PackageJson.version} starting on stdio`)
+
+    // This log message is crucial for the Testcontainers wait strategy.
+    process.stdout.write("MCP Server is ready\n")
     return server.connect(transport)
   })
   .then(() => {
