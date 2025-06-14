@@ -5,6 +5,7 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { debug } from "debug"
 import { dedent } from "ts-dedent"
 import { z } from "zod"
+import fs from "node:fs/promises"
 
 import PackageJson from "../package.json" assert { type: "json" }
 import { ObsidianAPI } from "./client/obsidian-api.js"
@@ -12,6 +13,9 @@ import { loadConfiguration } from "./config.js"
 import { intercept } from "./stdio.js"
 
 const logger = debug("mcp:server")
+
+const HEALTH_FILE_PATH = "/tmp/mcp_healthy"
+const HEALTH_INTERVAL_MS = 5_000 // 5 seconds
 
 const configuration = loadConfiguration()
 
@@ -91,6 +95,24 @@ server.resource(
   },
 )
 
+// Health check for Docker container
+let counter = 1 // print only one time
+const timer = setInterval(() => {
+  counter -= 1
+
+  // create health file and then only update it last modification time
+  ;(counter >= 0
+    ? fs.writeFile(HEALTH_FILE_PATH, `${new Date().toISOString()}`, { flag: "w" })
+    : fs.utimes(HEALTH_FILE_PATH, new Date(), new Date())
+  )
+    .then(() => {
+      if (counter >= 0) logger(`Heartbeat...`)
+    })
+    .catch((error) => {
+      logger(`Heartbeat failed: %O`, error)
+    })
+}, HEALTH_INTERVAL_MS)
+
 // test REST API connection and server status
 api
   .getServerInfo()
@@ -108,5 +130,7 @@ api
   })
   .catch((error) => {
     logger(`Obsidian API error: %O`, error)
+
+    clearInterval(timer)
     process.exit(1)
   })
