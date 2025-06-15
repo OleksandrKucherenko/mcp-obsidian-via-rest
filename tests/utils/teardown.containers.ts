@@ -223,7 +223,3 @@ export const cleanup = async () => {
 
   log("Cleanup completed successfully")
 }
-
-// Register signal handlers for graceful shutdown on interruption (e.g., Ctrl+C)
-//process.on("SIGINT", gracefulShutdown)
-//process.on("SIGTERM", gracefulShutdown)
