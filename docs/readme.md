@@ -8,7 +8,7 @@
   - [Configure MCP](#configure-mcp)
   - [Setup and Troubleshooting](#setup-and-troubleshooting)
     - [Setup](#setup)
-    - [Verify that Obsidian REST API is running Windows Host, MacOD, Linux](#verify-that-obsidian-rest-api-is-running-windows-host-macod-linux)
+    - [Verify that Obsidian REST API is running Windows Host, MacOS, Linux](#verify-that-obsidian-rest-api-is-running-windows-host-macos-linux)
     - [WSL2, Docker hosted on Ubuntu](#wsl2-docker-hosted-on-ubuntu)
     - [Verify Windows Firewall](#verify-windows-firewall)
     - [Disable/Enable Firewall](#disableenable-firewall)
