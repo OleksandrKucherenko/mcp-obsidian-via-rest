@@ -1,0 +1,132 @@
+name: Screenshots VNC Obsidian GUI
+
+on:
+  release:
+    types: [created]
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (optional)'
+        required: false
+        type: string
+
+# Allow only one concurrent deployment, skipping runs queued between the run in-progress and latest queued.
+# However, do NOT cancel in-progress runs as we want to allow these production deployments to complete.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+      pages: write
+      id-token: write
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        # get full history for release-it tool
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Docker Compose
+        id: compose
+        uses: hoverkraft-tech/compose-action@v2.2.0
+        continue-on-error: true
+        with:
+          compose-file: ./docker-compose.test.yaml
+
+      - name: Collect Docker Compose Logs
+        shell: bash
+        continue-on-error: true
+        run: |
+          # or: docker logs $(docker ps -aq) > compose-logs.txt
+          docker compose -f ./docker-compose.test.yaml logs --no-color > compose-logs.txt
+          # print to job log
+          cat compose-logs.txt
+
+      - name: Collect Screenshots (only on failure)
+        if: steps.compose.outcome == 'failure'
+        shell: bash
+        continue-on-error: true
+        run: |
+          # force docker to run VNC Obsidian container for making possible screenshots
+          docker compose -f ./docker-compose.test.yaml up obsidian -d
+          # try to capture screenshots
+          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+          # stop VNC Obsidian container
+          docker compose -f ./docker-compose.test.yaml down obsidian
+
+      - name: Collect Screenshots (only on success)
+        if: steps.compose.outcome == 'success'
+        shell: bash
+        continue-on-error: true
+        run: |
+          # try to capture screenshots
+          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+
+      - name: Upload reports (logs, screenshots, etc.)
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
+        with:
+          name: ci-reports
+          path: |
+            compose-logs.txt
+            reports/**
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Generate screenshot index.html
+        shell: bash
+        continue-on-error: true
+        run: |
+          # install image convertion tool
+          sudo apt-get update && sudo apt-get install -y imagemagick jhead
+
+          # ref: https://github.com/Cyclenerd/gallery_shell
+          curl -O "https://raw.githubusercontent.com/Cyclenerd/gallery_shell/master/gallery.sh"
+          chmod +x gallery.sh
+
+          # create screenshots directory if it doesn't exist, it should exist already
+          mkdir -p reports/screenshots
+
+          for img in reports/screenshots/*.png; do
+            convert "$img" -quality 95 "${img%.png}.jpg"
+            rm "$img" 
+          done
+          
+          # generate gallery
+          cd reports/screenshots
+          ../../gallery.sh -t "Build ${{ github.run_id }} CI Screenshot Preview" -d .
+
+      - name: Upload screenshots to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./reports/screenshots
+          destination_dir: ./docs/${{ github.run_id }}
+
+      - name: Comment with screenshot preview
+        uses: marocchino/sticky-pull-request-comment@v2
+        continue-on-error: true
+        with:
+          message: |
+            🖼️ [CI Screenshot Preview](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.run_id }}/)
+
+      - name: Add annotation with screenshot preview link
+        shell: bash
+        run: |
+          echo "::notice title=CI Screenshot Preview::View screenshots https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.run_id }}/"

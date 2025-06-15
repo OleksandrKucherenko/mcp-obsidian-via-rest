@@ -1,9 +1,13 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": ["src/index.ts", "src/cli.ts"],
-  "project": ["src/**/*.ts", "!src/**/*.test.ts"],
-  "ignoreDependencies": ["typescript"],
-  "ignoreBinaries": ["bun", "bunx", "tsc", "biome"],
+  "entry": ["tests/**/*.test.ts"],
+  "project": ["{src,tests}/**/*.ts", "!src/**/*.test.ts", "!.github/**/*.yml"],
+  "ignoreDependencies": [],
+  "ignoreBinaries": [
+    "tsc",
+    // NOTE: `bun publish` is recognized by knip as a binary
+    "publish"
+  ],
   "ignoreExportsUsedInFile": true,
   "rules": {
     "dependencies": "error",
