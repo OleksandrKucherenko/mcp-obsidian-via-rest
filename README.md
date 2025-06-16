@@ -1,6 +1,6 @@
 # mcp-obsidian
 
-[![NPM](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml) [![Docker](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml)
+[![NPM](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml) [![Docker](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest)
 
 ## Configure MCP 
 
