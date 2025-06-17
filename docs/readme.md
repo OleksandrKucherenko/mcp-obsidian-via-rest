@@ -61,15 +61,15 @@
 
 ![Obsidian Local REST API Setup](./obsidian-setup.jpg)
 
-This setting will allow to connect to Local REST API from any network interface (not only localhost, which is critical for WSL2 setup).
+This setting will allow you to connect to the Local REST API from any network interface (not only localhost, which is critical for WSL2 setup).
 
-- Copy API Key from Obsidian Settings, you will need it for MCP configuration.
+- Copy the API Key from Obsidian Settings; you will need it for the MCP configuration.
 
-- Verify that Obsidian Local REST API is running and accessible from your machine.
+- Verify that the Obsidian Local REST API is running and accessible from your machine.
 
-- Next Step is always verify the network setup on your machine (firewall rules, etc).
+- Next Step is always to verify the network setup on your machine (firewall rules, etc).
 
-### Verify that Obsidian REST API is running (Windows Host, MacOS, Linux)
+### Verify that the Obsidian REST API is running (Windows Host, MacOS, Linux)
 
 Run in Windows CMD terminal:
 
@@ -189,7 +189,7 @@ Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True
 
 ### Verify Connectivity on BusyBox Container
 
-This steps allows to confirm that the network setup is correct and the container can connect to the Local REST API.
+These steps allow us to confirm that the network setup is correct and the container can connect to the Local REST API.
 
 Execute inside the WSL2 Ubuntu terminal:
 
