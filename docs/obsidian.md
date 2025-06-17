@@ -1,4 +1,4 @@
-# Dockerized Obsiadian Application
+# Dockerized Obsidian Application
 
 <!-- TOC -->
 
@@ -92,9 +92,9 @@ Recommendation:
 
 ## E2E Testing, TestContainers
 
-This containers setup is perfect for testing MCP servers integrations with Obsidain Application, STDIO communication protocol.
+This container's setup is perfect for testing MCP servers integrations with the Obsidain Application, STDIO communication protocol.
 
-> Note: To make possible execution of E2E tests docker compose configuration uses different ports for API and VNC.
+> Note: To make the execution of E2E tests possible, the Docker Compose configuration uses different ports for API and VNC.
 
 ```bash
 # Run dockerized Obsidian and MCP (designed for testcontainers)
@@ -115,13 +115,13 @@ docker compose -f docker-compose.test.yaml down
 
 ## Screenshots CI/CD
 
-To make possible verification of the Obsidian GUI in the CI/CD pipeline, we use the screenshots approach.
+To facilitate verification of the Obsidian GUI in the CI/CD pipeline, we utilize the screenshot approach.
 
-Automation script `./dockerize/ci_screenshot_obsidian_gui.sh` is used to capture screenshots of the Obsidian GUI during the CI/CD pipeline. After that screenshots published as an artifacts and as `gh-pages` for quick verification (link also published as workflow annotation message).
+Automation script `./dockerize/ci_screenshot_obsidian_gui.sh` is used to capture screenshots of the Obsidian GUI during the CI/CD pipeline. After that, screenshots are published as artifacts and as `gh-pages` for quick verification (link also published as workflow annotation message).
 
-Why we need this? Obsidian Application has trust verification UI, when user open vault for the first time, it asks to confirm trust to the vault and all it plugins. 
+Why do we need this? Obsidian Application has a trust verification UI When the user opens the vault for the first time, it asks to confirm trust in the vault and all its plugins. 
 
-Captured screenshots published as a static website with the help of BASH script: [gallery_shell](https://github.com/Cyclenerd/gallery_shell). 
+Captured screenshots published as a static website with the help of a BASH script: [gallery_shell](https://github.com/Cyclenerd/gallery_shell). 
 
 | Web Preview | Link |
 | --- | --- |
