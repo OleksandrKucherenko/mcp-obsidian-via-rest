@@ -49,3 +49,6 @@ reports/screenshots/
 
 # Local Obsidian test data (vaults, configs)
 # dockerize/obsidian/ # Temporarily commented out to allow test vault creation
+
+# Deprecation scripts
+deprecate-*.sh
