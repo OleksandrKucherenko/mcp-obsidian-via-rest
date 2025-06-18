@@ -53,22 +53,39 @@ jobs:
           bun-version: latest
 
       - name: Install Dependencies
-        run: bun install
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          bun install
 
       - name: Extract version from tag
         id: get-version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+        run: |
+          # if tag is like refs/tags/v1.2.3, extract version from tag
+          if [[ $GITHUB_REF == *"refs/tags/v"* ]]; then
+            echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+          else # otherwise use version from package.json
+            VERSION=$(jq -r '.version' package.json)
+            echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          fi
 
       - name: Update version in package.json
         run: |
-          # Ensure version in package.json matches tag
-          jq ".version = \"${{ steps.get-version.outputs.VERSION }}\"" package.json > package.json.tmp
-          mv package.json.tmp package.json
+          # Update version in package.json only if different from tag
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+          if [ "$CURRENT_VERSION" != "${{ steps.get-version.outputs.VERSION }}" ]; then
+            jq ".version = \"${{ steps.get-version.outputs.VERSION }}\"" package.json > package.json.tmp
+            mv package.json.tmp package.json
+            echo "Updated package.json version from $CURRENT_VERSION to ${{ steps.get-version.outputs.VERSION }}"
+          else
+            echo "Version in package.json already matches ${{ steps.get-version.outputs.VERSION }}"
+          fi
 
       - name: Generate Changelog with release-it
         run: |
-          bun add --dev release-it
           bun run release-it --ci --no-git --no-npm --no-github --changelog
+          echo "Generated changelog:"
+          head -n 50 CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -80,21 +97,21 @@ jobs:
       - name: Run Package Publish Dry Run
         id: dry-run
         run: |
-          # Create .npmrc file with auth token from env var
-          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
-          echo "=== DRY RUN MODE - No actual publishing ===" 
+          echo "=== DRY RUN MODE - No actual publishing ==="
           npm publish --dry-run --access public
           
           # Store package info for the publish job
-          PKG_NAME=$(node -p "require('./package.json').name")
-          PKG_VERSION=$(node -p "require('./package.json').version")
+          PKG_NAME=$(jq -r '.name' package.json)
+          PKG_VERSION=$(jq -r '.version' package.json)
           echo "PKG_NAME=$PKG_NAME" >> $GITHUB_OUTPUT
           echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_OUTPUT
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          # registry URL referenced in .npmrc
+          NPM_REGISTRY_URL: "https://registry.npmjs.org/"
           
       - name: Upload Package Artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: npm-package
           path: |
@@ -112,7 +129,6 @@ jobs:
   # Second job: Actual publish with manual approval
   publish-to-npmjs:
     needs: prepare-and-dry-run
-    environment: npm-publishing  # This environment can be configured with protection rules in repository settings
     runs-on: ubuntu-latest
     steps:
       - name: Download Package Artifact
@@ -135,7 +151,10 @@ jobs:
           echo "Publishing $PKG_NAME@$PKG_VERSION to npmjs.org"
           npm publish --access public
         env:
+          # used in .npmrc file
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          # registry URL referenced in .npmrc
+          NPM_REGISTRY_URL: "https://registry.npmjs.org/"
 
   # Cleanup job to deprecate old versions (runs weekly)
   cleanup-old-versions:
@@ -155,35 +174,23 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y jq
-          npm install -g npm-check-updates npm-deprecate
 
       - name: Get package name
         id: pkg-info
         run: |
-          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_NAME=$(jq -r '.name' package.json)
           echo "PKG_NAME=$PKG_NAME" >> $GITHUB_OUTPUT
 
-      - name: List and deprecate old versions
+      - name: Deprecate old package versions
         run: |
-          # Get all versions of the package
-          ALL_VERSIONS=$(npm view ${{ steps.pkg-info.outputs.PKG_NAME }} versions --json)
-          
-          # Keep only the last 3 versions
-          if [ $(echo "$ALL_VERSIONS" | jq 'length') -gt 3 ]; then
-            # Sort versions and skip the newest 3
-            VERSIONS_TO_DEPRECATE=$(echo "$ALL_VERSIONS" | jq 'sort_by(. | split(".") | map(tonumber)) | .[0:-3]')
-            
-            echo "Found versions to deprecate: $VERSIONS_TO_DEPRECATE"
-            
-            # Deprecate each version with message
-            echo "$VERSIONS_TO_DEPRECATE" | jq -r '.[]' | while read VERSION; do
-              echo "Deprecating ${{ steps.pkg-info.outputs.PKG_NAME }}@$VERSION"
-              npm-deprecate "${{ steps.pkg-info.outputs.PKG_NAME }}@$VERSION" "This version is deprecated. Please update to a newer version."
-            done
-          else
-            echo "Less than 4 versions found. No versions to deprecate."
-          fi
+          echo "Running automated NPM package deprecation"
+          node ./assets/ci_deprecate_npm_package.js ${{ steps.pkg-info.outputs.PKG_NAME }}
+
+          # print the generated script
+          cat ./deprecate-${{ steps.pkg-info.outputs.PKG_NAME }}-old-versions.sh
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_CONFIG_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          # registry URL referenced in .npmrc
+          NPM_REGISTRY_URL: "https://registry.npmjs.org/"

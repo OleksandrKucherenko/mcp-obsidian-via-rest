@@ -192,3 +192,5 @@ jobs:
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # used in .npmrc, .envrc and .bunfig.toml
           NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # registry URL referenced in .npmrc
+          NPM_REGISTRY_URL: "https://npm.pkg.github.com"
