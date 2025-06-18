@@ -17,9 +17,6 @@ on:
         type: boolean
         default: true
         required: true
-  # Weekly schedule for version cleanup
-  schedule:
-    - cron: '0 2 * * 0'  # Runs at 2:00 AM every Sunday
 
 jobs:
   # First job: Prepare and run dry-run
@@ -54,8 +51,6 @@ jobs:
 
       - name: Install Dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
           bun install
 
       - name: Extract version from tag
@@ -80,12 +75,34 @@ jobs:
           else
             echo "Version in package.json already matches ${{ steps.get-version.outputs.VERSION }}"
           fi
+          
+      - name: Update publishConfig for npmjs.org
+        run: |
+          # Update all registry entries in publishConfig to use npmjs.org instead of GitHub Packages
+          echo "Updating publishConfig in package.json to use npmjs.org"
+          
+          # Update main registry
+          jq '.publishConfig.registry = "https://registry.npmjs.org/"' package.json > package.json.tmp
+          
+          # Update scoped registries
+          jq '.publishConfig."@artfulbits:registry" = "https://registry.npmjs.org/"' package.json.tmp > package.json.tmp2
+          mv package.json.tmp2 package.json.tmp
+          
+          jq '.publishConfig."@oleksandrkucherenko:registry" = "https://registry.npmjs.org/"' package.json.tmp > package.json.tmp2
+          mv package.json.tmp2 package.json.tmp
+          
+          # Apply changes
+          mv package.json.tmp package.json
+          
+          # Verify the changes
+          echo "Updated registry settings in publishConfig:"
+          jq -r '.publishConfig | to_entries[] | "\(.key): \(.value)"' package.json
 
       - name: Generate Changelog with release-it
         run: |
           bun run release-it --ci --no-git --no-npm --no-github --changelog
           echo "Generated changelog:"
-          head -n 50 CHANGELOG.md
+          head -n 50 CHANGELOG.md || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -109,14 +126,15 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           # registry URL referenced in .npmrc
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"
-          
+
       - name: Upload Package Artifact
         uses: actions/upload-artifact@v4
         with:
           name: npm-package
           path: |
+            dist/index.js
+            dist/index.js.map
             package.json
-            .npmrc
             *.tgz
           retention-days: 1
       
@@ -149,48 +167,9 @@ jobs:
           PKG_VERSION=$(node -p "require('./package.json').version")
           
           echo "Publishing $PKG_NAME@$PKG_VERSION to npmjs.org"
-          npm publish --access public
+          npm publish --access public --registry="https://registry.npmjs.org/"
         env:
           # used in .npmrc file
           NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
-          # registry URL referenced in .npmrc
-          NPM_REGISTRY_URL: "https://registry.npmjs.org/"
-
-  # Cleanup job to deprecate old versions (runs weekly)
-  cleanup-old-versions:
-    if: ${{ github.event_name == 'schedule' }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org/'
-
-      - name: Install required tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y jq
-
-      - name: Get package name
-        id: pkg-info
-        run: |
-          PKG_NAME=$(jq -r '.name' package.json)
-          echo "PKG_NAME=$PKG_NAME" >> $GITHUB_OUTPUT
-
-      - name: Deprecate old package versions
-        run: |
-          echo "Running automated NPM package deprecation"
-          node ./assets/ci_deprecate_npm_package.js ${{ steps.pkg-info.outputs.PKG_NAME }}
-
-          # print the generated script
-          cat ./deprecate-${{ steps.pkg-info.outputs.PKG_NAME }}-old-versions.sh
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           # registry URL referenced in .npmrc
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"

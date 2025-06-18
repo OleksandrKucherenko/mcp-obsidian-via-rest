@@ -1,7 +1,10 @@
 # source code and distribution build
 !src/
+src/**/*.test.ts
 !dist/
 dist/*.map
+tests
+docs
 
 # project helpers
 assets
@@ -17,6 +20,7 @@ reports
 
 # e2e testing is not included
 docker-compose.yaml
+docker-compose.test.yaml
 
 # Dockerize
 dockerize
@@ -29,3 +33,9 @@ Dockerfile
 .lintstagedrc.cjs
 .npmignore
 biome.jsonc
+.czrc
+
+# Release utils
+.bunfig.toml
+.release-it.json
+.keep-versions
