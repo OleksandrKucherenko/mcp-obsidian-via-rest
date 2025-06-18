@@ -1,0 +1,189 @@
+name: Publish NPM Package (npmjs.org)
+
+on:
+  workflow_run:
+    workflows: ["Publish NPM Package"]
+    types:
+      - completed
+    branches:
+      - main
+  push:
+    tags:
+      - 'v*'  # Any valid semver version tag
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run mode (no actual publishing)'
+        type: boolean
+        default: true
+        required: true
+  # Weekly schedule for version cleanup
+  schedule:
+    - cron: '0 2 * * 0'  # Runs at 2:00 AM every Sunday
+
+jobs:
+  # First job: Prepare and run dry-run
+  prepare-and-dry-run:
+    runs-on: ubuntu-latest
+    # Conditions:
+    # 1. If triggered by workflow_run, the GitHub Packages workflow must have succeeded AND this must be a version tag
+    # 2. If triggered by push, it must be a version tag
+    # 3. If triggered manually (workflow_dispatch), always run
+    if: |
+      ${{ 
+        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v')) || 
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || 
+        github.event_name == 'workflow_dispatch'
+      }}
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history needed for release-it to generate proper changelog
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Extract version from tag
+        id: get-version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+      - name: Update version in package.json
+        run: |
+          # Ensure version in package.json matches tag
+          jq ".version = \"${{ steps.get-version.outputs.VERSION }}\"" package.json > package.json.tmp
+          mv package.json.tmp package.json
+
+      - name: Generate Changelog with release-it
+        run: |
+          bun add --dev release-it
+          bun run release-it --ci --no-git --no-npm --no-github --changelog
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Package
+        run: |
+          bun run publish:prepare
+
+      # Always run dry-run first
+      - name: Run Package Publish Dry Run
+        id: dry-run
+        run: |
+          # Create .npmrc file with auth token from env var
+          echo "//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}" > .npmrc
+          echo "=== DRY RUN MODE - No actual publishing ===" 
+          npm publish --dry-run --access public
+          
+          # Store package info for the publish job
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "PKG_NAME=$PKG_NAME" >> $GITHUB_OUTPUT
+          echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_OUTPUT
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          
+      - name: Upload Package Artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: npm-package
+          path: |
+            package.json
+            .npmrc
+            *.tgz
+          retention-days: 1
+      
+      - name: Dry Run Summary
+        run: |
+          echo "## NPM Package Dry Run Results 📦" >> $GITHUB_STEP_SUMMARY
+          echo "Package **${{ steps.dry-run.outputs.PKG_NAME }}@${{ steps.dry-run.outputs.PKG_VERSION }}** is ready to be published." >> $GITHUB_STEP_SUMMARY
+          echo "\nPlease review the dry run output above and approve the 'publish-to-npmjs' job to complete the publish process." >> $GITHUB_STEP_SUMMARY
+
+  # Second job: Actual publish with manual approval
+  publish-to-npmjs:
+    needs: prepare-and-dry-run
+    environment: npm-publishing  # This environment can be configured with protection rules in repository settings
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Package Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: npm-package
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Publish to NPMJS.org
+        run: |
+          # .npmrc file was restored from artifacts
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          
+          echo "Publishing $PKG_NAME@$PKG_VERSION to npmjs.org"
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+
+  # Cleanup job to deprecate old versions (runs weekly)
+  cleanup-old-versions:
+    if: ${{ github.event_name == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org/'
+
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y jq
+          npm install -g npm-check-updates npm-deprecate
+
+      - name: Get package name
+        id: pkg-info
+        run: |
+          PKG_NAME=$(node -p "require('./package.json').name")
+          echo "PKG_NAME=$PKG_NAME" >> $GITHUB_OUTPUT
+
+      - name: List and deprecate old versions
+        run: |
+          # Get all versions of the package
+          ALL_VERSIONS=$(npm view ${{ steps.pkg-info.outputs.PKG_NAME }} versions --json)
+          
+          # Keep only the last 3 versions
+          if [ $(echo "$ALL_VERSIONS" | jq 'length') -gt 3 ]; then
+            # Sort versions and skip the newest 3
+            VERSIONS_TO_DEPRECATE=$(echo "$ALL_VERSIONS" | jq 'sort_by(. | split(".") | map(tonumber)) | .[0:-3]')
+            
+            echo "Found versions to deprecate: $VERSIONS_TO_DEPRECATE"
+            
+            # Deprecate each version with message
+            echo "$VERSIONS_TO_DEPRECATE" | jq -r '.[]' | while read VERSION; do
+              echo "Deprecating ${{ steps.pkg-info.outputs.PKG_NAME }}@$VERSION"
+              npm-deprecate "${{ steps.pkg-info.outputs.PKG_NAME }}@$VERSION" "This version is deprecated. Please update to a newer version."
+            done
+          else
+            echo "Less than 4 versions found. No versions to deprecate."
+          fi
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
