@@ -21,9 +21,11 @@
         "@release-it/conventional-changelog": "^10.0.1",
         "@types/bun": "^1.2.15",
         "@types/find-config": "^1.0.4",
+        "@types/js-yaml": "^4.0.9",
         "commitizen": "^4.3.1",
         "cz-conventional-changelog": "^3.3.0",
         "husky": "^9.1.7",
+        "js-yaml": "^4.1.0",
         "knip": "^5.60.0",
         "lint-staged": "^16.1.0",
         "release-it": "^19.0.3",
@@ -220,6 +222,8 @@
     "@types/dockerode": ["@types/dockerode@3.3.40", "", { "dependencies": { "@types/docker-modem": "*", "@types/node": "*", "@types/ssh2": "*" } }, "sha512-O1ckSFYbcYv/KcnAHMLCnKQYY8/5+6CRzpsOPcQIePHRX2jG4Gmz8uXPMCXIxTGN9OYkE5eox/L67l2sGY1UYg=="],
 
     "@types/find-config": ["@types/find-config@1.0.4", "", {}, "sha512-BCXaKgzHK7KnfCQBRQBWGTA+QajOE9uFolXPt+9EktiiMS56D8oXF2ZCh9eCxuEyfqDmX/mYIcmWg9j9f659eg=="],
+
+    "@types/js-yaml": ["@types/js-yaml@4.0.9", "", {}, "sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg=="],
 
     "@types/ms": ["@types/ms@2.1.0", "", {}, "sha512-GsCCIZDE/p3i96vtEqx+7dBUGXrc7zeSK3wwPHIaRThS+9OhWIXRqzs4d6k1SVU8g91DrNRWxWUGhp5KXQb2VA=="],
 
