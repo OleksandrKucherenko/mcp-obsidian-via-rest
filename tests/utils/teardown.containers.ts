@@ -1,18 +1,15 @@
-import { exec as cpExec } from "node:child_process"
-import { promisify } from "node:util"
 import debug from "debug"
+import { exec as cpExec } from "node:child_process"
 import path from "node:path"
+import { promisify } from "node:util"
 import type { StartedDockerComposeEnvironment } from "testcontainers"
 
 import type { ContainerStdio } from "./container.stdio"
+import { extractComposeResources } from "./docker.compose"
 
 // Promisify exec for async/await usage
 const exec = promisify(cpExec)
 const log = debug("mcp:e2e")
-
-// TODO: Extract Services names from docker-compose.test.yaml (networks, volumes, images)
-const composeFilePath = path.resolve(__dirname, "..")
-const composeFile = "docker-compose.test.yaml"
 
 // Configuration for Docker cleanup behavior
 interface CleanupConfig {
@@ -63,21 +60,28 @@ type GracefulShutdownArgs = {
 export const cleanupNetworks = async () => {
   log("Cleaning up test networks...")
 
-  // Remove the base network
-  await exec("docker network rm mcp-test-net || true")
-
-  // Find and remove all testcontainers networks matching our pattern
   try {
+    // Get network names from compose file
+    const { networkNames, projectName } = await extractComposeResources()
+
+    // Remove networks defined in compose file
+    for (const networkName of networkNames) {
+      log(`Removing network: ${networkName}`)
+      await exec(`docker network rm ${networkName} || true`)
+    }
+
+    // Find and remove all testcontainers networks matching our pattern
+    const safeProjectName = projectName || "mcp-obsidian-via-rest"
     const { stdout: networks } = await exec(
-      "docker network ls --format '{{.Name}}' | grep 'testcontainers.*mcp-test-net' || true",
+      `docker network ls --format '{{.Name}}' | grep -E '(testcontainers.*${safeProjectName}|testcontainers.*mcp-test-net)' || true`,
     )
 
-    const networkNames = networks
+    const networkNamesToRemove = networks
       .trim()
       .split("\n")
       .filter((name) => name.length > 0)
 
-    for (const networkName of networkNames) {
+    for (const networkName of networkNamesToRemove) {
       log(`Removing testcontainers network: ${networkName}`)
       await exec(`docker network rm ${networkName} || true`)
     }
@@ -93,18 +97,29 @@ export const cleanupNetworks = async () => {
 export const cleanupVolumes = async () => {
   log("Cleaning up test volumes...")
 
-  // Remove any volumes that might have been created by our containers
   try {
+    // Get volume names from compose file
+    const { volumeNames, projectName } = await extractComposeResources()
+    const safeProjectName = projectName || "mcp-obsidian-via-rest"
+
+    // Remove named volumes from compose file
+    for (const volumeName of volumeNames) {
+      log(`Removing named volume: ${volumeName}`)
+      await exec(`docker volume rm ${volumeName} || true`)
+    }
+
+    // Find volumes created by our test environment
+    const testPattern = `testcontainers-${safeProjectName}|${safeProjectName.replace(/-/g, "")}`
     const { stdout: volumes } = await exec(
-      "docker volume ls --format '{{.Name}}' | grep -E '(testcontainers|[a-f0-9]{64})' || true",
+      `docker volume ls --format '{{.Name}}' | grep -E '(${testPattern}|testcontainers|[a-f0-9]{64})' || true`,
     )
 
-    const volumeNames = volumes
+    const testVolumes = volumes
       .trim()
       .split("\n")
       .filter((name) => name.length > 0)
 
-    for (const volumeName of volumeNames) {
+    for (const volumeName of testVolumes) {
       log(`Removing volume: ${volumeName}`)
       await exec(`docker volume rm ${volumeName} || true`)
     }
@@ -113,8 +128,11 @@ export const cleanupVolumes = async () => {
   }
 
   // General volume cleanup
-  log("Removing any orphaned volumes...") // WARNING: can be too much destructive
-  await exec("docker volume prune -f || true")
+  // Only prune if explicitly requested through the environment variable
+  if (process.env.PRUNE_VOLUMES === "true") {
+    log("Removing any orphaned volumes... (PRUNE_VOLUMES=true)")
+    await exec("docker volume prune -f || true")
+  }
 }
 
 export const cleanupImages = async () => {
@@ -143,16 +161,28 @@ export const cleanupContainer = async () => {
   log("Final container cleanup...")
 
   try {
+    // Get container names from compose file
+    const { containerNames, projectName } = await extractComposeResources()
+    const safeProjectName = projectName || "mcp-obsidian-via-rest"
+
+    // Create regex pattern for matching containers
+    // Include explicit container names, auto-generated names, and testcontainers prefix with our project
+    const containerPattern =
+      [...containerNames, `testcontainers-${safeProjectName}`].filter(Boolean).join("|") ||
+      "(obsidian|mcp|testcontainers)"
+
+    log(`Searching for containers matching pattern: ${containerPattern}`)
+
     const { stdout: containers } = await exec(
-      "docker ps -a --format '{{.Names}}' | grep -E '(obsidian|mcp|testcontainers)' || true",
+      `docker ps -a --format '{{.Names}}' | grep -E '(${containerPattern})' || true`,
     )
 
-    const containerNames = containers
+    const containerNamesToRemove = containers
       .trim()
       .split("\n")
       .filter((name) => name.length > 0)
 
-    for (const containerName of containerNames) {
+    for (const containerName of containerNamesToRemove) {
       log(`Stopping and removing container: ${containerName}`)
 
       await exec(`docker stop ${containerName} || true`)
