@@ -201,8 +201,16 @@ describe("ObsidianAPI - Unit Tests", () => {
         },
       ]
       const expectedResults = [
-        { path: "note1.md", content: "content1", metadata: { score: 0.75 } },
-        { path: "note2.md", content: "content2", metadata: { score: 0.5 } },
+        {
+          path: "note1.md",
+          content: "content1",
+          metadata: { score: 0.75 },
+        },
+        {
+          path: "note2.md",
+          content: "content2",
+          metadata: { score: 0.5 },
+        },
       ]
 
       mockClient.post.mockResolvedValue({ data: apiResponse })
