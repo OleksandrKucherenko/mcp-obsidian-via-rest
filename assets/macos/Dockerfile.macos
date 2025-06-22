@@ -1,4 +1,5 @@
 # Use a minimal Debian-based image
+# Explicitly use ARM64 architecture for macOS/Apple Silicon
 FROM --platform=$BUILDPLATFORM debian:bullseye-slim
 
 # Detect architecture and use the appropriate AppImage URL
@@ -7,8 +8,13 @@ ARG TARGETARCH
 # Obsidian version
 ARG OBSIDIAN_VERSION="1.8.10"
 
+#RUN if [ "$TARGETARCH" = "arm64" ]; then TINI_BIN=tini-aarch64; else TINI_BIN=tini ; fi && \
+#    wget -O /tini https://github.com/krallin/tini/releases/download/${TINI_VERSION}/${TINI_BIN} && \
+#    chmod +x /tini
+
 ENV OBSIDIAN_APPIMAGE_ARM64_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/Obsidian-${OBSIDIAN_VERSION}-arm64.AppImage"
 ENV OBSIDIAN_APPIMAGE_STD_URL="https://github.com/obsidianmd/obsidian-releases/releases/download/v${OBSIDIAN_VERSION}/Obsidian-${OBSIDIAN_VERSION}.AppImage"
+
 ENV USERNAME=appuser
 ENV OBSIDIAN_CONFIG_DIR=/config/obsidian
 ENV OBSIDIAN_APP_CONFIG_DIR=/home/${USERNAME}/.config/obsidian
@@ -24,6 +30,8 @@ RUN apt-get update  \
     && apt-get install -y --no-install-recommends \
     # generic tools
     tini wget curl ca-certificates git unzip bsdextrautils procps \
+    # binary inspection tools for debugging architecture issues
+    file binutils \
     # x11 virtual display, fluxbox window manager, x11vnc (VNC server)
     xvfb fluxbox x11vnc \
     # dbus for Electron/Obsidian notifications and IPC
@@ -48,23 +56,37 @@ RUN apt-get update  \
     && ln -sf /usr/bin/tini /tini
 
 # Create a non-root user
-RUN useradd --create-home --shell /bin/bash ${USERNAME} && \
-    # Create app and config directories 
-    mkdir -p ${APP_DIR} ${OBSIDIAN_CONFIG_DIR} && \
+RUN useradd --create-home --shell /bin/bash ${USERNAME}
+
+# Create app and config directories
+RUN mkdir -p ${APP_DIR} ${OBSIDIAN_CONFIG_DIR} && \
     mkdir -p ${OBSIDIAN_APP_CONFIG_DIR} && \
     chown -R ${USERNAME}:${USERNAME} ${APP_DIR} ${OBSIDIAN_CONFIG_DIR} && \
     chown -R ${USERNAME}:${USERNAME} ${OBSIDIAN_APP_CONFIG_DIR}
 
 WORKDIR ${APP_DIR}
 
-# Download and set up Obsidian AppImage
-RUN if [ "${TARGETARCH}" = "arm64" ]; then URL=${OBSIDIAN_APPIMAGE_ARM64_URL}; else URL=${OBSIDIAN_APPIMAGE_STD_URL}; fi && \
-    wget -O Obsidian.AppImage "${URL}" && \
-    chmod +x Obsidian.AppImage
+# Download and set up Obsidian AppImage with architecture detection
+RUN echo "BUILDARCH=${BUILDARCH} TARGETARCH=${TARGETARCH} Architecture: $(uname -m)" && \
+    echo "ARM64 URL: ${OBSIDIAN_APPIMAGE_ARM64_URL}" && \
+    echo "STD URL: ${OBSIDIAN_APPIMAGE_STD_URL}" && \
+    if [ "${TARGETARCH}" = "arm64" ]; then \
+        echo "Detected ARM64 architecture, downloading ARM64 AppImage"; \
+        export OBSIDIAN_APPIMAGE_URL=${OBSIDIAN_APPIMAGE_ARM64_URL}; \
+    else \
+        echo "Using standard x86_64 AppImage"; \
+        export OBSIDIAN_APPIMAGE_URL=${OBSIDIAN_APPIMAGE_STD_URL}; \
+    fi && \
+    echo "Downloading from: ${OBSIDIAN_APPIMAGE_URL}" && \
+    wget -O Obsidian.AppImage "${OBSIDIAN_APPIMAGE_URL}" && \
+    chmod +x Obsidian.AppImage && \
+    echo "Downloaded AppImage file info:" && \
+    ls -la Obsidian.AppImage && \
+    file Obsidian.AppImage
 
 # Copy entrypoint script
-COPY --chown=${USERNAME}:${USERNAME} entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
+# COPY --chown=${USERNAME}:${USERNAME} entrypoint.sh /entrypoint.sh
+# RUN chmod +x /entrypoint.sh
 
 # Expose VNC port and a port for Obsidian Sync (if needed, adjust as necessary)
 EXPOSE 5900
@@ -80,8 +102,50 @@ COPY --chown=${USERNAME}:${USERNAME} obsidian/.config/obsidian/ ${OBSIDIAN_APP_C
 VOLUME ${OBSIDIAN_CONFIG_DIR}
 VOLUME ${OBSIDIAN_APP_CONFIG_DIR}
 
-# Use Tini as the entrypoint
-ENTRYPOINT ["/tini", "--", "/entrypoint.sh"]
+# Extra diagnostics for debugging
+RUN echo "Final check - Obsidian AppImage exists:" && ls -la Obsidian.AppImage
+
+# Copy our macOS-specific entrypoint that keeps running even if xdotool fails
+COPY --chown=${USERNAME}:${USERNAME} entrypoint.macos.sh /entrypoint.macos.sh
+RUN chmod +x /entrypoint.macos.sh
+
+# This script runs a special infinite loop for macOS compatibility
+COPY --chown=${USERNAME}:${USERNAME} <<-"EOT" /entrypoint.resilient.sh
+#!/bin/bash
+
+# Run the actual entrypoint with all arguments
+/entrypoint.macos.sh "$@" &
+
+# Get its PID
+MAIN_PID=$!
+
+# Create healthcheck file
+touch /tmp/healthcheck
+
+# Keep container running even if main script exits
+while true; do
+  if [ -f "/tmp/healthcheck" ]; then
+    touch /tmp/healthcheck  # Update timestamp
+  fi
+  
+  # Check if main process is still running
+  if kill -0 $MAIN_PID 2>/dev/null; then
+    # Still running, all good
+    :  # no-op
+  else
+    echo "[$(date '+%H:%M:%S')] Main entrypoint script exited. Keeping container alive for debugging."
+    # Uncomment to automatically exit instead:
+    # exit 1
+  fi
+  
+  sleep 10
+done
+EOT
+
+RUN chmod +x /entrypoint.resilient.sh
+
+# Use Tini as the entrypoint, with our resilient script
+ENTRYPOINT ["/tini", "--", "/entrypoint.resilient.sh"]
 
 # Default command (can be overridden)
 CMD ["./Obsidian.AppImage", "--no-sandbox"]

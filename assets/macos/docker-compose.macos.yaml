@@ -1,0 +1,70 @@
+# macOS Apple Silicon specific Docker Compose configuration
+# Use this file with: docker compose -f docker-compose.macos.yaml up
+
+services:
+  obsidian:
+    networks:
+      - mcp-test-net
+    build:
+      context: ./dockerize
+      dockerfile: Dockerfile.macos
+      args:
+        # Explicitly set target architecture for ARM64 Macs
+        TARGETARCH: arm64
+        # Force Docker to recognize we want arm64 build
+        BUILDPLATFORM: "linux/arm64"
+        BUILDOS: "linux"
+        BUILDARCH: "arm64"
+    # Explicitly specify platform to override any env vars
+    platform: linux/arm64
+    container_name: obsidian
+    environment:
+      # VNC: tvnviewer -host=localhost -port=50001 -password=testpassword -encoding=zrle
+      - VNC_PASSWORD=testpassword
+    ports:
+      - "50000:27124" # REST API
+      - "50001:5900" # VNC on 5901 to avoid conflict with dev instance
+    cap_add:
+      - SYS_ADMIN
+    devices:
+      - /dev/fuse:/dev/fuse
+    security_opt:
+      - apparmor:unconfined
+    # Extra option for macOS/Colima compatibility
+    privileged: true
+    healthcheck:
+      test: [ "CMD", "wget", "--no-check-certificate", "-S", "https://127.0.0.1:27124", "-O", "/dev/null", "-q" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    platform: linux/arm64
+    container_name: mcp
+    networks:
+      - mcp-test-net
+    depends_on:
+      obsidian:
+        condition: service_healthy
+    environment:
+      - DEBUG=mcp:*
+      # This API_HOST points to the obsidian service name, using Docker's internal DNS.
+      - API_HOST=https://obsidian
+      - API_PORT=27124 # REST API port
+      - API_KEY=190ba65d28ac1ba4797cb195bb06f20965395abbd9c39a0fa9b6cab2345c58b9
+    stdin_open: true # Keep STDIN open to allow the test runner to send MCP commands.
+    tty: false # Allocate a TTY for interactive communication.
+    healthcheck:
+      test: [ "CMD-SHELL", "test -f /tmp/mcp_healthy && test $(($(date +%s) - $(stat -c %Y /tmp/mcp_healthy))) -lt 30" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+networks:
+  mcp-test-net:
+    driver: bridge
