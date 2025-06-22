@@ -176,7 +176,7 @@ jobs:
     needs: prepare-and-dry-run
     runs-on: ubuntu-latest
     if: |
-      ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' }}
+      ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run != 'true' }}
     steps:
       - name: Download Package Artifact
         uses: actions/download-artifact@v4
