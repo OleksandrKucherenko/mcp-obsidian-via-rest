@@ -97,10 +97,10 @@ jobs:
           node assets/ci_deprecate_npm_package.js <package-name>
           bash deprecate-<package-name>-old-versions.sh
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPMJS_AUTH_TOKEN: ${{ secrets.GITHUB_NPM_TOKEN }}
 ```
 - Replace `<package-name>` with your actual package name.
-- Ensure `NPM_TOKEN` is set as a repository secret with publish/deprecate permissions.
+- Ensure `GITHUB_NPM_TOKEN` is set as a repository secret with publish/deprecate permissions.
 
 ---
 
@@ -121,7 +121,7 @@ jobs:
 
 ## Troubleshooting
 
-- **npm auth errors:** Ensure your `NODE_AUTH_TOKEN` or npm login is valid and has publish/deprecate rights.
+- **npm auth errors:** Ensure your `NPMJS_AUTH_TOKEN` or npm login is valid and has publish/deprecate rights.
 - **No versions deprecated:** Check your `.keep-versions` file and script options; recent versions are always kept.
 - **Script errors:** Run with Node.js 22+ and check for missing dependencies.
 

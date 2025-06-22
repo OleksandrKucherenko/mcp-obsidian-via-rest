@@ -2,11 +2,12 @@
 
 <!-- TOC -->
 
-- [Dockerized Obsiadian Application](#dockerized-obsiadian-application)
+- [Dockerized Obsidian Application](#dockerized-obsidian-application)
   - [Dockerized Obsidian with VNC](#dockerized-obsidian-with-vnc)
     - [VNC Encoding Methods](#vnc-encoding-methods)
   - [E2E Testing, TestContainers](#e2e-testing-testcontainers)
   - [Screenshots CI/CD](#screenshots-cicd)
+  - [MacOs Apple Silicon](#macos-apple-silicon)
 
 <!-- /TOC -->
 
@@ -127,3 +128,27 @@ Captured screenshots published as a static website with the help of a BASH scrip
 | --- | --- |
 | ![Web Preview](./screenshots-web-preview.jpg) | [GitHub Pages](https://OleksandrKucherenko.github.io/mcp-obsidian-via-rest/15666257244/) |
 
+## MacOs Apple Silicon
+
+```bash
+# build docker image for apple silicon
+docker build --platform linux/arm64 -t obsidian-macos:test -f dockerize/Dockerfile.macos ./dockerize
+
+# run dockerized Obsidian
+docker run --rm -it \
+  --platform linux/arm64 \
+  --name obsidian-test \
+  -e VNC_PASSWORD=testpassword \
+  --cap-add SYS_ADMIN \
+  --device /dev/fuse:/dev/fuse \
+  --security-opt apparmor:unconfined \
+  --privileged \
+  -p 50000:27124 -p 50001:5900 \
+  obsidian-macos:test
+
+# connect to the container
+vncviewer -host=localhost -port=50001 -password=testpassword -encoding=zrle
+
+
+gosu appuser ./Obsidian.AppImage --no-sandbox
+```

@@ -1,6 +1,6 @@
 # mcp-obsidian
 
-[![NPM](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-publish.yml) [![Docker](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-publish.yml) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker Images](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml) [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
 
 ## Configure MCP 
 
@@ -370,7 +370,7 @@ bun publish --dry-run
 bunx changelogithub --dry
 
 # verify that the package is available
-curl -H "Authorization: Bearer ${NPM_TOKEN}" https://npm.pkg.github.com/@oleksandrkucherenko/mcp-obsidian | jq
+curl -H "Authorization: Bearer ${GITHUB_NPM_TOKEN}" https://npm.pkg.github.com/@oleksandrkucherenko/mcp-obsidian | jq
 ```
 
 - https://bun.sh/docs/cli/publish

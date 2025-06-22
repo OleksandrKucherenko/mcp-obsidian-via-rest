@@ -188,9 +188,8 @@ jobs:
           bun publish --tag $TAG --registry "https://npm.pkg.github.com"
         env:
           BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # used in .npmrc, .envrc and .bunfig.toml
-          NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # registry URL referenced in .npmrc
+          GITHUB_NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPMJS_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_REGISTRY_URL: "https://npm.pkg.github.com"

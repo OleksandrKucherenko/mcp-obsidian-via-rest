@@ -123,8 +123,8 @@ jobs:
           echo "PKG_NAME=$PKG_NAME" >> $GITHUB_OUTPUT
           echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_OUTPUT
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
-          # registry URL referenced in .npmrc
+          # used in .npmrc, .envrc and .bunfig.toml
+          NPMJS_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"
 
       - name: Upload Package Artifact
@@ -170,6 +170,5 @@ jobs:
           npm publish --access public --registry="https://registry.npmjs.org/"
         env:
           # used in .npmrc file
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
-          # registry URL referenced in .npmrc
+          NPMJS_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"
