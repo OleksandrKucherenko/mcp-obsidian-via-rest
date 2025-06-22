@@ -20,12 +20,50 @@ on:
 #   cancel-in-progress: false
 
 jobs: 
-  testing-e2e:
-    runs-on: ubuntu-latest
+  # Multi-platform unit testing
+  testing-unit:
+    name: Unit Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86
+          - os: macos-latest
+            platform: macos-arm64
+    
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
-        # get full history for release-it tool
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Type Checks
+        run: bun run checks:types
+
+      - name: Run Unit Tests
+        run: bun run test
+
+      - name: Build Package
+        run: bun run build
+
+  # E2E testing with manual Docker management (Linux only)
+  testing-e2e-manual:
+    runs-on: ubuntu-latest
+    needs: testing-unit
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -35,35 +73,40 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Run Docker Compose
-        id: compose
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Start Docker Compose for E2E Tests
+        id: compose-e2e
         uses: hoverkraft-tech/compose-action@v2.2.0
-        continue-on-error: true
         with:
           compose-file: ./docker-compose.yaml
+          up-flags: "-d"
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+      - name: Wait for Services
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 30
 
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Run E2E Tests
-        continue-on-error: true
+      - name: Run E2E Tests (Manual Docker Management)
         env:
-          # this is docker image API key
           API_KEY: "190ba65d28ac1ba4797cb195bb06f20965395abbd9c39a0fa9b6cab2345c58b9"
         run: |
+          echo "Running E2E tests with Docker Compose managed containers"
           bun run test:e2e
 
-  testing-containers:
+  # Container testing with testcontainers (automated lifecycle)
+  testing-containers-automated:
     runs-on: ubuntu-latest
+    needs: testing-unit
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
-        # get full history for release-it tool
         with:
           fetch-depth: 0
 
@@ -73,13 +116,6 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Run Docker Compose
-        id: compose
-        uses: hoverkraft-tech/compose-action@v2.2.0
-        continue-on-error: true
-        with:
-          compose-file: ./docker-compose.test.yaml
-
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -88,9 +124,9 @@ jobs:
       - name: Install Dependencies
         run: bun install
 
-      - name: Run E2E Tests
-        continue-on-error: true
+      - name: Run Container Tests (Testcontainers)
         run: |
+          echo "Running container tests with testcontainers (automated lifecycle)"
           bun run test:containers
         
   build-and-publish:
@@ -99,8 +135,9 @@ jobs:
       contents: read
       packages: write
     needs:
-      - testing-e2e
-      - testing-containers
+      - testing-unit
+      - testing-e2e-manual
+      - testing-containers-automated
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4

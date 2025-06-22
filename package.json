@@ -53,6 +53,8 @@
     "docker:e2e:start": "docker compose up -d",
     "docker:e2e:stop": "docker compose down",
     "docker:cleanup": "docker image prune --all && docker volume prune --all",
+    "docker:test-multi-arch": "./scripts/test-multi-arch.sh",
+    "test:all-types": "./scripts/test-all-types.sh",
     "checks:knip": "knip",
     "checks:types": "tsc --noEmit",
     "checks:format": "biome format --write --no-errors-on-unmatched",

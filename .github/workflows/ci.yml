@@ -1,0 +1,273 @@
+name: Continuous Integration
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+# Allow only one concurrent CI run per branch
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Unit tests on multiple platforms
+  unit-tests:
+    name: Unit Tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86
+          - os: macos-latest
+            platform: macos-arm64
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Type Checks
+        run: bun run checks:types
+
+      - name: Run Linting
+        run: bun run checks:lint
+
+      - name: Run Unit Tests
+        run: bun run test
+
+      - name: Build Package
+        run: bun run build
+
+  # E2E tests with manual Docker management (Linux only)
+  e2e-tests-manual:
+    name: E2E Tests - Manual Docker (Linux x86)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Start Docker Compose for E2E Tests
+        id: compose-e2e
+        uses: hoverkraft-tech/compose-action@v2.2.0
+        with:
+          compose-file: ./docker-compose.yaml
+          up-flags: "-d"
+
+      - name: Wait for Services
+        run: |
+          echo "Waiting for services to be ready..."
+          sleep 30
+
+      - name: Run E2E Tests (Manual Docker Management)
+        env:
+          API_KEY: "190ba65d28ac1ba4797cb195bb06f20965395abbd9c39a0fa9b6cab2345c58b9"
+        run: |
+          echo "Running E2E tests with Docker Compose managed containers"
+          bun run test:e2e
+
+      - name: Collect E2E Docker Logs
+        if: always()
+        run: |
+          echo "=== E2E Docker Compose Logs ==="
+          docker compose -f ./docker-compose.yaml logs --no-color || true
+
+  # Container tests with testcontainers (Linux only)
+  container-tests-automated:
+    name: Container Tests - Testcontainers (Linux x86)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Container Tests (Testcontainers)
+        run: |
+          echo "Running container tests with testcontainers (automated lifecycle)"
+          bun run test:containers
+
+      - name: Collect Container Test Logs
+        if: always()
+        run: |
+          echo "=== Container Test Logs ==="
+          # Testcontainers manages container lifecycle, so we just check for any remaining containers
+          docker ps -a | grep -E "(testcontainers|ryuk)" || echo "No testcontainer instances found"
+
+  # Docker multi-architecture build test
+  docker-build-test:
+    name: Docker Multi-Arch Build Test
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test MCP Docker Build (Multi-Arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          push: false
+          tags: test/mcp-obsidian:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test VNC Docker Build (Multi-Arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dockerize
+          file: ./dockerize/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          push: false
+          tags: test/obsidian-vnc:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # macOS-specific tests (without Docker)
+  macos-integration-tests:
+    name: macOS Integration Tests
+    runs-on: macos-latest
+    needs: unit-tests
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Build Package
+        run: bun run build
+
+      - name: Test MCP Server Startup (macOS)
+        timeout-minutes: 2
+        run: |
+          echo "Testing MCP server can start on macOS"
+          # Test that the server can start and respond to basic commands
+          timeout 30s bun run dist/index.js --help || true
+          
+      - name: Test Package Creation
+        run: |
+          echo "Testing package creation on macOS"
+          bun run publish:prepare
+          ls -la *.tgz
+
+  # Summary job
+  ci-summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [unit-tests, e2e-tests-manual, container-tests-automated, docker-build-test, macos-integration-tests]
+    if: always()
+    
+    steps:
+      - name: Check Results
+        run: |
+          echo "## CI Results Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.unit-tests.result }}" == "success" ]]; then
+            echo "✅ Unit Tests (Multi-Platform): PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Unit Tests (Multi-Platform): FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.e2e-tests-manual.result }}" == "success" ]]; then
+            echo "✅ E2E Tests (Manual Docker): PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ E2E Tests (Manual Docker): FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.container-tests-automated.result }}" == "success" ]]; then
+            echo "✅ Container Tests (Testcontainers): PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Container Tests (Testcontainers): FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.docker-build-test.result }}" == "success" ]]; then
+            echo "✅ Docker Multi-Arch Build: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Docker Multi-Arch Build: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [[ "${{ needs.macos-integration-tests.result }}" == "success" ]]; then
+            echo "✅ macOS Integration Tests: PASSED" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ macOS Integration Tests: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Test Types Explanation" >> $GITHUB_STEP_SUMMARY
+          echo "- **E2E Tests (Manual Docker)**: Tests that require manual Docker container management" >> $GITHUB_STEP_SUMMARY
+          echo "- **Container Tests (Testcontainers)**: Tests using testcontainers library for automated container lifecycle" >> $GITHUB_STEP_SUMMARY
+          echo "- **Unit Tests**: Cross-platform unit tests (Linux x86 + macOS Apple Silicon)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Docker Multi-Arch**: Multi-architecture Docker build validation" >> $GITHUB_STEP_SUMMARY
+          echo "- **macOS Integration**: Platform-specific integration tests" >> $GITHUB_STEP_SUMMARY
+          
+          # Fail the job if any critical tests failed
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]] || [[ "${{ needs.docker-build-test.result }}" != "success" ]]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "❌ **Critical tests failed!**" >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

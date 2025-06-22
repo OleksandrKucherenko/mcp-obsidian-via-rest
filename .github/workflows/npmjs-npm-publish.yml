@@ -19,9 +19,50 @@ on:
         required: true
 
 jobs:
+  # Multi-platform testing before publishing
+  test-multi-platform:
+    name: Test on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86
+          - os: macos-latest
+            platform: macos-arm64
+    
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Type Checks
+        run: bun run checks:types
+
+      - name: Run Unit Tests
+        run: bun run test
+
+      - name: Build Package
+        run: bun run build
+
+      - name: Test Package Creation
+        run: bun run publish:prepare
+
   # First job: Prepare and run dry-run
   prepare-and-dry-run:
     runs-on: ubuntu-latest
+    needs: test-multi-platform
     # Conditions:
     # 1. If triggered by workflow_run, the GitHub Packages workflow must have succeeded AND this must be a version tag
     # 2. If triggered by push, it must be a version tag

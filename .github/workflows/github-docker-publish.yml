@@ -20,8 +20,46 @@ on:
         type: string
 
 jobs:
+  # Test multi-architecture builds before publishing
+  test-builds:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Test MCP Docker Build (Multi-Arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          push: false
+          tags: test/mcp-obsidian:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test VNC Docker Build (Multi-Arch)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dockerize
+          file: ./dockerize/Dockerfile
+          platforms: linux/amd64,linux/arm64/v8
+          push: false
+          tags: test/obsidian-vnc:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   build-vnc:
     runs-on: ubuntu-latest
+    needs: test-builds
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
@@ -76,6 +114,7 @@ jobs:
 
   build-mcp:
     runs-on: ubuntu-latest
+    needs: test-builds
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4

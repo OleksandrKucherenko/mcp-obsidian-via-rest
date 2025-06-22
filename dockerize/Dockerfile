@@ -1,5 +1,5 @@
 # Use a minimal Debian-based image
-FROM --platform=$BUILDPLATFORM debian:bullseye-slim
+FROM debian:bullseye-slim
 
 # Detect architecture and use the appropriate AppImage URL
 ARG TARGETARCH
