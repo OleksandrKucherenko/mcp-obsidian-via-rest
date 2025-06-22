@@ -1,0 +1,707 @@
+name: Main CI/CD Pipeline
+
+on:
+  # Triggers from github-docker-publish.yml, github-npm-publish.yml, screenshots.yml
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+    paths: # This will likely need refinement or jobs will need stronger conditions based on event_name
+      - 'src/**'
+      - 'dockerize/**'
+      - '.github/workflows/**' # To trigger on workflow changes themselves
+      - '.dockerignore'
+      - 'Dockerfile'
+      - 'package.json'
+      - 'bun.lockb' # Assuming bun is used, add its lockfile
+
+  # Triggers from github-npm-publish.yml, screenshots.yml
+  release:
+    types: [created]
+
+  # Trigger from cleanup.yaml
+  schedule:
+    - cron: '0 2 * * 0' # Weekly Sunday at 2 AM
+
+  # Consolidated workflow_dispatch inputs
+  workflow_dispatch:
+    inputs:
+      build_docker_images:
+        description: 'Build and push Docker images (VNC & MCP)?'
+        type: boolean
+        default: false
+      run_npm_github_pipeline:
+        description: 'Run GitHub NPM publish pipeline (tests & publish)?'
+        type: boolean
+        default: false
+      run_npmjs_pipeline:
+        description: 'Run NPMJS.org publish pipeline (prepare/dry-run & publish)?'
+        type: boolean
+        default: false
+      confirm_npmjs_publish:
+        description: 'CONFIRM: Actual publish to NPMJS.org (not dry-run)? (Use with run_npmjs_pipeline)'
+        type: boolean
+        default: false
+      run_screenshots_pipeline:
+        description: 'Generate and publish screenshots?'
+        type: boolean
+        default: false
+      run_cleanup_job:
+        description: 'Run scheduled cleanup job now?'
+        type: boolean
+        default: false
+      custom_version_tag:
+        description: 'Optional version tag for relevant jobs (e.g., v1.2.3)'
+        type: string
+        required: false
+        default: ''
+
+# Global environment variables can be defined here if needed
+# env:
+#   GLOBAL_VAR: "some_value"
+
+# Default permissions for the entire workflow. Jobs can override this.
+permissions:
+  contents: read # Most jobs need to read content
+
+jobs:
+  build_docker_vnc:
+    name: Build Docker VNC Image
+    runs-on: ubuntu-latest
+    # Conditions for running this job:
+    # 1. Manual dispatch with build_docker_images: true
+    # 2. Push to main (relevant paths are broadly covered by workflow trigger)
+    # 3. Push of a tag v*
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_docker_images == true) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release):')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: read
+      packages: write # For GHCR
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase repository name
+        id: repo_name
+        run: |
+          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata (tags, labels) for Docker (VNC Obsidian)
+        id: metaVnc
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc
+          tags: |
+            type=ref,event=branch,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ github.event.inputs.custom_version_tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_docker_images == true && github.event.inputs.custom_version_tag != '' }}
+
+      - name: Build and push Docker image (VNC Obsidian)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dockerize
+          file: ./dockerize/Dockerfile
+          push: true # Conditional push handled by job's `if` and event type, direct push here
+          platforms: linux/amd64,linux/arm64/v8
+          tags: ${{ steps.metaVnc.outputs.tags }}
+          labels: ${{ steps.metaVnc.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build_docker_mcp:
+    name: Build Docker MCP Image
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.build_docker_images == true) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release):')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    permissions:
+      contents: read
+      packages: write # For GHCR
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set lowercase repository name
+        id: repo_name
+        run: |
+          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata (tags, labels) for Docker (MCP Obsidian)
+        id: metaMcp
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp
+          tags: |
+            type=ref,event=branch,enable=${{ github.ref == 'refs/heads/main' }}
+            type=semver,pattern={{version}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=semver,pattern={{major}},enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=sha,format=short
+            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/main' }}
+            type=raw,value=${{ github.event.inputs.custom_version_tag }},enable=${{ github.event_name == 'workflow_dispatch' && github.event.inputs.build_docker_images == true && github.event.inputs.custom_version_tag != '' }}
+
+      - name: Build and push Docker image (MCP Obsidian)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true # Conditional push handled by job's `if` and event type
+          platforms: linux/amd64,linux/arm64/v8
+          tags: ${{ steps.metaMcp.outputs.tags }}
+          labels: ${{ steps.metaMcp.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  test_e2e:
+    name: NPM E2E Tests
+    runs-on: ubuntu-latest
+    # Conditions for running this job:
+    # 1. Manual dispatch with run_npm_github_pipeline: true
+    # 2. Push to main (not a release commit)
+    # 3. Push of a tag v*
+    # 4. Release event created
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_npm_github_pipeline == true) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release):')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'release' && github.event.action == 'created')
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Docker Compose for E2E
+        id: compose_e2e # Changed id to be unique
+        uses: hoverkraft-tech/compose-action@v2.2.0
+        continue-on-error: true # As in original
+        with:
+          compose-file: ./docker-compose.yaml
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies - Container Tests
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run E2E Tests
+        continue-on-error: true # As in original
+        env:
+          API_KEY: "190ba65d28ac1ba4797cb195bb06f20965395abbd9c39a0fa9b6cab2345c58b9" # Hardcoded in original
+        run: |
+          bun run test:e2e
+
+  test_containers:
+    name: NPM Container Tests
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_npm_github_pipeline == true) ||
+      (github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.event.head_commit.message, 'chore(release):')) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+      (github.event_name == 'release' && github.event.action == 'created')
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run Docker Compose for Container Tests
+        id: compose_containers # Changed id to be unique
+        uses: hoverkraft-tech/compose-action@v2.2.0
+        continue-on-error: true # As in original
+        with:
+          compose-file: ./docker-compose.test.yaml
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        run: bun install
+
+      - name: Run Container Tests # Original said "Run E2E Tests", corrected to "Run Container Tests" based on bun command
+        continue-on-error: true # As in original
+        run: |
+          bun run test:containers
+
+  build_and_publish_github_npm:
+    name: Build and Publish NPM to GitHub Packages
+    runs-on: ubuntu-latest
+    needs: [test_e2e, test_containers]
+    if: |
+      # This job runs if its 'needs' are met AND the initial trigger conditions were met for the tests
+      # AND (it's a release, a tag push, or a manual dispatch for this pipeline)
+      # Not running on every main push, only if it's a release/tag or manual trigger.
+      always() && # Ensures it runs to check outcomes of needs, then evaluates specific conditions
+      (
+        (github.event_name == 'workflow_dispatch' && github.event.inputs.run_npm_github_pipeline == true) ||
+        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) ||
+        (github.event_name == 'release' && github.event.action == 'created')
+      ) &&
+      (needs.test_e2e.result == 'success' || needs.test_e2e.result == 'skipped' || (needs.test_e2e.result == 'failure' && contains(fromJson('["continue-on-error: true"]'), 'continue-on-error: true'))) &&
+      (needs.test_containers.result == 'success' || needs.test_containers.result == 'skipped' || (needs.test_containers.result == 'failure' && contains(fromJson('["continue-on-error: true"]'), 'continue-on-error: true')))
+
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # QEMU and Buildx likely not needed here if not building docker images in this specific job
+      # - name: Setup QEMU
+      #   uses: docker/setup-qemu-action@v3
+      # - name: Setup Docker Buildx
+      #   uses: docker/setup-buildx-action@v3
+
+      - name: Set lowercase repository name
+        id: repo_name # Ensure this id is unique or steps are accessed correctly if shared
+        run: |
+          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js for GitHub Packages
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@${{ steps.repo_name.outputs.owner }}'
+
+      - name: Setup Bun for GitHub Packages
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+          # registry-url: https://npm.pkg.github.com/ # Bun publish uses .npmrc or BUN_AUTH_TOKEN
+          # scope: '@${{ steps.repo_name.outputs.owner }}' # Scope handled by package.json and .npmrc
+
+      - name: Cache Bun dependencies - Build GH NPM
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install
+        env: # Ensure GITHUB_TOKEN is available for private GitHub packages if needed during install
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Or specific NPM_TOKEN for .npmrc
+
+      - name: Run Unit Tests
+        run: |
+          bun run test # Assuming this is the unit test command
+
+      - name: Verify that Package is ready for GitHub Packages
+        run: |
+          # Ensure package.json has correct repository field
+          if ! grep -q '"repository"' package.json; then
+            jq '. + {"repository": "https://github.com/${{ github.repository }}"}' package.json > package.tmp.json && mv package.tmp.json package.json
+          fi
+
+          # Make sure package name is scoped for GitHub Packages
+          # This logic might need adjustment based on actual package names and desired scoping
+          PKG_NAME_GH=$(jq -r '.name' package.json)
+          OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+          if [[ ! "$PKG_NAME_GH" == "@$OWNER_LOWER/"* ]]; then
+            # If not scoped, scope it. If scoped differently, this might be an issue.
+            # This assumes the base name is what should be scoped.
+            BASE_PKG_NAME=$(echo "$PKG_NAME_GH" | sed 's/^@.*\///')
+            jq ".name = \"@$OWNER_LOWER/$BASE_PKG_NAME\"" package.json > package.tmp.json && mv package.tmp.json package.json
+            echo "Scoped package name for GitHub: $(jq -r '.name' package.json)"
+          fi
+
+      - name: Extract Release Type and Prepare Version for GitHub NPM
+        id: release-type-github
+        # This step should only run for non-tag/non-release pushes to main, to create a dev version
+        # For tags/releases, the actual tag version should be used.
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !startsWith(github.ref, 'refs/tags/v') && !(github.event_name == 'release' && github.event.action == 'created')
+        run: |
+          # For main branch builds (not tags/releases), create a unique version
+          # Using release-it for next version based on commits is complex for non-release builds.
+          # Simpler: use current version + sha for development builds on main.
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          SHA=${GITHUB_SHA::7}
+          # Example: 1.2.3-main-sha.abcdef
+          UNIQUE_VERSION="${PACKAGE_VERSION}-main-sha.${SHA}"
+          echo "Setting version for GitHub NPM (main branch build): $UNIQUE_VERSION"
+          jq ".version = \"$UNIQUE_VERSION\"" package.json > package.tmp.json && mv package.tmp.json package.json
+          echo "VERSION=$UNIQUE_VERSION" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # For release-it if it were used for version bump
+
+      - name: Set Version from Tag/Release for GitHub NPM
+        id: version-from-tag-github
+        if: (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'release' && github.event.action == 'created'))
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          elif [[ "${{ github.event_name }}" == "release" && "${{ github.event.action }}" == "created" ]]; then
+            VERSION=${{ github.event.release.tag_name#v }} # Assumes release tag is vX.Y.Z
+          else
+            echo "Could not determine version from tag/release event."
+            exit 1
+          fi
+          echo "Setting version for GitHub NPM (tag/release): $VERSION"
+          jq ".version = \"$VERSION\"" package.json > package.tmp.json && mv package.tmp.json package.json
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Package for GitHub NPM
+        run: |
+          bun run publish:prepare # Assuming this creates the distributable files
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Used by setup-node for .npmrc
+          # BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Bun uses NODE_AUTH_TOKEN from .npmrc or its own env var if specified
+        run: |
+          # Determine publish tag: 'latest' for actual releases/tags, specific dev tag for main builds
+          PUBLISH_TAG="sha-${GITHUB_SHA::7}" # Default to SHA tag
+          if [[ "${{ steps.version-from-tag-github.outputs.VERSION }}" != "" ]]; then
+            PUBLISH_TAG="latest" # For actual releases/tags, use 'latest'
+          elif [[ "${{ steps.release-type-github.outputs.VERSION }}" != "" ]]; then
+            # For main branch builds, could use the unique version as tag or a fixed 'dev' tag
+             PUBLISH_TAG="${{ steps.release-type-github.outputs.VERSION }}"
+          fi
+
+          echo "Publishing to GitHub Packages with version $(jq -r .version package.json) and tag $PUBLISH_TAG"
+          # Bun publish uses .npmrc which setup-node configures with NODE_AUTH_TOKEN
+          # The registry and scope are part of package.json or .npmrc
+          bun publish --tag "$PUBLISH_TAG"
+
+  prepare_and_dry_run_npmjs:
+    name: Prepare and Dry-Run NPMJS.org Publish
+    runs-on: ubuntu-latest
+    # Conditions for running this job:
+    # 1. Manual dispatch with run_npmjs_pipeline: true
+    # 2. Push of a tag v*
+    # This job also generates changelog and prepares artifacts.
+    if: |
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_npmjs_pipeline == true) ||
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v'))
+    outputs:
+      package_name: ${{ steps.dry-run.outputs.PKG_NAME }}
+      package_version: ${{ steps.dry-run.outputs.PKG_VERSION }}
+      artifact_name: npm-package-${{ github.sha }}
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js for NPMJS.org
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org/' # For npm publish command
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies - Prepare NPMJS
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Dependencies
+        run: bun install
+        env:
+          # Ensure correct token for installing private GitHub packages if they are dependencies
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Or specific NPM_TOKEN for .npmrc
+
+      - name: Extract version from tag or input
+        id: get-version-npmjs
+        run: |
+          VERSION=""
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+            echo "Using version from tag: $VERSION"
+          elif [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ github.event.inputs.custom_version_tag }}" != "" && "${{ github.event.inputs.custom_version_tag }}" != "latest" ]]; then
+            # Use custom_version_tag if provided through dispatch, and it's not 'latest' (which is ambiguous for versioning)
+            VERSION=${{ github.event.inputs.custom_version_tag#v }} # Remove 'v' prefix if present
+            echo "Using version from custom_version_tag input: $VERSION"
+          else
+            # Fallback to package.json version if no suitable tag or input
+            VERSION=$(jq -r '.version' package.json)
+            echo "Using version from package.json: $VERSION"
+          fi
+          echo "NPMJS_VERSION=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Update version in package.json for NPMJS
+        run: |
+          TARGET_VERSION=${{ steps.get-version-npmjs.outputs.NPMJS_VERSION }}
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+          if [ "$CURRENT_VERSION" != "$TARGET_VERSION" ]; then
+            jq ".version = \"$TARGET_VERSION\"" package.json > package.json.tmp
+            mv package.json.tmp package.json
+            echo "Updated package.json version for NPMJS from $CURRENT_VERSION to $TARGET_VERSION"
+          else
+            echo "Version in package.json already matches $TARGET_VERSION for NPMJS"
+          fi
+
+      - name: Update publishConfig for npmjs.org
+        run: |
+          echo "Updating publishConfig in package.json to use npmjs.org"
+          cp package.json package.json.original
+          # Assuming publishConfig structure from original file:
+          jq '.publishConfig.registry = "https://registry.npmjs.org/" | .publishConfig."@artfulbits:registry" = "https://registry.npmjs.org/" | .publishConfig."@oleksandrkucherenko:registry" = "https://registry.npmjs.org/"' package.json > package.json.tmp
+          mv package.json.tmp package.json
+          if grep -q "registry.npmjs.org" package.json; then
+            echo "✅ package.json successfully updated to use npmjs.org"
+          else
+            echo "❌ Failed to update package.json for npmjs.org! Restoring from backup."
+            mv package.json.original package.json
+            exit 1
+          fi
+
+      - name: Generate Changelog with release-it (for tags)
+        if: startsWith(github.ref, 'refs/tags/v') # Only run for actual tag releases
+        run: |
+          bun run release-it \
+            --ci \
+            --no-git \
+            --no-github \
+            --conventional-commits \
+            --npm.skip.publish
+          echo "Generated changelog:"
+          head -n 50 CHANGELOG.md || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build Package for NPMJS
+        run: |
+          bun run publish:prepare
+
+      - name: Run Package Publish Dry Run to NPMJS.org
+        id: dry-run
+        run: |
+          echo "=== DRY RUN MODE - No actual publishing to NPMJS.org ==="
+          # The .npmrc file should be configured by setup-node for registry.npmjs.org
+          # For dry-run, token might not be strictly necessary but good practice if npm checks auth
+          npm publish --dry-run --access public
+          PKG_NAME=$(jq -r '.name' package.json)
+          PKG_VERSION=$(jq -r '.version' package.json)
+          echo "PKG_NAME=$PKG_NAME" >> $GITHUB_OUTPUT
+          echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_OUTPUT
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }} # For npmjs.org
+
+      - name: Upload NPM Package Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: npm-package-${{ github.sha }} # Consistent artifact name
+          path: |
+            dist/index.js
+            dist/index.js.map
+            package.json
+            CHANGELOG.md
+            README.md
+            LICENSE
+            # .npmrc # Careful with uploading .npmrc with tokens, ensure it's clean or generated at download
+            *.tgz
+          retention-days: 7 # Increased retention slightly
+
+      - name: Dry Run Summary for NPMJS
+        run: |
+          echo "# NPMJS.org Package Dry Run Results 📦" >> $GITHUB_STEP_SUMMARY
+          echo "Package **${{ steps.dry-run.outputs.PKG_NAME }}@${{ steps.dry-run.outputs.PKG_VERSION }}** is ready to be published to NPMJS.org." >> $GITHUB_STEP_SUMMARY
+          echo "Please review the dry run output. If ready, manually trigger this workflow again with:" >> $GITHUB_STEP_SUMMARY
+          echo "- 'Run NPMJS.org publish pipeline' checked" >> $GITHUB_STEP_SUMMARY
+          echo "- 'CONFIRM: Actual publish to NPMJS.org' checked" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          [ -f CHANGELOG.md ] && cat CHANGELOG.md >> $GITHUB_STEP_SUMMARY || echo "CHANGELOG.md not found" >> $GITHUB_STEP_SUMMARY
+
+  publish_to_npmjs_org:
+    name: Publish to NPMJS.org (Confirmed)
+    needs: [prepare_and_dry_run_npmjs]
+    runs-on: ubuntu-latest
+    # CRITICAL CONDITION: Only run if manually dispatched with both flags set
+    if: |
+      always() && # Run to check conditions even if needs failed (though prepare_and_dry_run_npmjs should ideally not fail on dry run)
+      needs.prepare_and_dry_run_npmjs.result == 'success' &&
+      github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.run_npmjs_pipeline == true &&
+      github.event.inputs.confirm_npmjs_publish == true
+    steps:
+      - name: Download NPM Package Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ needs.prepare_and_dry_run_npmjs.outputs.artifact_name }} # Use artifact name from output
+          # Default path is github.workspace
+
+      - name: Setup Node.js for NPMJS.org Publish
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org/' # Critical for npm publish
+
+      # envsubst step from original is not used here as .npmrc is configured by setup-node
+      # If .npmrc were part of artifact and needed token replacement, it would be needed.
+
+      - name: Publish to NPMJS.org
+        run: |
+          # Verify package.json and .tgz file are present from artifact
+          ls -la
+          if [ ! -f package.json ]; then echo "ERROR: package.json not found from artifact!"; exit 1; fi
+          # Assuming the .tgz is the primary file to publish if `bun publish:prepare` creates it directly
+          # and `npm publish` (without args) picks it up from the current directory.
+          # Or, if `npm publish <tarball_name>.tgz` is needed, adjust accordingly.
+
+          PKG_NAME=$(jq -r '.name' package.json)
+          PKG_VERSION=$(jq -r '.version' package.json)
+          echo "Publishing $PKG_NAME@$PKG_VERSION to npmjs.org from downloaded artifact."
+
+          # The .npmrc file is configured by setup-node with NODE_AUTH_TOKEN
+          npm publish --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }} # For npmjs.org
+
+# Concurrency for the entire workflow.
+# This might need to be more granular if different job sets need different concurrency rules.
+# For now, using the one from screenshots.yml as a starting point, can be adjusted.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true # More aggressive than "pages", consider if this is too broad.
+                           # If a push comes while a scheduled job runs, it might cancel schedule.
+                           # May need refinement or removal for per-job concurrency.
+
+  cleanup_old_versions:
+    name: Cleanup Old Package Versions
+    runs-on: ubuntu-latest
+    # Conditions for running this job:
+    # 1. Scheduled cron: '0 2 * * 0' (matches the workflow's schedule trigger)
+    # 2. Manual dispatch with run_cleanup_job: true
+    if: |
+      (github.event_name == 'schedule' && github.event.schedule == '0 2 * * 0') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_cleanup_job == true)
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js for NPM Deprecate
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          registry-url: 'https://registry.npmjs.org/' # Target for npm deprecate
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache Bun dependencies - Cleanup
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('**/bun.lockb') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install script dependencies (if any)
+        # This step was `bun install` in the original cleanup.yaml.
+        # It's kept here in case `./assets/ci_deprecate_npm_package.js` has its own package.json or deps.
+        # If the script is simple and has no external deps, this could be removed.
+        run: bun install
+
+      - name: Get package name for cleanup
+        id: pkg_info_cleanup # Made ID unique
+        run: |
+          PKG_NAME_CLEANUP=$(jq -r '.name' package.json)
+          echo "PKG_NAME=${PKG_NAME_CLEANUP}" >> $GITHUB_OUTPUT
+          # Original had a NORMALIZED_PKG_NAME, including it here in case the script uses it.
+          NORMALIZED_PKG_NAME_CLEANUP=$(echo "${PKG_NAME_CLEANUP}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-zA-Z0-9_-]/-/g')
+          echo "NORMALIZED_PKG_NAME=${NORMALIZED_PKG_NAME_CLEANUP}" >> $GITHUB_OUTPUT
+
+      - name: Deprecate old package versions via script
+        run: |
+          echo "Running automated NPM package deprecation for package: ${{ steps.pkg_info_cleanup.outputs.PKG_NAME }}"
+          # Execute the node script, passing the package name.
+          # The script is expected to handle the logic of which versions to deprecate.
+          node ./assets/ci_deprecate_npm_package.js "${{ steps.pkg_info_cleanup.outputs.PKG_NAME }}"
+
+          # The original workflow had a step to cat a generated shell script.
+          # This part is preserved if the Node script generates such a file.
+          DEPRECATE_SCRIPT_FILENAME="./deprecate-${{ steps.pkg_info_cleanup.outputs.NORMALIZED_PKG_NAME }}-old-versions.sh"
+          if [ -f "${DEPRECATE_SCRIPT_FILENAME}" ]; then
+            echo "Contents of generated deprecation script (${DEPRECATE_SCRIPT_FILENAME}):"
+            cat "${DEPRECATE_SCRIPT_FILENAME}"
+          else
+            echo "No separate deprecation script (${DEPRECATE_SCRIPT_FILENAME}) was found or generated by the Node script."
+          fi
+        env:
+          # NODE_AUTH_TOKEN will be used by npm deprecate via .npmrc configured by setup-node
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          # The original cleanup.yaml also set:
+          # GITHUB_NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          # NPMJS_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }} # This is essentially NODE_AUTH_TOKEN now
+          # NPM_REGISTRY_URL: "https://registry.npmjs.org/" # This is handled by setup-node
+          # If ci_deprecate_npm_package.js specifically needs these exact env var names, they should be re-added.
