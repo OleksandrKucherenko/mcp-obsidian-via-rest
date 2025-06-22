@@ -10,14 +10,16 @@ export interface ObsidianConfig {
 export interface Note {
   path: string
   content: string
-  metadata?: Record<string, unknown> & {
-    stat: {
-      ctime: number
-      mtime: number
-      size: number
-    }
-    tags: string[]
-  }
+  metadata?:
+    | Record<string, unknown>
+    | {
+        stat: {
+          ctime: number
+          mtime: number
+          size: number
+        }
+        tags: string[]
+      }
 }
 
 export interface NoteJson {
