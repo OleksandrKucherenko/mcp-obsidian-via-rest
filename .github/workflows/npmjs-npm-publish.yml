@@ -1,12 +1,12 @@
 name: Publish NPM Package (npmjs.org)
 
 on:
-  workflow_run:
-    workflows: ["Publish NPM Package"]
-    types:
-      - completed
-    branches:
-      - main
+  #workflow_run:
+    # workflows: ["Publish NPM Package"]
+    # types:
+    #   - completed
+  #  branches:
+  #    - main
   push:
     tags:
       - 'v*'  # Any valid semver version tag
@@ -81,6 +81,9 @@ jobs:
           # Update all registry entries in publishConfig to use npmjs.org instead of GitHub Packages
           echo "Updating publishConfig in package.json to use npmjs.org"
           
+          # Create a backup of the original package.json
+          cp package.json package.json.original
+          
           # Update main registry
           jq '.publishConfig.registry = "https://registry.npmjs.org/"' package.json > package.json.tmp
           
@@ -97,10 +100,26 @@ jobs:
           # Verify the changes
           echo "Updated registry settings in publishConfig:"
           jq -r '.publishConfig | to_entries[] | "\(.key): \(.value)"' package.json
+          
+          # Verify that the package.json was properly updated
+          if grep -q "registry.npmjs.org" package.json; then
+            echo "✅ package.json successfully updated to use npmjs.org"
+          else
+            echo "❌ Failed to update package.json! Restoring from backup."
+            mv package.json.original package.json
+            exit 1
+          fi
 
       - name: Generate Changelog with release-it
         run: |
-          bun run release-it --ci --no-git --no-npm --no-github --changelog
+          # Version bump & changelog from semantic commits
+          bun run release-it \
+            --ci \
+            --no-git \
+            --no-github \
+            --conventional-commits \
+            --npm.skip.publish 
+            
           echo "Generated changelog:"
           head -n 50 CHANGELOG.md || true
         env:
@@ -110,12 +129,11 @@ jobs:
         run: |
           bun run publish:prepare
 
-      # Always run dry-run first
       - name: Run Package Publish Dry Run
         id: dry-run
         run: |
           echo "=== DRY RUN MODE - No actual publishing ==="
-          npm publish --dry-run --access public
+          npm publish --dry-run --access public --registry="https://registry.npmjs.org/"
           
           # Store package info for the publish job
           PKG_NAME=$(jq -r '.name' package.json)
@@ -130,39 +148,67 @@ jobs:
       - name: Upload Package Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: npm-package
+          name: npm-package-${{ github.sha }}
+          include-hidden-files: true
           path: |
             dist/index.js
             dist/index.js.map
             package.json
+            CHANGELOG.md
+            .npmrc
             *.tgz
           retention-days: 1
       
       - name: Dry Run Summary
         run: |
-          echo "## NPM Package Dry Run Results 📦" >> $GITHUB_STEP_SUMMARY
+          echo "# NPM Package Dry Run Results 📦" >> $GITHUB_STEP_SUMMARY
           echo "Package **${{ steps.dry-run.outputs.PKG_NAME }}@${{ steps.dry-run.outputs.PKG_VERSION }}** is ready to be published." >> $GITHUB_STEP_SUMMARY
-          echo "\nPlease review the dry run output above and approve the 'publish-to-npmjs' job to complete the publish process." >> $GITHUB_STEP_SUMMARY
+          echo "Please review the dry run output above and approve the 'publish-to-npmjs' job to complete the publish process." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# Changelog" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          { 
+            [ -f CHANGELOG.md ] && cat CHANGELOG.md || echo "CHANGELOG.md not found" 
+          } >> $GITHUB_STEP_SUMMARY
 
   # Second job: Actual publish with manual approval
   publish-to-npmjs:
     needs: prepare-and-dry-run
     runs-on: ubuntu-latest
+    if: |
+      ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false' }}
     steps:
       - name: Download Package Artifact
         uses: actions/download-artifact@v4
         with:
-          name: npm-package
+          name: npm-package-${{ github.sha }}
         
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
           registry-url: 'https://registry.npmjs.org/'
+      
+      - name: Setup envsubst
+        run: |
+          sudo apt-get update
+          sudo apt-get install gettext
 
       - name: Publish to NPMJS.org
         run: |
-          # .npmrc file was restored from artifacts
+          # Verify .npmrc file was restored from artifacts
+          if [ ! -f .npmrc ]; then
+            echo "ERROR: .npmrc file not found!"
+          fi
+
+          # use `envsubst` to replace variables in .npmrc
+          mv .npmrc .npmrc.env
+          envsubst < .npmrc.env > .npmrc
+          rm .npmrc.env
+          
+          echo "Current .npmrc configuration:"
+          cat .npmrc | grep -v "_authToken"
+          
           PKG_NAME=$(node -p "require('./package.json').name")
           PKG_VERSION=$(node -p "require('./package.json').version")
           
