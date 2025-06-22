@@ -155,6 +155,8 @@ jobs:
             dist/index.js.map
             package.json
             CHANGELOG.md
+            README.md
+            LICENSE
             .npmrc
             *.tgz
           retention-days: 1
@@ -164,8 +166,6 @@ jobs:
           echo "# NPM Package Dry Run Results 📦" >> $GITHUB_STEP_SUMMARY
           echo "Package **${{ steps.dry-run.outputs.PKG_NAME }}@${{ steps.dry-run.outputs.PKG_VERSION }}** is ready to be published." >> $GITHUB_STEP_SUMMARY
           echo "Please review the dry run output above and approve the 'publish-to-npmjs' job to complete the publish process." >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# Changelog" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           { 
             [ -f CHANGELOG.md ] && cat CHANGELOG.md || echo "CHANGELOG.md not found" 
