@@ -25,6 +25,7 @@ import { execSync } from "node:child_process"
 import { writeFileSync } from "node:fs"
 import process from "node:process"
 import { readFileSync } from "node:fs"
+import https from "node:https"
 
 // Configuration constants
 const CONFIG = {
@@ -75,16 +76,127 @@ const parseArgs = () => {
   return { packageName, keepLatestMajor }
 }
 
-// Fetch package time data from npm registry
-const fetchPackageTimeData = (packageName) => {
+// Constants for direct npm registry access
+const NPMJS_REGISTRY_URL = "https://registry.npmjs.org/"
+
+// Get the currently configured NPM registry URL and verify if it's the expected one
+const getNpmRegistryUrl = () => {
   try {
-    const rawTimeJson = execSync(`npm view ${packageName} time --json`, {
+    const registryUrl = execSync("npm config get registry", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+    }).trim()
+
+    // Check if registry is the expected one
+    if (registryUrl !== "https://registry.npmjs.org/") {
+      logger.warn(`Using non-standard registry: ${registryUrl}`)
+      logger.warn("This script is designed to work with the standard npmjs.org registry.")
+      logger.warn("Results may be incomplete if accessing a different registry.")
+    }
+
+    return registryUrl
+  } catch (e) {
+    logger.warn("Failed to get npm registry URL, using default")
+    return "https://registry.npmjs.org/" // Default NPM registry if command fails
+  }
+}
+
+// Check for potential npm configuration issues
+const checkNpmConfiguration = () => {
+  try {
+    // Display detailed npm configuration for diagnostics
+    logger.log("\n=== NPM CONFIGURATION ===")
+    const npmConfig = execSync("npm config list", {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "ignore"],
     })
-    return JSON.parse(rawTimeJson)
+    logger.log(npmConfig)
+
+    // Look for potential issues in configuration
+    if (npmConfig.includes("undefined")) {
+      logger.warn("Detected undefined values in npm config - check for missing environment variables")
+    }
+
+    if (npmConfig.includes("${")) {
+      logger.warn("Detected unresolved variable substitutions in npm config - check your .npmrc file")
+    }
+
+    // Check for scoped registry configurations that might override the default
+    const scopedConfig = execSync("npm config list | grep @", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+    })
+      .split("\n")
+      .filter((line) => line.includes("registry"))
+
+    if (scopedConfig.length > 0) {
+      logger.warn("Detected scoped registry configurations that may override the default:")
+      for (const line of scopedConfig) {
+        logger.warn(`  ${line.trim()}`)
+      }
+      logger.warn("These may affect which registry is used for specific package scopes")
+    }
   } catch (e) {
-    logger.log(`Package '${packageName}' does not exist on npm or was never published. Exiting without error.`)
+    logger.warn("Failed to check npm configuration")
+  }
+}
+
+// Make a direct HTTPS request to the npm registry
+const makeRegistryRequest = (url) => {
+  return new Promise((resolve, reject) => {
+    https
+      .get(url, (res) => {
+        if (res.statusCode === 404) {
+          reject(new Error("Package not found (404)"))
+          return
+        }
+
+        if (res.statusCode !== 200) {
+          reject(new Error(`Unexpected status code: ${res.statusCode}`))
+          return
+        }
+
+        let data = ""
+        res.on("data", (chunk) => {
+          data += chunk
+        })
+        res.on("end", () => {
+          try {
+            const parsedData = JSON.parse(data)
+            resolve(parsedData)
+          } catch (e) {
+            reject(new Error(`Failed to parse JSON: ${e.message}`))
+          }
+        })
+      })
+      .on("error", (e) => {
+        reject(new Error(`HTTPS request failed: ${e.message}`))
+      })
+  })
+}
+
+// Fetch package time data from npm registry
+const fetchPackageTimeData = async (packageName) => {
+  try {
+    // Use direct HTTPS request to npmjs.org to bypass npm configuration
+    const encodedPackageName = encodeURIComponent(packageName)
+    const packageUrl = `${NPMJS_REGISTRY_URL}${encodedPackageName}`
+
+    logger.log(`Making direct request to: ${packageUrl}`)
+    const packageData = await makeRegistryRequest(packageUrl)
+
+    if (!packageData.time) {
+      logger.log(`No time data found for package '${packageName}'. Exiting without error.`)
+      process.exit(0)
+    }
+
+    return packageData.time
+  } catch (e) {
+    if (e.message.includes("404")) {
+      logger.log(`Package '${packageName}' does not exist on npmjs.org or was never published. Exiting without error.`)
+    } else {
+      logger.log(`Error fetching package data: ${e.message}`)
+    }
     process.exit(0)
   }
 }
@@ -260,14 +372,27 @@ const buildKeepVersionsSet = (versionEntries, keepFileData, latestPerMajor) => {
 }
 
 // Fetch deprecated versions data
-const fetchDeprecatedVersions = (packageName) => {
+const fetchDeprecatedVersions = async (packageName) => {
   try {
-    const deprecatedRaw = execSync(`npm view ${packageName} deprecated --json`, {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "ignore"],
-    })
-    return deprecatedRaw && deprecatedRaw !== "null" ? JSON.parse(deprecatedRaw) : {}
+    // Use direct HTTPS request to npmjs.org to bypass npm configuration
+    const encodedPackageName = encodeURIComponent(packageName)
+    const packageUrl = `${NPMJS_REGISTRY_URL}${encodedPackageName}`
+
+    const packageData = await makeRegistryRequest(packageUrl)
+
+    // Extract deprecated versions from package data
+    const deprecated = {}
+    if (packageData.versions) {
+      Object.entries(packageData.versions).forEach(([version, data]) => {
+        if (data.deprecated) {
+          deprecated[version] = data.deprecated
+        }
+      })
+    }
+
+    return deprecated
   } catch (e) {
+    logger.warn(`Failed to fetch deprecated versions: ${e.message}`)
     return {}
   }
 }
@@ -309,6 +434,28 @@ const generateVersionSummary = (versionEntries, latestPerMajor, allKeepVersions,
   return summary
 }
 
+// Generate kept versions script (when no packages need deprecation)
+const generateKeptVersionsScript = (packageName, versionSummary) => {
+  const bashLines = [
+    "#!/usr/bin/env bash",
+    `# Autogenerated report script for package: ${packageName}`,
+    "set -euo pipefail",
+    "",
+    `echo "Package version status for ${packageName}"`,
+    `echo "Using NPM registry: https://registry.npmjs.org/"`,
+    `echo "Note: Using explicit registry override to ensure consistent results"`,
+    "",
+  ]
+
+  for (const line of versionSummary) {
+    bashLines.push(`echo "${line}"`)
+  }
+
+  bashLines.push('echo "\nAll versions are current - no deprecations needed."')
+
+  return bashLines.join("\n")
+}
+
 // Generate bash script content
 const generateBashScript = (packageName, versionsToDeprecate, versionSummary) => {
   const bashLines = [
@@ -317,13 +464,15 @@ const generateBashScript = (packageName, versionsToDeprecate, versionSummary) =>
     "set -euo pipefail",
     "",
     `echo "Starting deprecation for package ${packageName}"`,
+    `echo "Using NPM registry: https://registry.npmjs.org/"`,
+    `echo "Note: Using explicit registry override to ensure consistent results"`,
     "",
   ]
 
   for (const ver of versionsToDeprecate) {
     bashLines.push(
       `echo "Deprecating ${packageName}@${ver}"`,
-      `npm deprecate "${packageName}@${ver}" "${CONFIG.DEPRECATION_MESSAGE}"`,
+      `npm deprecate "${packageName}@${ver}" "${CONFIG.DEPRECATION_MESSAGE}" --registry=https://registry.npmjs.org/`,
       "",
     )
   }
@@ -361,8 +510,15 @@ const main = async () => {
   try {
     const { packageName, keepLatestMajor } = parseArgs()
 
-    // Get `time` info from npm view
-    const timeData = fetchPackageTimeData(packageName)
+    // Get and display the NPM registry URL
+    const registryUrl = getNpmRegistryUrl()
+    logger.log(`Using NPM registry: ${registryUrl}`)
+
+    // Check for potential npm configuration issues
+    checkNpmConfiguration()
+
+    // Get `time` info directly from npm registry
+    const timeData = await fetchPackageTimeData(packageName)
     const versionEntries = processVersionEntries(timeData, packageName)
 
     // Support for .keep-versions file: additional versions to keep or explicitly NOT keep
@@ -401,20 +557,35 @@ const main = async () => {
     const allKeepVersions = buildKeepVersionsSet(versionEntries, keepFileData, latestPerMajor)
 
     // Get deprecated info for all versions
-    const deprecatedMap = fetchDeprecatedVersions(packageName)
+    const deprecatedMap = await fetchDeprecatedVersions(packageName)
 
     // Versions to deprecate: older than 30 days, not in keepVersions or .keep-versions, and not already deprecated
     const versionsToDeprecate = computeVersionsToDeprecate(versionEntries, allKeepVersions, deprecatedMap)
+
+    // Generate version summary
+    const versionSummary = generateVersionSummary(versionEntries, latestPerMajor, allKeepVersions, keepLatestMajor)
 
     if (versionsToDeprecate.length === 0) {
       logger.log(
         "No versions eligible for deprecation (older than 30 days excluding last 3, and not already deprecated).",
       )
+
+      // Generate kept-versions report script even when no versions need deprecation
+      const keptVersionsScriptContent = generateKeptVersionsScript(packageName, versionSummary)
+
+      // Sanitize package name for filename (replace all '/' with '-')
+      const sanitizedPackageName = packageName.replaceAll("/", "-")
+      const outputFileName = `${CONFIG.BASH_SCRIPT_PREFIX}${sanitizedPackageName}${CONFIG.BASH_SCRIPT_SUFFIX}`
+
+      writeFileSync(outputFileName, keptVersionsScriptContent, { mode: 0o755 })
+
+      logger.log(`No deprecations needed, but report script generated: ${outputFileName}`)
+      logger.log("Run it to view version status, e.g.:")
+      logger.log(`  ./${outputFileName}`)
       process.exit(0)
     }
 
-    // Generate version summary
-    const versionSummary = generateVersionSummary(versionEntries, latestPerMajor, allKeepVersions, keepLatestMajor)
+    // Version summary was already generated above
 
     // Print the summary to the terminal
     for (const line of versionSummary) {
