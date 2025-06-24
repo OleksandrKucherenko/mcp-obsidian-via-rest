@@ -383,11 +383,11 @@ const fetchDeprecatedVersions = async (packageName) => {
     // Extract deprecated versions from package data
     const deprecated = {}
     if (packageData.versions) {
-      Object.entries(packageData.versions).forEach(([version, data]) => {
+      for (const [version, data] of Object.entries(packageData.versions)) {
         if (data.deprecated) {
           deprecated[version] = data.deprecated
         }
-      })
+      }
     }
 
     return deprecated

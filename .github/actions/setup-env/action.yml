@@ -1,0 +1,52 @@
+name: 'Setup Environment'
+description: 'Common environment for the Jobs'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Prepare Environment Variables
+      id: repo_name
+      shell: bash
+      run: |
+        # Extract owner and repo name
+        echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+        
+        # Extract version, sha, tag, unique-sha version
+        echo "version=$(jq -r '.version' package.json)" >> $GITHUB_OUTPUT
+        echo "sha=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+        echo "tag=sha-${sha}" >> $GITHUB_OUTPUT
+        echo "sha_version=${version}-${tag}" >> $GITHUB_OUTPUT
+        
+        # Package information
+        PKG_NAME=$(jq -r '.name' package.json)
+        NORMALIZED_PKG_NAME=$(echo "${PKG_NAME}" | tr '[:upper:]' '[:lower:]')
+        echo "pkg_name=${PKG_NAME}" >> $GITHUB_OUTPUT
+        echo "normalized_pkg_name=${NORMALIZED_PKG_NAME//\//-}" >> $GITHUB_OUTPUT
+
+        # Git Version
+        echo "git_tag_version=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
+
+    - name: Setup QEMU
+      uses: docker/setup-qemu-action@v3
+
+    - name: Setup Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        registry-url: 'https://npm.pkg.github.com'
+        scope: '@${{ steps.repo_name.outputs.owner }}'
+
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v2
+      with:
+        bun-version: latest
+        registry-url: https://npm.pkg.github.com/
+        scope: '@${{ steps.repo_name.outputs.owner }}'
+
+    - name: Install Dependencies
+      shell: bash
+      run: bun install

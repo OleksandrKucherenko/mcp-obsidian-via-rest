@@ -22,34 +22,28 @@ on:
 jobs: 
   # Multi-platform unit testing
   testing-unit:
-    name: Unit Tests (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        include:
-          - os: ubuntu-latest
-            platform: linux-x86
-          - os: macos-latest
-            platform: macos-arm64
-    
+    name: Unit Tests
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install Dependencies
-        run: bun install
+      - uses: ./.github/actions/setup-env
 
       - name: Run Type Checks
-        run: bun run checks:types
+        run: |
+          bun add --peer typescript
+          bun run checks:types
+
+      - name: Run Linting
+        run: |
+          bun run checks:lint
+
+      - name: Run Knip
+        run: |
+          bun run checks:knip
 
       - name: Run Unit Tests
         run: bun run test
@@ -59,27 +53,24 @@ jobs:
 
   # E2E testing with manual Docker management (Linux only)
   testing-e2e-manual:
-    runs-on: ubuntu-latest
-    needs: testing-unit
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86
+          - os: macos-latest
+            platform: macos-arm64
+    runs-on: ${{ matrix.os }}
+    name: E2E Tests (${{ matrix.os }})
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install Dependencies
-        run: bun install
+      - uses: ./.github/actions/setup-env
 
       - name: Start Docker Compose for E2E Tests
         id: compose-e2e
@@ -102,27 +93,24 @@ jobs:
 
   # Container testing with testcontainers (automated lifecycle)
   testing-containers-automated:
-    runs-on: ubuntu-latest
-    needs: testing-unit
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            platform: linux-x86
+          - os: macos-latest
+            platform: macos-arm64
+    runs-on: ${{ matrix.os }}
+    name: TestContainers (${{ matrix.os }})
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Install Dependencies
-        run: bun install
+      - uses: ./.github/actions/setup-env
 
       - name: Run Container Tests (Testcontainers)
         run: |
@@ -141,57 +129,10 @@ jobs:
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
-        # get full history for release-it tool
         with:
           fetch-depth: 0
 
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set lowercase repository name
-        id: repo_name
-        run: |
-          # Extract owner and repo name
-          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-          echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          registry-url: 'https://npm.pkg.github.com'
-          scope: '@${{ steps.repo_name.outputs.owner }}'
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-          registry-url: https://npm.pkg.github.com/
-          scope: '@${{ steps.repo_name.outputs.owner }}'
-
-      - name: Install Dependencies
-        run: bun install
-
-      - name: Run Unit Tests
-        run: |
-          # run unit tests
-          bun run test
-
-      - name: Verify that Package is ready for GitHub Packages
-        run: |
-          # Ensure package.json has correct repository field
-          if ! grep -q '"repository"' package.json; then
-            sed -i 's/^\(  "name": ".*"\)/\1,\n  "repository": "https:\/\/github.com\/${{ github.repository }}"/g' package.json
-          fi
-
-          # Make sure package name is scoped
-          if ! grep -q '"name": "@' package.json; then
-            PACKAGE_NAME=$(node -p "require('./package.json').name")
-            sed -i "s/\"name\": \"$PACKAGE_NAME\"/\"name\": \"@${{ github.repository_owner }}\/$(echo $PACKAGE_NAME | sed 's/@.*\///')\"/g" package.json
-          fi
+      - uses: ./.github/actions/setup-env
 
       - name: Extract Release Type (semantic commit)
         id: release-type
@@ -200,14 +141,8 @@ jobs:
           # Check release-it for next version based on commits between last tag and HEAD.
           bun run release:dry --ci --no-increment
 
-          # Extract version from package.json
-          export PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          export SHA=${GITHUB_SHA::7}
-          export TAG="sha-${SHA}"
-          export UNIQUE_VERSION="${PACKAGE_VERSION}-${TAG}"
-
           # Update package.json
-          jq ".version = \"$UNIQUE_VERSION\"" package.json > package.tmp.json
+          jq ".version = \"${{ steps.repo_name.outputs.sha_version }}\"" package.json > package.tmp.json
           mv package.tmp.json package.json
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -219,10 +154,8 @@ jobs:
 
       - name: Publish to GitHub Packages
         run: |
-          export SHA=${GITHUB_SHA::7}
-          export TAG="sha-${SHA}"
           # do the publishing under unique 'sha-${SHA}' tag
-          bun publish --tag $TAG --registry "https://npm.pkg.github.com"
+          bun publish --tag ${{ steps.repo_name.outputs.tag }} --registry "https://npm.pkg.github.com"
         env:
           BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
