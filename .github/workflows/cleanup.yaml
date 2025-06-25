@@ -7,13 +7,17 @@ on:
   workflow_dispatch:
     inputs:
       run_cleanup:
-        description: 'Run the cleanup-old-versions job'
+        description: 'Run the cleanup-old-npm-versions job'
+        type: boolean
+        default: true
+      run_docker_cleanup:
+        description: 'Run the cleanup-old-docker-images job'
         type: boolean
         default: true
 
 jobs:
   # Cleanup job to deprecate old versions (runs weekly)
-  cleanup-old-versions:
+  cleanup-old-npm-versions:
     if: |
       ${{ 
         ( github.event_name == 'schedule' ) ||
@@ -55,7 +59,7 @@ jobs:
 
           # print the generated script
           if [ -f ./deprecate-${{ steps.pkg-info.outputs.NORMALIZED_PKG_NAME }}-old-versions.sh ]; then
-            cat ./deprecate-${{ steps.pkg-info.outputs.NORMALIZED_PKG_NAME }}-old-versions.sh
+            ./deprecate-${{ steps.pkg-info.outputs.NORMALIZED_PKG_NAME }}-old-versions.sh | tee
           else
             echo "No script for execution found"
             ls -la
@@ -66,3 +70,59 @@ jobs:
           GITHUB_NPM_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPMJS_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"
+
+  # Cleanup job to delete old Docker images (runs weekly)
+  cleanup-old-docker-images:
+    if: |
+      ${{ 
+        ( github.event_name == 'schedule' ) ||
+        ( github.event.inputs.run_docker_cleanup == true )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Set lowercase repository name
+        id: repo_name
+        run: |
+          # Extract owner and repo name
+          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+          echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Cleanup old obsidian-vnc Docker images
+        run: |
+          echo "Running automated Docker image cleanup for obsidian-vnc"
+          node ./assets/ci_cleanup_docker_images.js "${{ steps.repo_name.outputs.owner }}" "obsidian-vnc" --force
+
+          # Print the generated script
+          if [ -f ./cleanup-docker-${{ steps.repo_name.outputs.owner }}-obsidian-vnc-old-images.sh ]; then
+            echo "Generated cleanup script for obsidian-vnc:"
+            ./cleanup-docker-${{ steps.repo_name.outputs.owner }}-obsidian-vnc-old-images.sh | tee
+          else
+            echo "No cleanup script for obsidian-vnc found"
+            ls -la
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cleanup old obsidian-mcp Docker images
+        run: |
+          echo "Running automated Docker image cleanup for obsidian-mcp"
+          node ./assets/ci_cleanup_docker_images.js "${{ steps.repo_name.outputs.owner }}" "obsidian-mcp" --force
+
+          # Print the generated script
+          if [ -f ./cleanup-docker-${{ steps.repo_name.outputs.owner }}-obsidian-mcp-old-images.sh ]; then
+            echo "Generated cleanup script for obsidian-mcp:"
+            ./cleanup-docker-${{ steps.repo_name.outputs.owner }}-obsidian-mcp-old-images.sh | tee
+          else
+            echo "No cleanup script for obsidian-mcp found"
+            ls -la
+          fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

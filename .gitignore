@@ -52,3 +52,4 @@ reports/screenshots/
 
 # Deprecation scripts
 deprecate-*.sh
+cleanup-*.sh
