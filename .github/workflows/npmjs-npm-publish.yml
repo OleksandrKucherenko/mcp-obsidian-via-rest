@@ -1,15 +1,11 @@
 name: Publish NPM Package (npmjs.org)
 
 on:
-  #workflow_run:
-    # workflows: ["Publish NPM Package"]
-    # types:
-    #   - completed
-  #  branches:
-  #    - main
   push:
+    branches:
+      - main
     tags:
-      - 'v*'  # Any valid semver version tag
+      - 'v*'
   workflow_dispatch:
     inputs:
       dry_run:
@@ -22,16 +18,7 @@ jobs:
   # First job: Prepare and run dry-run
   prepare-and-dry-run:
     runs-on: ubuntu-latest
-    # Conditions:
-    # 1. If triggered by workflow_run, the GitHub Packages workflow must have succeeded AND this must be a version tag
-    # 2. If triggered by push, it must be a version tag
-    # 3. If triggered manually (workflow_dispatch), always run
-    if: |
-      ${{ 
-        (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' && startsWith(github.ref, 'refs/tags/v')) || 
-        (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')) || 
-        github.event_name == 'workflow_dispatch'
-      }}
+
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
@@ -112,14 +99,21 @@ jobs:
 
       - name: Generate Changelog with release-it
         run: |
-          # Version bump & changelog from semantic commits
-          bun run release-it \
+          RELEASE_IT_CMD="bun run release-it"
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "Running release-it for tag ${{ github.ref_name }} with version ${{ steps.get-version.outputs.VERSION }}"
+            RELEASE_IT_CMD="$RELEASE_IT_CMD ${{ steps.get-version.outputs.VERSION }}"
+          else
+            echo "Running release-it for main branch to determine next version"
+          fi
+
+          $RELEASE_IT_CMD \
             --ci \
             --no-git \
             --no-github \
             --conventional-commits \
-            --npm.skip.publish 
-            
+            --npm.skip.publish
+
           echo "Generated changelog:"
           head -n 50 CHANGELOG.md || true
         env:
@@ -175,8 +169,7 @@ jobs:
   publish-to-npmjs:
     needs: prepare-and-dry-run
     runs-on: ubuntu-latest
-    if: |
-      ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run != 'true' }}
+    if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == false)
     steps:
       - name: Download Package Artifact
         uses: actions/download-artifact@v4
