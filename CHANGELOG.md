@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.3.0...v0.3.1) (2025-06-26)
+
+
+### Bug Fixes
+
+* **npm:** make npm module executable ([3d3ce84](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/3d3ce844cf79154490bac4fce95b76c90f15b08a))
+
 # [0.3.0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.2.2...v0.3.0) (2025-06-26)
 
 
