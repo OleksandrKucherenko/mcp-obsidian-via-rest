@@ -4,6 +4,8 @@
 
 [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
 
+---
+
 <!-- TOC -->
 
 - [mcp-obsidian](#mcp-obsidian)
@@ -62,7 +64,7 @@
 
 - Run [Obsidian Desktop Application](https://obsidian.md/) and enable [Local REST API](https://github.com/coddingtonbear/obsidian-local-rest-api) in Settings.
 
-![Obsidian Local REST API Setup](./obsidian-setup.jpg)
+![Obsidian Local REST API Setup](./docs/obsidian-setup.jpg)
 
 This setting will allow you to connect to the Local REST API from any network interface (not only localhost, which is critical for WSL2 setup).
 
@@ -220,4 +222,4 @@ wget -qO- --no-check-certificate https://172.26.32.1:27124
 
 ## Dockerized Obsidian
 
-[Obsidian Dockerized](./obsidian.md)
+[Obsidian Dockerized](./docs/obsidian.md)
