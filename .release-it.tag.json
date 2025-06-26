@@ -1,0 +1,25 @@
+{
+  "$schema": "https://unpkg.com/release-it@19/schema/release-it.json",
+  "git": {
+    "commit": false,
+    "tag": false,
+    "requireCleanWorkingDir": false,
+    "push": false,
+    "requireUpstream": false
+  },
+  "github": {
+    "release": false
+  },
+  "npm": {
+    "publish": false,
+    "ignoreVersion": true
+  },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "angular",
+      "infile": "CHANGELOG.md",
+      "strictSemVer": true,
+      "ignoreRecommendedBump": false
+    }
+  }
+}
