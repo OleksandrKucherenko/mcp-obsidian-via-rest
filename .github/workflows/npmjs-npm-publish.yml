@@ -148,6 +148,7 @@ jobs:
           name: npm-package-${{ github.sha }}
           include-hidden-files: true
           path: |
+            dist/index.js
             dist/index.js.map
             package.json
             CHANGELOG.md
@@ -197,7 +198,11 @@ jobs:
           fi
 
           # unpack TGZ file to current directory, TGZ contains `package` folder
-          tar -xzf *.tgz && rm *.tgz && mv -f package/* . && rm -rf package
+          # Extract all files from the tgz archive, overwrite existing files in current directory
+          tar -xzf *.tgz && rm *.tgz && cp -rf package/* . && rm -rf package || {
+            echo "Failed to extract package files from tgz archive"
+            exit 1
+          }
 
           # use `envsubst` to replace variables in .npmrc
           mv .npmrc .npmrc.env

@@ -38,4 +38,5 @@ biome.jsonc
 # Release utils
 .bunfig.toml
 .release-it.json
+.release-it.*.json
 .keep-versions
