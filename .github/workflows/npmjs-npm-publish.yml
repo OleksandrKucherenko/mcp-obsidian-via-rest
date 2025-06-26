@@ -151,7 +151,7 @@ jobs:
             dist/index.js.map
             package.json
             CHANGELOG.md
-            README.md
+            readme.md
             LICENSE
             .npmrc
             *.tgz
