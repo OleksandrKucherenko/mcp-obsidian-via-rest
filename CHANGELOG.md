@@ -1,5 +1,19 @@
 # Changelog
 
+# [0.3.0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.2.2...v0.3.0) (2025-06-26)
+
+
+### Bug Fixes
+
+* **npm:** forgoten readme file ([65ccc7a](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/65ccc7a0820883f48edf08a5e62afd86d0b4e538))
+
+## [0.2.3](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.2.2...v0.2.3) (2025-06-26)
+
+
+### Bug Fixes
+
+* **npm:** forgoten readme file ([65ccc7a](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/65ccc7a0820883f48edf08a5e62afd86d0b4e538))
+
 ## [0.2.2](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.2.2-beta.1...v0.2.2) (2025-06-26)
 
 
