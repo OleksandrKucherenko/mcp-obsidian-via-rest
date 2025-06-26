@@ -21,6 +21,7 @@ const NODE_ENV = process.env.NODE_ENV ?? "development"
 const CWD = process.cwd()
 const ROOT = (findConfig(".env", { cwd: CWD }) ?? "").replace(/\.env$/, "")
 const DEFAULTS = "configs/config.default.jsonc"
+const JSON_CONFIG = `{ "apiKey": "${process.env.API_KEY}", "host": "https://127.0.0.1", "port": 27124 }`
 const isTest = NODE_ENV !== "test"
 
 const log = debug("mcp:config")
@@ -83,7 +84,8 @@ export const loadConfiguration = (configFilePath?: string): ObsidianConfig => {
   const configFile = configFilePath && existsSync(configFilePath) ? configFilePath : DEFAULTS
   log(`Loading config: %o`, configFile)
 
-  const configContent = readFileSync(configFile, "utf-8")
+  // load default config or fallback to hardcoded configuration
+  const configContent = existsSync(configFile) ? readFileSync(configFile, "utf-8") : JSON_CONFIG
   const config = schema.parse(JSON5.parse(configContent))
   log("Default config: %o", config)
 

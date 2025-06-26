@@ -92,6 +92,7 @@ jobs:
           # Verify that the package.json was properly updated
           if grep -q "registry.npmjs.org" package.json; then
             echo "✅ package.json successfully updated to use npmjs.org"
+            rm package.json.original # cleanup
           else
             echo "❌ Failed to update package.json! Restoring from backup."
             mv package.json.original package.json
@@ -147,7 +148,6 @@ jobs:
           name: npm-package-${{ github.sha }}
           include-hidden-files: true
           path: |
-            dist/index.js
             dist/index.js.map
             package.json
             CHANGELOG.md
@@ -195,6 +195,9 @@ jobs:
           if [ ! -f .npmrc ]; then
             echo "ERROR: .npmrc file not found!"
           fi
+
+          # unpack TGZ file to current directory, TGZ contains `package` folder
+          tar -xzf *.tgz && rm *.tgz && mv -f package/* . && rm -rf package
 
           # use `envsubst` to replace variables in .npmrc
           mv .npmrc .npmrc.env
