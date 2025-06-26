@@ -97,7 +97,22 @@ jobs:
             exit 1
           fi
 
+      - name: Check if this is a release commit
+        id: check-release-commit
+        run: |
+          COMMIT_MSG=$(git log -1 --pretty=format:"%s")
+          echo "Current commit message: $COMMIT_MSG"
+          
+          if [[ "$COMMIT_MSG" =~ ^chore\(release\):\ v[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "This is a release commit created by release-it, skipping changelog generation"
+            echo "IS_RELEASE_COMMIT=true" >> $GITHUB_OUTPUT
+          else
+            echo "This is not a release commit, proceeding with changelog generation"
+            echo "IS_RELEASE_COMMIT=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Generate Changelog with release-it
+        if: steps.check-release-commit.outputs.IS_RELEASE_COMMIT == 'false'
         run: |
           RELEASE_IT_CMD="bun run release-it"
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
@@ -118,6 +133,13 @@ jobs:
           head -n 50 CHANGELOG.md || true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Skip changelog generation for release commit
+        if: steps.check-release-commit.outputs.IS_RELEASE_COMMIT == 'true'
+        run: |
+          echo "Skipping changelog generation as this is already a release commit"
+          echo "Using existing CHANGELOG.md:"
+          head -n 50 CHANGELOG.md || true
 
       - name: Build Package
         run: |
