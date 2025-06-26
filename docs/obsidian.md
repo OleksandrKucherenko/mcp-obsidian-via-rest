@@ -149,6 +149,6 @@ docker run --rm -it \
 # connect to the container
 vncviewer -host=localhost -port=50001 -password=testpassword -encoding=zrle
 
-
+# Run inside the Docker Image Instance: obsidian without pre-defined vault to open
 gosu appuser ./Obsidian.AppImage --no-sandbox
 ```
