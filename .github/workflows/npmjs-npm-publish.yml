@@ -23,7 +23,8 @@ jobs:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Full history needed for release-it to generate proper changelog
+          fetch-depth: 0   # Full history needed for release-it to generate proper changelog
+          fetch-tags: true # For correct version detection by release-it
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -97,22 +98,23 @@ jobs:
             exit 1
           fi
 
-      - name: Generate Changelog with release-it
+      - name: Generate Changelog with release-it (tag)
+        if: github.ref_type == 'tag'
         run: |
-          RELEASE_IT_CMD="bun run release-it"
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            echo "Running release-it for tag ${{ github.ref_name }} with version ${{ steps.get-version.outputs.VERSION }}"
-            RELEASE_IT_CMD="$RELEASE_IT_CMD ${{ steps.get-version.outputs.VERSION }}"
-          else
-            echo "Running release-it for main branch to determine next version"
-          fi
+          echo "Running release-it for tag ${{ github.ref_name }} with version ${{ steps.get-version.outputs.VERSION }}"
+          git checkout -b release-${{ steps.get-version.outputs.VERSION }}
+          bun run release-it --config .release-it.tag.json --ci --verbose --no-increment
 
-          $RELEASE_IT_CMD \
-            --ci \
-            --no-git \
-            --no-github \
-            --conventional-commits \
-            --npm.skip.publish
+          echo "Generated changelog:"
+          head -n 50 CHANGELOG.md || true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Generate Changelog with release-it (branch)
+        if: github.ref_type != 'tag'
+        run: |
+          echo "Running release-it for main branch to determine next version"
+          bun run release-it --ci --verbose
 
           echo "Generated changelog:"
           head -n 50 CHANGELOG.md || true
