@@ -157,7 +157,7 @@ jobs:
       
       - name: Dry Run Summary
         run: |
-          echo "# NPM Package Dry Run Results 📦" >> $GITHUB_STEP_SUMMARY
+          echo "# NPM Package Dry Run Results " >> $GITHUB_STEP_SUMMARY
           echo "Package **${{ steps.dry-run.outputs.PKG_NAME }}@${{ steps.dry-run.outputs.PKG_VERSION }}** is ready to be published." >> $GITHUB_STEP_SUMMARY
           echo "Please review the dry run output above and approve the 'publish-to-npmjs' job to complete the publish process." >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -205,8 +205,20 @@ jobs:
           PKG_NAME=$(node -p "require('./package.json').name")
           PKG_VERSION=$(node -p "require('./package.json').version")
           
-          echo "Publishing $PKG_NAME@$PKG_VERSION to npmjs.org"
-          npm publish --access public --registry="https://registry.npmjs.org/"
+          # Detect if this is a pre-release version
+          if [[ "$PKG_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+-.+ ]]; then
+            # Extract pre-release identifier for npm tag
+            if [[ "$PKG_VERSION" =~ -([a-zA-Z]+) ]]; then
+              NPM_TAG="${BASH_REMATCH[1]}"  # e.g., "rc", "alpha", "beta"
+            else
+              NPM_TAG="prerelease"  # fallback for versions like "1.0.0-0-sha-1234567"
+            fi
+            echo "Publishing pre-release $PKG_NAME@$PKG_VERSION with tag: $NPM_TAG"
+            npm publish --access public --tag "$NPM_TAG" --registry="https://registry.npmjs.org/"
+          else
+            echo "Publishing stable release $PKG_NAME@$PKG_VERSION"
+            npm publish --access public --registry="https://registry.npmjs.org/"
+          fi
         env:
           # used in .npmrc file
           NPMJS_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}

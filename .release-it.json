@@ -4,19 +4,24 @@
     "commitMessage": "chore(release): v${version}",
     "tagName": "v${version}",
     "requireCleanWorkingDir": false,
-    "pushRepo": "origin"
+    "pushRepo": "origin",
+    "getLatestTagFromAllRefs": true,
+    "tagMatch": "v[0-9]*\\.[0-9]*\\.[0-9]*"
   },
   "github": {
     "release": true,
     "releaseName": "Release v${version}"
   },
   "npm": {
-    "publish": false
+    "publish": false,
+    "ignoreVersion": true
   },
   "plugins": {
     "@release-it/conventional-changelog": {
       "preset": "angular",
-      "infile": "CHANGELOG.md"
+      "infile": "CHANGELOG.md",
+      "strictSemVer": true,
+      "ignoreRecommendedBump": false
     }
   }
 }
