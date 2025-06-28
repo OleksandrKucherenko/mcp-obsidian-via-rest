@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.4.0...v0.4.1) (2025-06-28)
+
+
+### Bug Fixes
+
+* **docker:** mistake in docker image name ([d898047](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/d8980473fad7ae491b88c15430f895cf9439e2cb))
+
 # [0.4.0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.3.1...v0.4.0) (2025-06-28)
 
 
