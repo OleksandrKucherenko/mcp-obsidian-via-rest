@@ -1,7 +1,7 @@
 {
   "name": "@oleksandrkucherenko/mcp-obsidian",
   "description": "MCP Server for Obsidian Vault Access via Local REST API",
-  "version": "0.3.1",
+  "version": "0.4.0",
   "license": "MIT",
   "author": "Oleksandr Kucherenko <oleksandr.kucherenko@artfulbits.se>",
   "module": "index.ts",
