@@ -111,7 +111,7 @@ jobs:
         id: metaMcp
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/${{ steps.repo_name.outputs.owner }}/mcp-obsidian
+          images: ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
