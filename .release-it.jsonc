@@ -1,5 +1,6 @@
 {
   "$schema": "https://unpkg.com/release-it@19/schema/release-it.json",
+  // allow commit, tag and push
   "git": {
     "commitMessage": "chore(release): v${version}",
     "tagName": "v${version}",
@@ -8,14 +9,17 @@
     "getLatestTagFromAllRefs": true,
     "tagMatch": "v[0-9]*\\.[0-9]*\\.[0-9]*"
   },
+  // GitHub Release is allowed
   "github": {
     "release": true,
     "releaseName": "Release v${version}"
   },
+  // no direct publishing to NPM, only via workflows
   "npm": {
     "publish": false,
     "ignoreVersion": true
   },
+  // compose CHANGELOG.md from conventional commits
   "plugins": {
     "@release-it/conventional-changelog": {
       "preset": "angular",
@@ -24,6 +28,7 @@
       "ignoreRecommendedBump": false
     }
   },
+  // fetch latest tags from remote before running the release
   "hooks": {
     "before:init": "git fetch --prune --prune-tags origin"
   }

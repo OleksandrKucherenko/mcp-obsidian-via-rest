@@ -112,7 +112,8 @@ jobs:
         run: |
           echo "Running release-it for tag ${{ github.ref_name }} with version ${{ steps.get-version.outputs.VERSION }}"
           git checkout -b release-${{ steps.get-version.outputs.VERSION }}
-          bun run release-it --config .release-it.tag.json --ci --verbose --no-increment
+          # Using unified configuration with tag-specific options
+          bun run release-it --config .release-it.ci.jsonc --ci --verbose --no-increment --git.getLatestTagFromAllRefs=false
 
           echo "Generated changelog:"
           head -n 50 CHANGELOG.md || true
@@ -124,7 +125,8 @@ jobs:
         run: |
           echo "Running release-it for main branch to determine next version"
           git checkout -b next-release-from-${{ steps.get-version.outputs.VERSION }}
-          bun run release-it --config .release-it.main.json --ci --verbose
+          # Using unified configuration for branch builds
+          bun run release-it --config .release-it.ci.jsonc --ci --verbose
 
           echo "Generated changelog:"
           head -n 50 CHANGELOG.md || true

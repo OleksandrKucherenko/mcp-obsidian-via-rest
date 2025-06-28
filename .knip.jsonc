@@ -1,18 +1,8 @@
 {
   "$schema": "https://unpkg.com/knip@5/schema.json",
-  "entry": [
-    "src/index.ts",
-    "tests/**/*.test.ts"
-  ],
-  "project": [
-    "{src,tests}/**/*.ts",
-    "!src/**/*.test.ts",
-    "!.github/**/*.yml"
-  ],
-  "ignoreDependencies": [
-    "@commitlint/cli",
-    "@commitlint/config-conventional"
-  ],
+  "entry": ["src/index.ts", "tests/**/*.test.ts"],
+  "project": ["{src,tests}/**/*.ts", "!src/**/*.test.ts", "!.github/**/*.yml"],
+  "ignoreDependencies": ["@commitlint/cli", "@commitlint/config-conventional"],
   "ignoreBinaries": [
     "tsc",
     // NOTE: `bun publish` is recognized by knip as a binary
