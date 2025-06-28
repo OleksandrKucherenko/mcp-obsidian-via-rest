@@ -3,8 +3,8 @@
   "git": {
     "commit": false,
     "tag": false,
-    "requireCleanWorkingDir": false,
     "push": false,
+    "requireCleanWorkingDir": false,
     "requireUpstream": false
   },
   "github": {

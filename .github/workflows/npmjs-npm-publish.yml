@@ -26,6 +26,12 @@ jobs:
           fetch-depth: 0   # Full history needed for release-it to generate proper changelog
           fetch-tags: true # For correct version detection by release-it
 
+      # Required for release-it tool to work properly
+      - name: Set up Git user
+        run: |
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -44,6 +50,8 @@ jobs:
       - name: Extract version from tag
         id: get-version
         run: |
+          echo "if tag is $GITHUB_REF, extract version from tag"
+          
           # if tag is like refs/tags/v1.2.3, extract version from tag
           if [[ $GITHUB_REF == *"refs/tags/v"* ]]; then
             echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
@@ -115,7 +123,8 @@ jobs:
         if: github.ref_type != 'tag'
         run: |
           echo "Running release-it for main branch to determine next version"
-          bun run release-it --ci --verbose
+          git checkout -b next-release-from-${{ steps.get-version.outputs.VERSION }}
+          bun run release-it --config .release-it.main.json --ci --verbose
 
           echo "Generated changelog:"
           head -n 50 CHANGELOG.md || true
@@ -169,6 +178,7 @@ jobs:
           } >> $GITHUB_STEP_SUMMARY
 
   # Second job: Actual publish with manual approval
+  # Executed only on version Tag assigning to main branch OR manually triggered
   publish-to-npmjs:
     needs: prepare-and-dry-run
     runs-on: ubuntu-latest
