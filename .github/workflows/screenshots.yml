@@ -31,9 +31,9 @@ jobs:
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
-        # get full history for release-it tool
         with:
           fetch-depth: 0
+          fetch-tags: true
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3

@@ -1,4 +1,4 @@
 #
 # This file is used to force keeping versions of the npm package during the cleanup process.
-# Script assets/ci_deprecate_npm_package.js will use this file to determine which versions to keep.
+# Script assets/ci_cleanup_npm_package.js will use this file to determine which versions to keep.
 #

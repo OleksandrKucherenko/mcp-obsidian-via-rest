@@ -4,12 +4,13 @@
  * and generate a bash script to deprecate those versions automatically.
  *
  * Usage:
- *   assets/ci_deprecate_npm_package.js <package-name> [--keep-latest-major-releases]
+ *   assets/ci_cleanup_npm_package.js <package-name> [--keep-latest-major-releases] [--force]
  *
  * Node.js 22 LTS recommended.
  *
  * Options:
  *   --keep-latest-major-releases   Keep the latest version for each major (e.g., 1.x, 2.x) even if it would otherwise be deprecated.
+ *   --force                        Force cleanup of ALL versions not selected to keep, regardless of age.
  *
  * If no <package-name> is provided, the script will use the name from package.json.
  *
@@ -26,6 +27,7 @@ import { writeFileSync } from "node:fs"
 import process from "node:process"
 import { readFileSync } from "node:fs"
 import https from "node:https"
+import { inspect } from "node:util"
 
 // Configuration constants
 const CONFIG = {
@@ -40,17 +42,26 @@ const CONFIG = {
 }
 
 // Custom logger for easier future upgrades
-const logger = {
-  log: (message) => console.log(message),
-  warn: (message) => console.log(`WARNING: ${message}`),
-  error: (message) => console.error(message),
+const { info, warning, critical, debug } = {
+  info: (message, ...args) => console.log(message, ...args),
+  warning: (message, ...args) => console.log(`\x1b[33mW: ${message}\x1b[0m`, ...args),
+  critical: (message, ...args) => console.error(`\x1b[31mE: ${message}\x1b[0m`, ...args),
+  debug: (message, ...args) =>
+    process.env.DEBUG ? console.log(`\x1b[90mD: ${message}`, ...args, `\x1b[0m`) : undefined,
 }
+
+// Constants for direct npm registry access
+const NPMJS_REGISTRY_URL = "https://registry.npmjs.org/"
+
+const ARG_KEEP_LATEST_MAJOR = "--keep-latest-major-releases"
+const ARG_FORCE = "--force"
 
 // Parse command line arguments and determine package name
 const parseArgs = () => {
   const argv = process.argv.slice(2)
   let packageName = argv[0]
-  const keepLatestMajor = argv.includes("--keep-latest-major-releases")
+  const keepLatestMajor = argv.includes(ARG_KEEP_LATEST_MAJOR)
+  const force = argv.includes(ARG_FORCE)
 
   if (!packageName || packageName.startsWith("--")) {
     packageName = undefined
@@ -61,23 +72,19 @@ const parseArgs = () => {
       const pkgJson = JSON.parse(readFileSync(CONFIG.PACKAGE_JSON_FILE, "utf-8"))
       if (pkgJson.name) {
         packageName = pkgJson.name
-        logger.log(`No package-name argument provided. Using name from package.json: ${packageName}`)
+        info(`Using package name from package.json: \x1b[34m${packageName}\x1b[0m`)
       } else {
         throw new Error("No name field in package.json.")
       }
     } catch (err) {
-      logger.error(
-        "Usage:assets/ci_deprecate_npm_package.js <package-name>\nOr run from a directory containing a valid package.json.",
-      )
+      critical("Usage: assets/ci_cleanup_npm_package.js <package-name>")
+      critical("Or run from a directory containing a valid package.json.")
       process.exit(1)
     }
   }
 
-  return { packageName, keepLatestMajor }
+  return { packageName, keepLatestMajor, force }
 }
-
-// Constants for direct npm registry access
-const NPMJS_REGISTRY_URL = "https://registry.npmjs.org/"
 
 // Get the currently configured NPM registry URL and verify if it's the expected one
 const getNpmRegistryUrl = () => {
@@ -89,15 +96,28 @@ const getNpmRegistryUrl = () => {
 
     // Check if registry is the expected one
     if (registryUrl !== "https://registry.npmjs.org/") {
-      logger.warn(`Using non-standard registry: ${registryUrl}`)
-      logger.warn("This script is designed to work with the standard npmjs.org registry.")
-      logger.warn("Results may be incomplete if accessing a different registry.")
+      warning(`Using non-standard registry: ${registryUrl}`)
+      warning("This script is designed to work with the standard npmjs.org registry.")
+      warning("Results may be incomplete if accessing a different registry.")
     }
 
     return registryUrl
   } catch (e) {
-    logger.warn("Failed to get npm registry URL, using default")
+    warning("Failed to get npm registry URL, using default")
     return "https://registry.npmjs.org/" // Default NPM registry if command fails
+  }
+}
+
+// Verify that we have sufficient right to modify the NPM registry
+const verifyNpmTokenAccess = () => {
+  try {
+    execSync("npm whoami", {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "ignore"],
+    })
+    info("NPM token access verified")
+  } catch (e) {
+    warning("Failed to verify NPM token access")
   }
 }
 
@@ -105,20 +125,20 @@ const getNpmRegistryUrl = () => {
 const checkNpmConfiguration = () => {
   try {
     // Display detailed npm configuration for diagnostics
-    logger.log("\n=== NPM CONFIGURATION ===")
+    info("\n=== NPM CONFIGURATION ===")
     const npmConfig = execSync("npm config list", {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "ignore"],
     })
-    logger.log(npmConfig)
+    info(npmConfig)
 
     // Look for potential issues in configuration
     if (npmConfig.includes("undefined")) {
-      logger.warn("Detected undefined values in npm config - check for missing environment variables")
+      warning("Detected undefined values in npm config - check for missing environment variables")
     }
 
     if (npmConfig.includes("${")) {
-      logger.warn("Detected unresolved variable substitutions in npm config - check your .npmrc file")
+      warning("Detected unresolved variable substitutions in npm config - check your .npmrc file")
     }
 
     // Check for scoped registry configurations that might override the default
@@ -130,14 +150,14 @@ const checkNpmConfiguration = () => {
       .filter((line) => line.includes("registry"))
 
     if (scopedConfig.length > 0) {
-      logger.warn("Detected scoped registry configurations that may override the default:")
+      warning("Detected scoped registry configurations that may override the default:")
       for (const line of scopedConfig) {
-        logger.warn(`  ${line.trim()}`)
+        warning(`  ${line.trim()}`)
       }
-      logger.warn("These may affect which registry is used for specific package scopes")
+      warning("These may affect which registry is used for specific package scopes")
     }
   } catch (e) {
-    logger.warn("Failed to check npm configuration")
+    warning("Failed to check npm configuration")
   }
 }
 
@@ -182,20 +202,20 @@ const fetchPackageTimeData = async (packageName) => {
     const encodedPackageName = encodeURIComponent(packageName)
     const packageUrl = `${NPMJS_REGISTRY_URL}${encodedPackageName}`
 
-    logger.log(`Making direct request to: ${packageUrl}`)
+    debug(`Making direct request to: ${packageUrl}`)
     const packageData = await makeRegistryRequest(packageUrl)
 
     if (!packageData.time) {
-      logger.log(`No time data found for package '${packageName}'. Exiting without error.`)
+      info(`No time data found for package '${packageName}'. Exiting without error.`)
       process.exit(0)
     }
 
     return packageData.time
   } catch (e) {
     if (e.message.includes("404")) {
-      logger.log(`Package '${packageName}' does not exist on npmjs.org or was never published. Exiting without error.`)
+      error(`Package '${packageName}' does not exist on npmjs.org or was never published. Exiting without error.`)
     } else {
-      logger.log(`Error fetching package data: ${e.message}`)
+      error(`Error fetching package data: ${e.message}`)
     }
     process.exit(0)
   }
@@ -208,7 +228,7 @@ const processVersionEntries = (timeData, packageName) => {
     .map(([version, time]) => ({ version, time: new Date(time) }))
 
   if (Object.keys(timeData).length === 0 || versionEntries.length === 0) {
-    logger.log(`No published versions found for package '${packageName}'. Exiting without error.`)
+    info(`No published versions found for package '${packageName}'. Exiting without error.`)
     process.exit(0)
   }
 
@@ -236,8 +256,9 @@ const loadKeepVersionsFile = () => {
     for (const line of lines) {
       const isNegative = line.startsWith("!")
       const version = isNegative ? line.slice(1) : line
+      const isWildcard = version.includes("*")
 
-      if (version.includes("*")) {
+      if (isWildcard) {
         const regexStr = `^${version.replace(/\./g, "\\.").replace(/\*/g, ".*")}$`
         const pattern = new RegExp(regexStr)
 
@@ -257,16 +278,16 @@ const loadKeepVersionsFile = () => {
 
     // Log what was found
     if (result.exactKeep.length > 0) {
-      logger.log(`Keeping additional exact versions: ${result.exactKeep.join(", ")}`)
+      debug(`Keeping additional exact version(s): ${result.exactKeep.join(", ")}`)
     }
     if (result.patternKeep.length > 0) {
-      logger.log(`Keeping versions matching patterns: ${result.patternKeep.length} pattern(s)`)
+      debug(`Keeping versions matching pattern(s):`, inspect(result.patternKeep))
     }
     if (result.exactNegative.length > 0) {
-      logger.log(`Explicitly NOT keeping exact versions: ${result.exactNegative.join(", ")}`)
+      debug(`NOT explicitly keeping exact version(s): ${result.exactNegative.join(", ")}`)
     }
     if (result.patternNegative.length > 0) {
-      logger.log(`Explicitly NOT keeping versions matching patterns: ${result.patternNegative.length} pattern(s)`)
+      debug(`NOT explicitly keeping versions matching pattern(s):`, inspect(result.patternNegative))
     }
   } catch (e) {
     // File does not exist or unreadable; ignore
@@ -302,9 +323,14 @@ const detectConflicts = (exactKeep, exactNegative, keepPatterns, negativePattern
     patternConflicts: [],
   }
 
+  //debug(`versions:`, inspect(versionEntries))
+
   // Check exact keep vs exact negative
   for (const keepVer of exactKeep) {
     if (exactNegative.includes(keepVer)) {
+      conflicts.exactConflicts.push(keepVer)
+    }
+    if (matchesAnyPattern(keepVer, negativePatterns)) {
       conflicts.exactConflicts.push(keepVer)
     }
   }
@@ -314,9 +340,21 @@ const detectConflicts = (exactKeep, exactNegative, keepPatterns, negativePattern
     .filter((entry) => matchesAnyPattern(entry.version, keepPatterns))
     .map((entry) => entry.version)
 
+  debug(`Keep by pattern(s):`, inspect(keptByPattern))
+  for (const keepVer of keptByPattern) {
+    if (exactNegative.includes(keepVer)) {
+      conflicts.patternConflicts.push(keepVer)
+    }
+    if (matchesAnyPattern(keepVer, negativePatterns)) {
+      conflicts.patternConflicts.push(keepVer)
+    }
+  }
+
   const excludedByPattern = versionEntries
     .filter((entry) => matchesAnyPattern(entry.version, negativePatterns))
     .map((entry) => entry.version)
+
+  debug(`Exclude by pattern(s):`, inspect(excludedByPattern))
 
   const patternConflicts = keptByPattern.filter((version) => excludedByPattern.includes(version))
   if (patternConflicts.length > 0) {
@@ -383,53 +421,68 @@ const fetchDeprecatedVersions = async (packageName) => {
     // Extract deprecated versions from package data
     const deprecated = {}
     if (packageData.versions) {
-      Object.entries(packageData.versions).forEach(([version, data]) => {
+      for (const [version, data] of Object.entries(packageData.versions)) {
         if (data.deprecated) {
           deprecated[version] = data.deprecated
         }
-      })
+      }
     }
 
     return deprecated
   } catch (e) {
-    logger.warn(`Failed to fetch deprecated versions: ${e.message}`)
+    warning(`Failed to fetch deprecated versions: ${e.message}`)
     return {}
   }
 }
 
 // Generate version summary for output
-const generateVersionSummary = (versionEntries, latestPerMajor, allKeepVersions, keepLatestMajor) => {
-  const summary = ["\n=== VERSIONS REMAINING ACTIVE AFTER DEPRECATION ===="]
+const generateVersionSummary = (
+  versionEntries,
+  latestPerMajor,
+  allKeepVersions,
+  keepLatestMajor,
+  versionsToDeprecate = [],
+  force = false,
+) => {
+  const summary = []
 
-  // Latest versions
-  const latestVersions = versionEntries.slice(0, CONFIG.KEEP_LATEST_COUNT).map((v) => v.version)
-  if (latestVersions.length > 0) {
-    summary.push(`Latest ${CONFIG.KEEP_LATEST_COUNT} versions: ${latestVersions.join(", ")}`)
+  //summary.push("=== NPM PACKAGE VERSION SUMMARY ===")
+  summary.push(`Total versions found: ${versionEntries.length}`)
+
+  summary.push(
+    `Latest ${CONFIG.KEEP_LATEST_COUNT} version(s): ${versionEntries
+      .slice(0, CONFIG.KEEP_LATEST_COUNT)
+      .map((v) => v.version)
+      .join(", ")}`,
+  )
+
+  if (keepLatestMajor && latestPerMajor.length > 0) {
+    summary.push(`Latest per major version: ${latestPerMajor.join(", ")}`)
   }
 
-  // Latest per major release (when flag is used)
-  if (keepLatestMajor && latestPerMajor && latestPerMajor.length > 0) {
-    const majorOnlyVersions = latestPerMajor.filter((v) => !latestVersions.includes(v))
-    if (majorOnlyVersions.length > 0) {
-      summary.push(`Latest per major release: ${majorOnlyVersions.join(", ")}`)
-    }
+  // Total versions to keep (including special keep rules)
+  summary.push(`Total versions to keep: ${[...allKeepVersions].sort().join(", ")}`)
+
+  // Calculate versions to be deprecated based on age
+  const now = Date.now()
+  const thirtyDaysMs = CONFIG.DAYS_TO_DEPRECATE * CONFIG.MS_PER_DAY
+  const thresholdDate = new Date(now - thirtyDaysMs)
+  const olderThanThreshold = versionEntries.filter((v) => v.time < thresholdDate)
+
+  if (force) {
+    summary.push(`Versions to deprecate (force mode): ${versionsToDeprecate.length}`)
+  } else {
+    summary.push(`Versions older than ${CONFIG.DAYS_TO_DEPRECATE} days: ${olderThanThreshold.length}`)
+    summary.push(`Versions older than ${CONFIG.DAYS_TO_DEPRECATE} days to deprecate: ${versionsToDeprecate.length}`)
   }
 
-  // Other versions from .keep-versions file
-  const mentionedVersions = new Set([...latestVersions])
-  if (keepLatestMajor && latestPerMajor) {
-    for (const v of latestPerMajor) {
-      mentionedVersions.add(v)
-    }
+  if (versionsToDeprecate.length > 0) {
+    summary.push(
+      `Oldest versions to deprecate: ${versionsToDeprecate
+        .slice(0, 5)
+        .join(", ")}${versionsToDeprecate.length > 5 ? ` and ${versionsToDeprecate.length - 5} more` : ""}`,
+    )
   }
-
-  const otherActiveVersions = [...allKeepVersions].filter((v) => !mentionedVersions.has(v)).sort()
-  if (otherActiveVersions.length > 0) {
-    summary.push(`Other active versions: ${otherActiveVersions.join(", ")}`)
-  }
-
-  // Total count
-  summary.push(`Total active versions: ${allKeepVersions.size}`)
 
   return summary
 }
@@ -482,19 +535,25 @@ const generateBashScript = (packageName, versionsToDeprecate, versionSummary) =>
     bashLines.push(`echo "${line}"`)
   }
 
-  bashLines.push('echo "\nDeprecation process completed."')
+  bashLines.push('echo "Deprecation process completed."')
 
   return bashLines.join("\n")
 }
 
 // Compute which versions should be deprecated
-const computeVersionsToDeprecate = (versionEntries, allKeepVersions, deprecatedMap) => {
+const computeVersionsToDeprecate = (versionEntries, allKeepVersions, deprecatedMap, force = false) => {
   const now = Date.now()
   const thirtyDaysMs = CONFIG.DAYS_TO_DEPRECATE * CONFIG.MS_PER_DAY
   const thresholdDate = new Date(now - thirtyDaysMs)
 
-  return versionEntries
-    .filter((v) => v.time < thresholdDate)
+  let filteredVersions = versionEntries
+
+  // Skip the age check if force flag is provided
+  if (!force) {
+    filteredVersions = filteredVersions.filter((v) => v.time < thresholdDate)
+  }
+
+  return filteredVersions
     .filter((v) => !allKeepVersions.has(v.version))
     .filter((v) => !deprecatedMap[v.version])
     .sort((a, b) => a.time - b.time) // ascending order: oldest first
@@ -508,14 +567,20 @@ const computeVersionsToDeprecate = (versionEntries, allKeepVersions, deprecatedM
  */
 const main = async () => {
   try {
-    const { packageName, keepLatestMajor } = parseArgs()
+    const { packageName, keepLatestMajor, force } = parseArgs()
 
     // Get and display the NPM registry URL
     const registryUrl = getNpmRegistryUrl()
-    logger.log(`Using NPM registry: ${registryUrl}`)
+    info(`Using NPM registry: ${registryUrl}`)
+
+    verifyNpmTokenAccess()
+
+    if (force) {
+      warning("Force flag detected: Will mark ALL versions for deprecation regardless of age")
+    }
 
     // Check for potential npm configuration issues
-    checkNpmConfiguration()
+    if (process.env.DEBUG) checkNpmConfiguration()
 
     // Get `time` info directly from npm registry
     const timeData = await fetchPackageTimeData(packageName)
@@ -529,7 +594,7 @@ const main = async () => {
     if (keepLatestMajor) {
       latestPerMajor = getLatestPerMajor(versionEntries)
       if (latestPerMajor.length > 0) {
-        logger.log(`Keeping latest version for each major: ${latestPerMajor.join(", ")}`)
+        info(`Keeping latest version for each major:`, latestPerMajor.join(", "))
       }
     }
 
@@ -542,15 +607,15 @@ const main = async () => {
       versionEntries,
     )
     if (conflicts.exactConflicts.length > 0) {
-      logger.warn(`Detected conflicting exact keep/exclude rules for versions: ${conflicts.exactConflicts.join(", ")}`)
-      logger.log("Keep rules will have priority over exclude rules.")
+      warning(`Detected conflicting exact keep/exclude rules for versions: ${conflicts.exactConflicts.join(", ")}`)
+      warning("Keep rules will have priority over exclude rules.")
     }
 
     if (conflicts.patternConflicts.length > 0) {
-      logger.warn(
+      warning(
         `Detected versions caught by both keep and exclude patterns: ${conflicts.patternConflicts.slice(0, 5).join(", ")}${conflicts.patternConflicts.length > 5 ? ` and ${conflicts.patternConflicts.length - 5} more` : ""}`,
       )
-      logger.log("Keep patterns will have priority over exclude patterns.")
+      warning("Keep patterns will have priority over exclude patterns.")
     }
 
     // Build the set of versions to keep
@@ -559,16 +624,24 @@ const main = async () => {
     // Get deprecated info for all versions
     const deprecatedMap = await fetchDeprecatedVersions(packageName)
 
-    // Versions to deprecate: older than 30 days, not in keepVersions or .keep-versions, and not already deprecated
-    const versionsToDeprecate = computeVersionsToDeprecate(versionEntries, allKeepVersions, deprecatedMap)
+    // Versions to deprecate: older than 30 days (or all if force flag), not in keepVersions or .keep-versions, and not already deprecated
+    const versionsToDeprecate = computeVersionsToDeprecate(versionEntries, allKeepVersions, deprecatedMap, force)
 
     // Generate version summary
-    const versionSummary = generateVersionSummary(versionEntries, latestPerMajor, allKeepVersions, keepLatestMajor)
+    const versionSummary = generateVersionSummary(
+      versionEntries,
+      latestPerMajor,
+      allKeepVersions,
+      keepLatestMajor,
+      versionsToDeprecate,
+      force,
+    )
 
     if (versionsToDeprecate.length === 0) {
-      logger.log(
-        "No versions eligible for deprecation (older than 30 days excluding last 3, and not already deprecated).",
-      )
+      const message = force
+        ? "No versions eligible for deprecation (all versions are either kept or already deprecated)."
+        : "No versions eligible for deprecation (older than 30 days excluding last 3, and not already deprecated)."
+      info(message)
 
       // Generate kept-versions report script even when no versions need deprecation
       const keptVersionsScriptContent = generateKeptVersionsScript(packageName, versionSummary)
@@ -579,17 +652,18 @@ const main = async () => {
 
       writeFileSync(outputFileName, keptVersionsScriptContent, { mode: 0o755 })
 
-      logger.log(`No deprecations needed, but report script generated: ${outputFileName}`)
-      logger.log("Run it to view version status, e.g.:")
-      logger.log(`  ./${outputFileName}`)
+      info(`No deprecations needed, but report script generated: ${outputFileName}`)
+      info("Run it to view version status, e.g.:")
+      info(`  ./${outputFileName}`)
       process.exit(0)
     }
 
     // Version summary was already generated above
 
     // Print the summary to the terminal
+    info("")
     for (const line of versionSummary) {
-      logger.log(line)
+      info(`| `, line)
     }
 
     // Generate bash script content
@@ -601,11 +675,11 @@ const main = async () => {
 
     writeFileSync(outputFileName, bashScriptContent, { mode: 0o755 })
 
-    logger.log(`Bash script generated: ${outputFileName}`)
-    logger.log("Run it to execute deprecations, e.g.:")
-    logger.log(`  ./${outputFileName}`)
+    info(`\nBash script generated: ${outputFileName}`)
+    info("\nRun it to execute deprecations, e.g.:")
+    info(`\x1b[35m  ./${outputFileName}\x1b[0m\n`)
   } catch (error) {
-    logger.error("Error:", error instanceof Error ? error.message : error)
+    error("Error:", error instanceof Error ? error.message : error)
     process.exit(1)
   }
 }

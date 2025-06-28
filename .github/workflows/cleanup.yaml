@@ -55,7 +55,7 @@ jobs:
       - name: Deprecate old package versions
         run: |
           echo "Running automated NPM package deprecation"
-          node ./assets/ci_deprecate_npm_package.js "${{ steps.pkg-info.outputs.PKG_NAME }}"
+          node ./assets/ci_cleanup_npm_package.js "${{ steps.pkg-info.outputs.PKG_NAME }}"
 
           # print the generated script
           if [ -f ./deprecate-${{ steps.pkg-info.outputs.NORMALIZED_PKG_NAME }}-old-versions.sh ]; then

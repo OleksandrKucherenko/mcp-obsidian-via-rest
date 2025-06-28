@@ -13,7 +13,7 @@
  *   --keep-latest-major-releases   Keep the latest version for each major (e.g., 1.x, 2.x) even if it would otherwise be deleted.
  *   --force                        Force cleanup of ALL versions not selected to keep, regardless of age.
  *
- * .keep-docker-versions file:
+ * .keep-versions file:
  *   - Each line is a version pattern to keep or exclude
  *   - Lines starting with # are comments
  *   - Normal version numbers: '1.2.3' - exact match

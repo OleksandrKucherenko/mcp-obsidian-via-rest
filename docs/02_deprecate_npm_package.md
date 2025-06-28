@@ -1,6 +1,6 @@
 # npm Package Deprecation Script: Usage & CI/CD Integration
 
-This document describes the purpose, functionality, and usage of the `ci_deprecate_npm_package.js` script found in [`assets/ci_deprecate_npm_package.js`]. This script automates the deprecation of old npm package versions, making it ideal for integration into CI/CD pipelines.
+This document describes the purpose, functionality, and usage of the `ci_cleanup_npm_package.js` script found in [`assets/ci_cleanup_npm_package.js`]. This script automates the deprecation of old npm package versions, making it ideal for integration into CI/CD pipelines.
 
 ---
 
@@ -8,7 +8,7 @@ This document describes the purpose, functionality, and usage of the `ci_depreca
 
 The script identifies package versions older than 30 days (excluding the latest 3 and optionally the latest of each major release) and generates a bash script to deprecate those versions on npm. It supports custom keep/exclude patterns via a `.keep-versions` file.
 
-- **Location:** `assets/ci_deprecate_npm_package.js`
+- **Location:** `assets/ci_cleanup_npm_package.js`
 - **Language:** Node.js (22+ recommended)
 - **Purpose:** Automate npm deprecation for old package versions
 - **Output:** Bash script to deprecate old versions
@@ -31,7 +31,7 @@ The script identifies package versions older than 30 days (excluding the latest 
 
 - Node.js 22 LTS or later
 - npm authentication (must be logged in with publish/deprecate rights)
-- `assets/ci_deprecate_npm_package.js` available in your repo
+- `assets/ci_cleanup_npm_package.js` available in your repo
 - (Optional) `.keep-versions` file in the working directory
 
 ---
@@ -40,7 +40,7 @@ The script identifies package versions older than 30 days (excluding the latest 
 
 ### Local (Manual)
 ```sh
-node assets/ci_deprecate_npm_package.js <package-name> [--keep-latest-major-releases]
+node assets/ci_cleanup_npm_package.js <package-name> [--keep-latest-major-releases]
 ```
 - If `<package-name>` is omitted, the script uses the name from `package.json`.
 - Use `--keep-latest-major-releases` to always keep the latest version of each major (e.g., 1.x, 2.x).
@@ -94,7 +94,7 @@ jobs:
         run: npm ci
       - name: Run deprecation script
         run: |
-          node assets/ci_deprecate_npm_package.js <package-name>
+          node assets/ci_cleanup_npm_package.js <package-name>
           bash deprecate-<package-name>-old-versions.sh
         env:
           NPMJS_AUTH_TOKEN: ${{ secrets.GITHUB_NPM_TOKEN }}
@@ -140,4 +140,4 @@ jobs:
 
 ---
 
-For further details, see the script source in [`assets/ci_deprecate_npm_package.js`].
+For further details, see the script source in [`assets/ci_cleanup_npm_package.js`].
