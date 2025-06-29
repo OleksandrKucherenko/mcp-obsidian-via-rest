@@ -54,6 +54,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc
+          flavor: latest=false   # 👈 Prevents implicit "latest" addition
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -67,6 +68,7 @@ jobs:
         with:
           context: ./dockerize
           file: ./dockerize/Dockerfile
+          provenance: false   # 👈 disables attestation-manifests
           push: ${{ github.event_name != 'pull_request' }}
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaVnc.outputs.tags }}
@@ -77,6 +79,7 @@ jobs:
       - name: Verify Manifest
         run: |
           docker manifest inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc:latest
+          docker buildx imagetools inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc:latest
   
   build-mcp:
     runs-on: ubuntu-latest
@@ -112,6 +115,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp
+          flavor: latest=false   # 👈 Prevents implicit "latest" addition
           tags: |
             type=ref,event=branch
             type=semver,pattern={{version}}
@@ -126,6 +130,7 @@ jobs:
           context: .
           file: Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
+          provenance: false   # 👈 disables attestation-manifests
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaMcp.outputs.tags }}
           labels: ${{ steps.metaMcp.outputs.labels }}
@@ -135,3 +140,4 @@ jobs:
       - name: Verify Manifest
         run: |
           docker manifest inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp:latest
+          docker buildx imagetools inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp:latest
