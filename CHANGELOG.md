@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.4.2](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.4.1...v0.4.2) (2025-06-29)
+
+
+### Bug Fixes
+
+* **cleanup:** correction to docker images cleanup script ([b0422dc](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/b0422dc3389d47c7b3092663016c2f11f3e5daab))
+* **cleanup:** verified npm and docker cleanup scripts ([d9060f4](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/d9060f47d1825ff81cb200e81a8ce04114ce77d4))
+* **docker:** prevent unknown/unknown creation for docker images ([56b43b6](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/56b43b6472f81272e8a8a946cc0f748aafd673d2))
+* **docker:** scoped cache for each job ([734916c](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/734916cda77b5830c69c31e8a2b5721a83f482db))
+
 ## [0.4.1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.4.0...v0.4.1) (2025-06-28)
 
 
