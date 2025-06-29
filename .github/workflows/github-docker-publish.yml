@@ -73,8 +73,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaVnc.outputs.tags }}
           labels: ${{ steps.metaVnc.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=obsidian-vnc
+          cache-to: type=gha,mode=max,scope=obsidian-vnc
 
       - name: Verify Manifest
         run: |
@@ -134,8 +134,8 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaMcp.outputs.tags }}
           labels: ${{ steps.metaMcp.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha,scope=obsidian-mcp
+          cache-to: type=gha,mode=max,scope=obsidian-mcp
 
       - name: Verify Manifest
         run: |
