@@ -504,7 +504,8 @@ const generateKeptVersionsScript = (packageName, versionSummary) => {
     bashLines.push(`echo "${line}"`)
   }
 
-  bashLines.push('echo "\nAll versions are current - no deprecations needed."')
+  bashLines.push('echo ""')
+  bashLines.push('echo "All versions are current - no deprecations needed."')
 
   return bashLines.join("\n")
 }
@@ -535,6 +536,7 @@ const generateBashScript = (packageName, versionsToDeprecate, versionSummary) =>
     bashLines.push(`echo "${line}"`)
   }
 
+  bashLines.push('echo ""')
   bashLines.push('echo "Deprecation process completed."')
 
   return bashLines.join("\n")
