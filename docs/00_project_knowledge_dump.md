@@ -372,7 +372,7 @@ bun publish --dry-run
 bunx changelogithub --dry
 
 # verify that the package is available
-curl -H "Authorization: Bearer ${GITHUB_NPM_TOKEN}" https://npm.pkg.github.com/@oleksandrkucherenko/mcp-obsidian | jq
+curl -H "Authorization: Bearer ${NPMRC_GITHUB_AUTH_TOKEN}" https://npm.pkg.github.com/@oleksandrkucherenko/mcp-obsidian | jq
 ```
 
 - https://bun.sh/docs/cli/publish

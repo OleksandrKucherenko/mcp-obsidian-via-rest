@@ -150,7 +150,7 @@ jobs:
           echo "PKG_VERSION=$PKG_VERSION" >> $GITHUB_OUTPUT
         env:
           # used in .npmrc, .envrc and .bunfig.toml
-          NPMJS_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"
 
       - name: Upload Package Artifact
@@ -243,5 +243,5 @@ jobs:
           fi
         env:
           # used in .npmrc file
-          NPMJS_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
+          NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"

@@ -1,5 +1,5 @@
 [install.scopes]
-"@oleksandrkucherenko" = { url = "https://npm.pkg.github.com", token = "$GITHUB_NPM_TOKEN" }
+"@oleksandrkucherenko" = { url = "https://npm.pkg.github.com", token = "$NPMRC_GITHUB_AUTH_TOKEN" }
 
 [test]
 timeout = 120_000

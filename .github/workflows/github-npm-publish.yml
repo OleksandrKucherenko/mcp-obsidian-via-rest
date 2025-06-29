@@ -190,6 +190,6 @@ jobs:
           BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # used in .npmrc, .envrc and .bunfig.toml
-          GITHUB_NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPMJS_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPMRC_GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_REGISTRY_URL: "https://npm.pkg.github.com"
