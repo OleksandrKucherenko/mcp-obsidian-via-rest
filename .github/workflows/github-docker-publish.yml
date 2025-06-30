@@ -19,6 +19,8 @@ on:
         required: false
         type: string
 
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   build-vnc:
     runs-on: ubuntu-latest

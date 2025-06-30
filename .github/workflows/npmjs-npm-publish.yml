@@ -14,6 +14,8 @@ on:
         default: true
         required: true
 
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
 jobs:
   # First job: Prepare and run dry-run
   prepare-and-dry-run:
