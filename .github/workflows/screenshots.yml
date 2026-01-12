@@ -44,18 +44,6 @@ jobs:
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
-        with:
-          driver-opts: |
-            image=moby/buildkit:latest
-            network=host
-
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
 
       - name: Get version
         id: version
@@ -72,18 +60,9 @@ jobs:
 
       - name: Run Docker Compose
         id: compose
-        env:
-          BUILDKIT_PROGRESS: plain
         run: |
-          docker compose -f ./docker-compose.test.yaml build --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max
+          docker compose -f ./docker-compose.test.yaml build
           docker compose -f ./docker-compose.test.yaml up --abort-on-container-exit
-
-      - name: Move Docker cache
-        if: always()
-        run: |
-          rm -rf /tmp/.buildx-cache
-          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
-        continue-on-error: true
 
       - name: Collect Docker Compose Logs
         run: |
