@@ -21,7 +21,82 @@
 
 <!-- /TOC -->
 
-## Configure MCP 
+## Configure MCP
+
+### HTTP Transport Configuration
+
+The MCP server now supports HTTP transport for remote access. Configure it in your MCP client settings:
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian-http": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian-http",
+        "--rm",
+        "-p", "3000:3000",
+        "-e", "API_KEY",
+        "-e", "API_HOST",
+        "-e", "API_PORT",
+        "-e", "MCP_TRANSPORTS=http",
+        "-e", "MCP_HTTP_PORT=3000",
+        "-e", "DEBUG",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",              // required
+        "API_HOST": "https://172.26.32.1",       // default: localhost
+        "API_PORT": "27124",                     // default: 27124
+        "MCP_TRANSPORTS": "http",                // enable HTTP transport
+        "MCP_HTTP_PORT": "3000",                 // HTTP port (default: 3000)
+        "MCP_HTTP_HOST": "0.0.0.0",              // bind address (default: 0.0.0.0)
+        "MCP_HTTP_PATH": "/mcp",                 // endpoint path (default: /mcp)
+        "DEBUG": "mcp:*"                         // default: disabled logs
+      }
+    }
+  }
+}
+```
+
+### Authentication (Optional)
+
+To secure the HTTP endpoint with Bearer token authentication:
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian-http-auth": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian-http",
+        "--rm",
+        "-p", "3000:3000",
+        "-e", "API_KEY",
+        "-e", "MCP_TRANSPORTS=http",
+        "-e", "MCP_HTTP_TOKEN=your-secret-token-here",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",
+        "MCP_TRANSPORTS": "http",
+        "MCP_HTTP_TOKEN": "your-secret-token-here"  // required for auth
+      }
+    }
+  }
+}
+```
+
+Clients must include the Authorization header:
+```
+Authorization: Bearer your-secret-token-here
+```
+
+### Stdio Transport Configuration
+
+For local development with stdio transport (default):
 
 ```jsonc
 {
@@ -45,7 +120,7 @@
         "API_PORT": "27124",               // default: 27124
         "DEBUG": "mcp:*"                   // default: disabled logs
       }
-    } 
+    }
   }
 }
 ```
@@ -54,6 +129,7 @@
 - `-i, --interactive` - Keep STDIN open
 - `-e, --env` - Set environment variables
 - `--name string` - Assign a name to the container
+- `-p, --publish` - Publish container port to host
 
 - [NPM Package Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/npm/mcp-obsidian)
 - [Docker Image Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/container/obsidian-mcp)
