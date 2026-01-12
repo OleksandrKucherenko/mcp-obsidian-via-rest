@@ -122,7 +122,8 @@ jobs:
         with:
           node-version: '22'
           registry-url: 'https://npm.pkg.github.com'
-          scope: '@${{ steps.repo_name.outputs.owner }}'
+          registries: |
+            @oleksandrkucherenko=https://npm.pkg.github.com
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -138,7 +139,27 @@ jobs:
         run: |
           # run unit tests
           bun run test
-
+          
+      - name: Check if version already published to GitHub Packages
+        id: check-published
+        run: |
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_SCOPE="@oleksandrkucherenko"
+          PACKAGE_NAME="mcp-obsidian"
+          FULL_NAME="${PACKAGE_SCOPE}/${PACKAGE_NAME}"
+          
+          echo "Checking if ${FULL_NAME}@${PACKAGE_VERSION} is already published to GitHub Packages..."
+          
+          # Check if package version exists in GitHub Packages registry
+          # Note: This uses npm view which will work with GitHub Packages registry
+          if npm view "${FULL_NAME}@${PACKAGE_VERSION}" --registry "https://npm.pkg.github.com" > /dev/null 2>&1; then
+            echo "::notice::Version ${PACKAGE_VERSION} is already published to GitHub Packages"
+            echo "ALREADY_PUBLISHED=true" >> $GITHUB_OUTPUT
+          else
+            echo "::notice::Version ${PACKAGE_VERSION} is not yet published to GitHub Packages"
+            echo "ALREADY_PUBLISHED=false" >> $GITHUB_OUTPUT
+          fi
+          
       - name: Verify that Package is ready for GitHub Packages
         run: |
           # Ensure package.json has correct repository field
@@ -151,7 +172,12 @@ jobs:
             PACKAGE_NAME=$(node -p "require('./package.json').name")
             sed -i "s/\"name\": \"$PACKAGE_NAME\"/\"name\": \"@${{ github.repository_owner }}\/$(echo $PACKAGE_NAME | sed 's/@.*\///')\"/g" package.json
           fi
-
+          
+      - name: Backup package.json before modification
+        run: |
+          cp package.json package.json.orig
+          echo "Backed up package.json"
+          
       - name: Extract Release Type (semantic commit)
         id: release-type
         continue-on-error: true
@@ -172,16 +198,17 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Package
+        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true'
         run: |
-          # prepare the TGZ file for publishing
+          # prepare TGZ file for publishing
           bun run publish:prepare
-
+          
       - name: Publish to GitHub Packages
+        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
         run: |
-          export SHA=${GITHUB_SHA::7}
-          export TAG="sha-${SHA}"
-          # do the publishing under unique 'sha-${SHA}' tag
-          bun publish --tag $TAG --registry "https://npm.pkg.github.com"
+          # Also publish with version tag for consistency when triggered by version tags
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          bun publish --tag $PACKAGE_VERSION --registry "https://npm.pkg.github.com"
         env:
           BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -189,3 +216,31 @@ jobs:
           NPMRC_GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_REGISTRY_URL: "https://npm.pkg.github.com"
+          
+      - name: Restore package.json version (if skipped publish)
+        if: steps.check-published.outputs.ALREADY_PUBLISHED == 'true'
+        run: |
+          # Restore original version from package.json.orig if it exists
+          if [ -f package.json.orig ]; then
+            mv package.json.orig package.json
+            echo "Restored package.json to original version"
+          fi
+          
+      - name: Publish to GitHub Packages (version tag)
+        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
+        run: |
+          # Also publish with version tag for consistency when triggered by version tags
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          bun publish --tag $PACKAGE_VERSION --registry "https://npm.pkg.github.com"
+        env:
+          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPMRC_GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_REGISTRY_URL: "https://npm.pkg.github.com"
+          
+      - name: Skip GitHub Packages publish (already published)
+        if: steps.check-published.outputs.ALREADY_PUBLISHED == 'true'
+        run: |
+          echo "::notice::Version $(node -p "require('./package.json').version") is already published to GitHub Packages"
+          echo "::notice::Skipping publish step to avoid tag conflict"
