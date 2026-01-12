@@ -1,4 +1,4 @@
-# Build and deploy static website to GitHub Pages
+name: Build and Deploy Static Website
 
 on:
   push:
@@ -26,8 +26,19 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Wait for screenshots workflow to complete before building website
+  wait-for-screenshots:
+    if: github.event.inputs.include_screenshots == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for screenshots artifact
+        run: |
+          echo "Waiting for screenshots artifact to be available..."
+          sleep 5
+
   build-and-deploy:
     runs-on: ubuntu-latest
+    needs: wait-for-screenshots
     steps:
       - name: Checkout
         uses: actions/checkout@v4
