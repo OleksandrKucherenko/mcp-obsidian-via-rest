@@ -9,6 +9,12 @@ export interface TransportContext {
 /** Stdio transport-specific context. */
 export interface StdioTransportContext extends TransportContext {}
 
+/** HTTP transport-specific context. */
+export interface HttpTransportContext extends TransportContext {}
+
+/** SSE transport-specific context. */
+export interface SseTransportContext extends TransportContext {}
+
 /** Stdio transport configuration. */
 export interface StdioConfig {
   enabled: boolean
