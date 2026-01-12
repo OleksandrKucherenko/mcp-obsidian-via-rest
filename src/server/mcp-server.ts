@@ -4,7 +4,7 @@ import { z } from "zod"
 import { debug } from "debug"
 
 import PackageJson from "../../package.json" assert { type: "json" }
-import type { ObsidianAPI } from "../client/obsidian-api"
+import type { IObsidianAPI } from "../client/types"
 
 const log = debug("mcp:server")
 
@@ -13,7 +13,7 @@ const log = debug("mcp:server")
  * @param api - The ObsidianAPI instance to use for tool/resource operations
  * @returns Configured McpServer instance
  */
-export function createMcpServer(api: ObsidianAPI): McpServer {
+export function createMcpServer(api: IObsidianAPI): McpServer {
   const server = new McpServer({
     name: PackageJson.name,
     version: PackageJson.version,

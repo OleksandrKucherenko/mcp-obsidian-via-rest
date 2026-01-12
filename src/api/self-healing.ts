@@ -1,7 +1,7 @@
 import { debug } from "debug"
 import { selectBestUrl, testUrlsInParallel, type URLTestResult } from "./url-tester"
 import { ObsidianAPI } from "../client/obsidian-api"
-import type { ObsidianConfig } from "../client/types"
+import type { IObsidianAPI, Note, ObsidianConfig } from "../client/types"
 
 const log = debug("mcp:self-healing")
 
@@ -226,5 +226,21 @@ export class SelfHealingObsidianAPI {
     }
 
     this.isReconnecting = false
+  }
+
+  /**
+   * Read a note from Obsidian.
+   * Implements IObsidianAPI interface.
+   */
+  async readNote(filePath: string): Promise<Note> {
+    return this.api.readNote(filePath)
+  }
+
+  /**
+   * Search for notes in Obsidian.
+   * Implements IObsidianAPI interface.
+   */
+  async searchNotes(query: string): Promise<Note[]> {
+    return this.api.searchNotes(query)
   }
 }

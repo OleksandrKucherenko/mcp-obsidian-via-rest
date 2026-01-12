@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
-import { TransportManager } from "../../src/transports/manager"
-import type { TransportConfig, TransportContext, TransportFactories } from "../../src/transports/types"
+import { TransportManager, type TransportFactories } from "../../src/transports/manager"
+import type { TransportConfig, TransportContext } from "../../src/transports/types"
 
 // Mock server type for tests
 type MockServer = {
