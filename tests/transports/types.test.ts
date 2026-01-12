@@ -124,6 +124,86 @@ describe("Transport Interfaces", () => {
         })
         expect(result.success).toBe(false)
       })
+
+      describe("with authentication", () => {
+        test("should validate http config with auth enabled", () => {
+          const result = schema.safeParse({
+            enabled: true,
+            port: 3000,
+            host: "0.0.0.0",
+            path: "/mcp",
+            auth: {
+              enabled: true,
+              token: "test-token-12345678",
+            },
+          })
+          expect(result.success).toBe(true)
+        })
+
+        test("should validate http config with auth and tokenEnvVar", () => {
+          const result = schema.safeParse({
+            enabled: true,
+            port: 3000,
+            host: "0.0.0.0",
+            path: "/mcp",
+            auth: {
+              enabled: true,
+              tokenEnvVar: "MCP_HTTP_TOKEN",
+            },
+          })
+          expect(result.success).toBe(true)
+        })
+
+        test("should validate http config with auth disabled", () => {
+          const result = schema.safeParse({
+            enabled: true,
+            port: 3000,
+            host: "0.0.0.0",
+            path: "/mcp",
+            auth: {
+              enabled: false,
+            },
+          })
+          expect(result.success).toBe(true)
+        })
+      })
+    })
+
+    describe("authConfig schema", () => {
+      const schema = Schema.authConfig
+
+      test("should validate valid auth config with token", () => {
+        const result = schema.safeParse({
+          enabled: true,
+          token: "my-secret-token",
+        })
+        expect(result.success).toBe(true)
+      })
+
+      test("should validate valid auth config with tokenEnvVar", () => {
+        const result = schema.safeParse({
+          enabled: true,
+          tokenEnvVar: "MY_TOKEN_ENV",
+        })
+        expect(result.success).toBe(true)
+      })
+
+      test("should default enabled to false", () => {
+        const result = schema.safeParse({})
+        expect(result.success).toBe(true)
+        if (result.success) {
+          expect(result.data.enabled).toBe(false)
+        }
+      })
+
+      test("should accept auth config with both token and tokenEnvVar", () => {
+        const result = schema.safeParse({
+          enabled: true,
+          token: "fallback-token",
+          tokenEnvVar: "MY_TOKEN_ENV",
+        })
+        expect(result.success).toBe(true)
+      })
     })
 
     describe("sseConfig schema", () => {
@@ -143,6 +223,43 @@ describe("Transport Interfaces", () => {
         if (result.success) {
           expect(result.data.path).toBe("/sse")
         }
+      })
+
+      describe("with authentication", () => {
+        test("should validate sse config with auth enabled", () => {
+          const result = schema.safeParse({
+            enabled: true,
+            path: "/sse",
+            auth: {
+              enabled: true,
+              token: "sse-secret-token",
+            },
+          })
+          expect(result.success).toBe(true)
+        })
+
+        test("should validate sse config with auth and tokenEnvVar", () => {
+          const result = schema.safeParse({
+            enabled: true,
+            path: "/sse",
+            auth: {
+              enabled: true,
+              tokenEnvVar: "MCP_SSE_TOKEN",
+            },
+          })
+          expect(result.success).toBe(true)
+        })
+
+        test("should validate sse config with auth disabled", () => {
+          const result = schema.safeParse({
+            enabled: true,
+            path: "/sse",
+            auth: {
+              enabled: false,
+            },
+          })
+          expect(result.success).toBe(true)
+        })
       })
     })
 

@@ -76,16 +76,12 @@ export function createMcpServer(api: IObsidianAPI): McpServer {
   )
 
   // Register obsidian:// resource template
-  server.resource(
-    "obsidian",
-    new ResourceTemplate("obsidian://{name}", { list: undefined }),
-    async (uri, { name }) => {
-      log(`Resource requested: ${uri.href}: ${decodeURIComponent(name as string)}`)
-      const note = await api.readNote(decodeURIComponent(name as string))
+  server.resource("obsidian", new ResourceTemplate("obsidian://{name}", { list: undefined }), async (uri, { name }) => {
+    log(`Resource requested: ${uri.href}: ${decodeURIComponent(name as string)}`)
+    const note = await api.readNote(decodeURIComponent(name as string))
 
-      return { contents: [{ uri: uri.href, text: note.content, mimeType: "text/markdown" }] }
-    },
-  )
+    return { contents: [{ uri: uri.href, text: note.content, mimeType: "text/markdown" }] }
+  })
 
   return server
 }

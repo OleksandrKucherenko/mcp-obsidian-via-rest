@@ -73,11 +73,7 @@ describe("SelfHealingObsidianAPI", () => {
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
 
-      expect(mockTestUrlsInParallel).toHaveBeenCalledWith(
-        testConfig.urls,
-        testConfig.apiKey,
-        testConfig.testTimeout,
-      )
+      expect(mockTestUrlsInParallel).toHaveBeenCalledWith(testConfig.urls, testConfig.apiKey, testConfig.testTimeout)
       expect(mockSelectBestUrl).toHaveBeenCalled()
     })
 
@@ -126,9 +122,7 @@ describe("SelfHealingObsidianAPI", () => {
   describe("reconnection logic", () => {
     test("should attempt reconnection on failure", async () => {
       mockSelectBestUrl.mockReturnValue(testConfig.urls[0])
-      mockTestUrlsInParallel.mockResolvedValue([
-        { url: testConfig.urls[1], success: true, latency: 50 },
-      ])
+      mockTestUrlsInParallel.mockResolvedValue([{ url: testConfig.urls[1], success: true, latency: 50 }])
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -146,9 +140,7 @@ describe("SelfHealingObsidianAPI", () => {
       await api.initialize()
 
       // Mock alternative URL testing
-      mockTestUrlsInParallel.mockResolvedValueOnce([
-        { url: testConfig.urls[1], success: true, latency: 50 },
-      ])
+      mockTestUrlsInParallel.mockResolvedValueOnce([{ url: testConfig.urls[1], success: true, latency: 50 }])
 
       await api.attemptReconnect()
 

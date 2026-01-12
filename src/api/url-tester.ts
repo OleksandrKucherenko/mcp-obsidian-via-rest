@@ -58,16 +58,10 @@ async function testSingleUrl(url: string, apiKey: string, timeout: number): Prom
  * @param timeout - Request timeout in milliseconds
  * @returns Promise resolving to array of test results
  */
-export async function testUrlsInParallel(
-  urls: string[],
-  apiKey: string,
-  timeout: number,
-): Promise<URLTestResult[]> {
+export async function testUrlsInParallel(urls: string[], apiKey: string, timeout: number): Promise<URLTestResult[]> {
   log("Testing %d URLs in parallel (timeout: %dms)", urls.length, timeout)
 
-  const results = await Promise.all(
-    urls.map((url) => testSingleUrl(url, apiKey, timeout)),
-  )
+  const results = await Promise.all(urls.map((url) => testSingleUrl(url, apiKey, timeout)))
 
   const successCount = results.filter((r) => r.success).length
   log("URL testing complete: %d/%d successful", successCount, results.length)

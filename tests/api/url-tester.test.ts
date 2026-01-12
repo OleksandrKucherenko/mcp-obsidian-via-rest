@@ -15,11 +15,7 @@ mock.module("axios", () => ({
 
 describe("URL Testing", () => {
   const testApiKey = "a".repeat(64)
-  const testUrls = [
-    "https://127.0.0.1:27124",
-    "https://192.168.1.100:27124",
-    "https://example.com:27124",
-  ]
+  const testUrls = ["https://127.0.0.1:27124", "https://192.168.1.100:27124", "https://example.com:27124"]
 
   beforeEach(() => {
     // Reset mock before each test
@@ -57,9 +53,7 @@ describe("URL Testing", () => {
     })
 
     test("should return failure for unreachable URLs", async () => {
-      mockAxiosInstance.get.mockImplementation(() =>
-        Promise.reject(new Error("Network error")),
-      )
+      mockAxiosInstance.get.mockImplementation(() => Promise.reject(new Error("Network error")))
 
       const results = await testUrlsInParallel(testUrls, testApiKey, 2000)
 
@@ -109,9 +103,7 @@ describe("URL Testing", () => {
 
     test("should handle timeout parameter gracefully", async () => {
       // Mock that simulates a timeout error
-      mockAxiosInstance.get.mockImplementation(() =>
-        Promise.reject(new Error("timeout of 500ms exceeded")),
-      )
+      mockAxiosInstance.get.mockImplementation(() => Promise.reject(new Error("timeout of 500ms exceeded")))
 
       const results = await testUrlsInParallel([testUrls[0]], testApiKey, 500)
 

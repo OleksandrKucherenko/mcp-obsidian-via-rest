@@ -18,9 +18,7 @@ describe("TransportManager", () => {
   const mockSseContexts: Array<{ close: () => Promise<void> }> = []
 
   // Create mock transport context
-  const createMockContext = (
-    tracker: Array<{ close: () => Promise<void> }>,
-  ): { close: () => Promise<void> } => {
+  const createMockContext = (tracker: Array<{ close: () => Promise<void> }>): { close: () => Promise<void> } => {
     const context = {
       close: mock(async () => {
         const index = tracker.indexOf(context)

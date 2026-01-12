@@ -28,12 +28,14 @@ type MockServer = {
 }
 
 // Mock the mcp-server module
-const createMockServer = mock((): MockServer => ({
-  connect: mock(async (transport: unknown) => {
-    mockConnectCalls.push(transport)
-    return Promise.resolve()
+const createMockServer = mock(
+  (): MockServer => ({
+    connect: mock(async (transport: unknown) => {
+      mockConnectCalls.push(transport)
+      return Promise.resolve()
+    }),
   }),
-}))
+)
 
 mock.module("../../src/server/mcp-server.js", () => ({
   createMcpServer: createMockServer,

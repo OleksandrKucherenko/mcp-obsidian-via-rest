@@ -5,6 +5,7 @@ import { serve } from "bun"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { debug } from "debug"
 
+import { createAuthMiddlewareFunction } from "./auth.js"
 import type { HttpConfig, HttpTransportContext } from "./types.js"
 
 const log = debug("mcp:transports:http")
@@ -39,6 +40,11 @@ interface JsonRpcResponse {
  * This function creates a Hono app with CORS middleware, sets up
  * a health endpoint, and implements a basic MCP JSON-RPC endpoint.
  *
+ * Authentication:
+ * - If config.auth.enabled is true, the MCP endpoint requires a valid Bearer token
+ * - The token can be provided via config.auth.token or config.auth.tokenEnvVar
+ * - The health endpoint is not protected by authentication
+ *
  * Note: Full MCP JSON-RPC protocol support requires additional implementation.
  * The current implementation provides the structure and basic endpoint
  * that can be extended with full protocol support.
@@ -47,10 +53,7 @@ interface JsonRpcResponse {
  * @param server - The MCP server instance
  * @returns A context object with close method for cleanup
  */
-export async function createHttpTransport(
-  config: HttpConfig,
-  server: McpServer,
-): Promise<HttpTransportContext> {
+export async function createHttpTransport(config: HttpConfig, server: McpServer): Promise<HttpTransportContext> {
   // Create Hono app
   const app = new Hono()
 
@@ -60,12 +63,24 @@ export async function createHttpTransport(
   // Add request logging
   app.use("*", logger())
 
-  // Health endpoint
+  // Apply authentication middleware if enabled
+  if (config.auth?.enabled) {
+    log("HTTP transport authentication enabled")
+    const authMiddleware = createAuthMiddlewareFunction(config.auth)
+
+    // Protect MCP endpoint with authentication
+    app.use(config.path, authMiddleware)
+  } else {
+    log("HTTP transport authentication disabled")
+  }
+
+  // Health endpoint (public, not protected)
   app.get("/health", (c) => {
     return c.json({
       status: "healthy",
       timestamp: new Date().toISOString(),
       transport: "http",
+      authEnabled: config.auth?.enabled ?? false,
     })
   })
 
@@ -171,6 +186,9 @@ export async function createHttpTransport(
 
   log(`HTTP transport started on ${serverUrl}`)
   log(`MCP endpoint available at ${serverUrl}${config.path}`)
+  if (config.auth?.enabled) {
+    log(`MCP endpoint is protected with Bearer token authentication`)
+  }
 
   // Return context with close method
   return {

@@ -55,11 +55,7 @@ export class SelfHealingObsidianAPI {
     log("Initializing self-healing API with %d URLs", this.config.urls.length)
 
     // Test all URLs in parallel
-    const results = await testUrlsInParallel(
-      this.config.urls,
-      this.config.apiKey,
-      this.config.testTimeout,
-    )
+    const results = await testUrlsInParallel(this.config.urls, this.config.apiKey, this.config.testTimeout)
 
     // Select the best URL
     const bestUrl = selectBestUrl(results)
@@ -156,11 +152,7 @@ export class SelfHealingObsidianAPI {
         return
       }
 
-      const results = await testUrlsInParallel(
-        otherUrls,
-        this.config.apiKey,
-        this.config.testTimeout,
-      )
+      const results = await testUrlsInParallel(otherUrls, this.config.apiKey, this.config.testTimeout)
 
       const bestUrl = selectBestUrl(results)
 
