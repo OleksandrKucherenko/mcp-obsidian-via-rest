@@ -49,7 +49,6 @@ describe("Health Monitoring", () => {
       getStatus: () => ({
         stdio: { running: true },
         http: { running: true },
-        sse: { running: false },
       }),
     }
 
@@ -74,7 +73,6 @@ describe("Health Monitoring", () => {
       getStatus: () => ({
         stdio: { running: true },
         http: { running: true },
-        sse: { running: false },
       }),
     }
 
@@ -97,7 +95,6 @@ describe("Health Monitoring", () => {
       getStatus: () => ({
         stdio: { running: true },
         http: { running: true },
-        sse: { running: false },
       }),
     }
 
@@ -121,7 +118,6 @@ describe("Health Monitoring", () => {
       getStatus: () => ({
         stdio: { running: true },
         http: { running: true },
-        sse: { running: false },
       }),
     }
 
@@ -130,7 +126,6 @@ describe("Health Monitoring", () => {
     expect(health.transports).toBeDefined()
     expect(health.transports.stdio).toBeDefined()
     expect(health.transports.http).toBeDefined()
-    expect(health.transports.sse).toBeDefined()
   })
 
   test("should include uptime", async () => {
@@ -146,7 +141,6 @@ describe("Health Monitoring", () => {
       getStatus: () => ({
         stdio: { running: true },
         http: { running: true },
-        sse: { running: false },
       }),
     }
 
@@ -170,7 +164,6 @@ describe("Health Monitoring", () => {
       getStatus: () => ({
         stdio: { running: true },
         http: { running: true },
-        sse: { running: false },
       }),
     }
 

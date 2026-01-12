@@ -76,7 +76,6 @@ export async function getHealthStatus(
     transportsHealth = {
       stdio: { running: false, enabled: false },
       http: { running: false, enabled: false },
-      sse: { running: false, enabled: false },
     }
   }
 

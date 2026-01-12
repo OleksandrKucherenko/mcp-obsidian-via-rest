@@ -14,7 +14,6 @@ describe("TransportManager", () => {
   // Track mock transport contexts
   const mockStdioContexts: Array<{ close: () => Promise<void> }> = []
   const mockHttpContexts: Array<{ close: () => Promise<void> }> = []
-  const mockSseContexts: Array<{ close: () => Promise<void> }> = []
 
   // Create mock transport context
   const createMockContext = (tracker: Array<{ close: () => Promise<void> }>): { close: () => Promise<void> } => {
@@ -33,7 +32,6 @@ describe("TransportManager", () => {
   // Mock transport factories (will be set in beforeEach)
   let mockStdioFactory: ReturnType<typeof mock>
   let mockHttpFactory: ReturnType<typeof mock>
-  let mockSseFactory: ReturnType<typeof mock>
 
   // Track server factory calls
   let serverCallCount = 0
@@ -42,19 +40,16 @@ describe("TransportManager", () => {
     // Clear all mock trackers
     mockStdioContexts.length = 0
     mockHttpContexts.length = 0
-    mockSseContexts.length = 0
     serverCallCount = 0
 
     // Create fresh mocks for each test
     mockStdioFactory = mock(() => createMockContext(mockStdioContexts))
     mockHttpFactory = mock(async () => createMockContext(mockHttpContexts))
-    mockSseFactory = mock(async () => createMockContext(mockSseContexts))
 
     // Transport factories for dependency injection
     mockFactories = {
       stdio: mockStdioFactory,
       http: mockHttpFactory,
-      sse: mockSseFactory,
     }
 
     // Server factory that creates mock servers and tracks calls
@@ -76,7 +71,6 @@ describe("TransportManager", () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: false, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -85,15 +79,12 @@ describe("TransportManager", () => {
     // Verify stdio and http transports were created
     expect(mockStdioContexts.length).toBe(1)
     expect(mockHttpContexts.length).toBe(1)
-    // SSE should not be created
-    expect(mockSseContexts.length).toBe(0)
   })
 
   test("should skip disabled transports", async () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: false, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: false, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -102,14 +93,12 @@ describe("TransportManager", () => {
     // Only stdio should be created
     expect(mockStdioContexts.length).toBe(1)
     expect(mockHttpContexts.length).toBe(0)
-    expect(mockSseContexts.length).toBe(0)
   })
 
   test("should start all transports when all enabled", async () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: true, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -118,14 +107,12 @@ describe("TransportManager", () => {
     // All transports should be created
     expect(mockStdioContexts.length).toBe(1)
     expect(mockHttpContexts.length).toBe(1)
-    expect(mockSseContexts.length).toBe(1)
   })
 
   test("should stop all running transports", async () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: true, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -134,7 +121,6 @@ describe("TransportManager", () => {
     // Verify all transports started
     expect(mockStdioContexts.length).toBe(1)
     expect(mockHttpContexts.length).toBe(1)
-    expect(mockSseContexts.length).toBe(1)
 
     // Stop all transports
     await manager.stopTransports()
@@ -142,14 +128,12 @@ describe("TransportManager", () => {
     // Verify all transports were closed and removed from trackers
     expect(mockStdioContexts.length).toBe(0)
     expect(mockHttpContexts.length).toBe(0)
-    expect(mockSseContexts.length).toBe(0)
   })
 
   test("should return transport status", async () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: false, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -160,7 +144,6 @@ describe("TransportManager", () => {
     expect(status).toEqual({
       stdio: { running: true, enabled: true },
       http: { running: true, enabled: true },
-      sse: { running: false, enabled: false },
     })
   })
 
@@ -173,7 +156,6 @@ describe("TransportManager", () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: true, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -181,23 +163,20 @@ describe("TransportManager", () => {
     // Should not throw, should handle error gracefully
     await manager.startTransports()
 
-    // Stdio should fail, but http and sse should still start
+    // Stdio should fail, but http should still start
     expect(mockStdioContexts.length).toBe(0)
     expect(mockHttpContexts.length).toBe(1)
-    expect(mockSseContexts.length).toBe(1)
 
     // Status should show stdio as not running despite being enabled
     const status = manager.getStatus()
     expect(status.stdio).toEqual({ running: false, enabled: true })
     expect(status.http).toEqual({ running: true, enabled: true })
-    expect(status.sse).toEqual({ running: true, enabled: true })
   })
 
   test("should cleanup all resources on stop", async () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: true, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -206,21 +185,18 @@ describe("TransportManager", () => {
     // Get reference to close methods
     const stdioClose = mockStdioContexts[0]?.close
     const httpClose = mockHttpContexts[0]?.close
-    const sseClose = mockSseContexts[0]?.close
 
     await manager.stopTransports()
 
     // Verify all close methods were called
     expect(stdioClose).toHaveBeenCalled()
     expect(httpClose).toHaveBeenCalled()
-    expect(sseClose).toHaveBeenCalled()
   })
 
   test("should handle stop when no transports are running", async () => {
     const config: TransportConfig = {
       stdio: { enabled: false },
       http: { enabled: false, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: false, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -232,7 +208,6 @@ describe("TransportManager", () => {
     expect(status).toEqual({
       stdio: { running: false, enabled: false },
       http: { running: false, enabled: false },
-      sse: { running: false, enabled: false },
     })
   })
 
@@ -240,7 +215,6 @@ describe("TransportManager", () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: false, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: false, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -260,7 +234,6 @@ describe("TransportManager", () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: false, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
@@ -274,7 +247,6 @@ describe("TransportManager", () => {
     const config: TransportConfig = {
       stdio: { enabled: true },
       http: { enabled: false, port: 3000, host: "0.0.0.0", path: "/mcp" },
-      sse: { enabled: false, path: "/sse" },
     }
 
     manager = new TransportManager(config, mockServerFactory, mockFactories)
