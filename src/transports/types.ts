@@ -17,7 +17,9 @@ export interface HttpTransportContext extends TransportContext {
   port: number
 }
 
-/** SSE transport-specific context. */
+/** SSE transport-specific context.
+ * @deprecated SSE transport is deprecated. Use HTTP transport which includes SSE streaming.
+ */
 export interface SseTransportContext extends TransportContext {}
 
 /** Authentication configuration for transports. */
@@ -35,7 +37,12 @@ export interface StdioConfig {
   enabled: boolean
 }
 
-/** HTTP transport configuration. */
+/** HTTP transport configuration.
+ *
+ * Note: HTTP transport includes built-in SSE streaming via
+ * WebStandardStreamableHTTPServerTransport. The transport automatically
+ * handles both HTTP POST (JSON-RPC) and HTTP GET (SSE) on the same endpoint.
+ */
 export interface HttpConfig {
   enabled: boolean
   port: number
@@ -45,7 +52,9 @@ export interface HttpConfig {
   auth?: AuthConfig
 }
 
-/** SSE transport configuration. */
+/** SSE transport configuration.
+ * @deprecated SSE transport is deprecated. Use HTTP transport which includes SSE streaming.
+ */
 export interface SseConfig {
   enabled: boolean
   path: string
@@ -57,7 +66,8 @@ export interface SseConfig {
 export interface TransportConfig {
   stdio: StdioConfig
   http: HttpConfig
-  sse: SseConfig
+  /** @deprecated SSE transport is deprecated. Use HTTP transport which includes SSE streaming. */
+  sse?: SseConfig
 }
 
 /** Zod validation schemas for transport configuration. */

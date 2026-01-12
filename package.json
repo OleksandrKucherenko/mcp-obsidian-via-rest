@@ -4,7 +4,7 @@
   "version": "0.4.2",
   "license": "MIT",
   "author": "Oleksandr Kucherenko <oleksandr.kucherenko@artfulbits.se>",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": false,
   "bin": {
@@ -61,8 +61,8 @@
     "mcp:inspector:docker": "bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\\* -e API_KEY=$API_KEY -e API_HOST=https://$WSL_GATEWAY_IP docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -a STDOUT -i mcp/obsidian:latest",
     "mcp:inspector:local": "bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\\* -e API_KEY=$API_KEY -e API_HOST=https://$WSL_GATEWAY_IP bun run src/index.ts",
     "publish:prepare": "bun run build && bun pm pack",
-    "release": "bun run release-it",
-    "release:dry": "bun run release-it --dry-run",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
     "commit": "git-cz"
   },
   "devDependencies": {

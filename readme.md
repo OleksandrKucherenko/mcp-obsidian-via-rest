@@ -1,6 +1,6 @@
 # mcp-obsidian
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker Images](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml) 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker Images](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml)
 
 [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
 
@@ -10,11 +10,11 @@
 
 - [mcp-obsidian](#mcp-obsidian)
   - [Configure MCP](#configure-mcp)
-    - [Multi-Transport Configuration](#multi-transport-configuration)
+    - [Multi-URL Configuration (Recommended)](#multi-url-configuration-recommended)
     - [HTTP Transport Configuration](#http-transport-configuration)
     - [Authentication (Optional)](#authentication-optional)
     - [Stdio Transport Configuration](#stdio-transport-configuration)
-    - [Multi-URL Configuration (Self-Healing)](#multi-url-configuration-self-healing)
+    - [Legacy Single-URL Configuration](#legacy-single-url-configuration)
     - [Health Endpoint](#health-endpoint)
   - [Setup and Troubleshooting](#setup-and-troubleshooting)
     - [Setup](#setup)
@@ -29,30 +29,32 @@
 
 ## Configure MCP
 
-### Multi-Transport Configuration
+### Multi-URL Configuration (Recommended)
 
-The MCP server supports running multiple transports simultaneously. Each transport gets its own isolated MCP server instance, allowing you to use stdio for local development while also exposing HTTP for remote access.
+**Use `API_URLS` for automatic failover and self-healing.** The server tests all URLs in parallel, selects the fastest one, and automatically reconnects on failure.
 
 ```jsonc
 {
   "mcpServers": {
-    "obsidian-multi": {
+    "obsidian": {
       "command": "docker",
       "args": [
         "run",
-        "--name", "mcp-obsidian-multi",
+        "--name", "mcp-obsidian",
         "--rm",
         "-i",  // Keep STDIN open for stdio transport
         "-p", "3000:3000",
         "-e", "API_KEY",
-        "-e", "API_HOST",
+        "-e", "API_URLS",
         "-e", "MCP_TRANSPORTS",
         "-e", "MCP_HTTP_PORT",
+        "-e", "DEBUG", // for logs
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
         "API_KEY": "<secret_key>",
-        "API_HOST": "https://172.26.32.1",
+        // JSON array - automatically tests and selects fastest URL
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
         "MCP_TRANSPORTS": "stdio,http",  // Enable both transports
         "MCP_HTTP_PORT": "3000",
         "DEBUG": "mcp:*"
@@ -62,16 +64,32 @@ The MCP server supports running multiple transports simultaneously. Each transpo
 }
 ```
 
+**Self-Healing Features:**
+
+- ✅ Parallel URL testing on startup
+- ✅ Automatic selection of fastest URL
+- ✅ Health monitoring every 30 seconds
+- ✅ Automatic failover on connection loss
+- ✅ Exponential backoff to prevent thrashing
+
 **Available transports:**
 
 - `stdio` - Standard input/output (default, best for local MCP clients)
-- `http` - HTTP JSON-RPC with streaming support (best for remote access)
+- `http` - HTTP JSON-RPC with SSE streaming (best for remote access)
 
-**Note:** SSE transport is deprecated in favor of the streamable HTTP transport, which handles both HTTP POST and SSE streaming through a single endpoint.
+**WSL2 Example:**
+
+```bash
+# Automatically determine WSL gateway IP
+export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+
+# Configure with multiple fallback URLs
+API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124", "https://host.docker.internal:27124"]'
+```
 
 ### HTTP Transport Configuration
 
-The MCP server now supports HTTP transport for remote access. Configure it in your MCP client settings:
+The MCP server supports HTTP transport for remote access with automatic URL failover:
 
 ```jsonc
 {
@@ -84,17 +102,15 @@ The MCP server now supports HTTP transport for remote access. Configure it in yo
         "--rm",
         "-p", "3000:3000",
         "-e", "API_KEY",
-        "-e", "API_HOST",
-        "-e", "API_PORT",
+        "-e", "API_URLS",
         "-e", "MCP_TRANSPORTS=http",
         "-e", "MCP_HTTP_PORT=3000",
         "-e", "DEBUG",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
-        "API_KEY": "<secret_key>",              // required
-        "API_HOST": "https://172.26.32.1",       // default: localhost
-        "API_PORT": "27124",                     // default: 27124
+        "API_KEY": "<secret_key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
         "MCP_TRANSPORTS": "http",                // enable HTTP transport
         "MCP_HTTP_PORT": "3000",                 // HTTP port (default: 3000)
         "MCP_HTTP_HOST": "0.0.0.0",              // bind address (default: 0.0.0.0)
@@ -121,12 +137,14 @@ To secure the HTTP endpoint with Bearer token authentication:
         "--rm",
         "-p", "3000:3000",
         "-e", "API_KEY",
+        "-e", "API_URLS",
         "-e", "MCP_TRANSPORTS=http",
         "-e", "MCP_HTTP_TOKEN=your-secret-token-here",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
         "API_KEY": "<secret_key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\"]",
         "MCP_TRANSPORTS": "http",
         "MCP_HTTP_TOKEN": "your-secret-token-here"  // required for auth
       }
@@ -136,7 +154,8 @@ To secure the HTTP endpoint with Bearer token authentication:
 ```
 
 Clients must include the Authorization header:
-```
+
+```http
 Authorization: Bearer your-secret-token-here
 ```
 
@@ -155,15 +174,13 @@ For local development with stdio transport (default):
         "--interactive",
         "--rm",
         "-e", "API_KEY",
-        "-e", "API_HOST",
-        "-e", "API_PORT",
+        "-e", "API_URLS",
         "-e", "DEBUG",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
-        "API_KEY": "<secret_key>",         // required
-        "API_HOST": "https://172.26.32.1", // default: localhost
-        "API_PORT": "27124",               // default: 27124
+        "API_KEY": "<secret_key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\"]",
         "DEBUG": "mcp:*"                   // default: disabled logs
       }
     }
@@ -180,53 +197,36 @@ For local development with stdio transport (default):
 - [NPM Package Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/npm/mcp-obsidian)
 - [Docker Image Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/container/obsidian-mcp)
 
-### Multi-URL Configuration (Self-Healing)
+### Legacy Single-URL Configuration
 
-The MCP server supports multiple Obsidian REST API URLs with automatic failover. The server will test all URLs in parallel, select the fastest working one, and automatically reconnect to alternative URLs if the connection fails.
+For backward compatibility, you can still use single-URL configuration with `API_HOST` and `API_PORT`:
 
 ```jsonc
 {
   "mcpServers": {
-    "obsidian-multi-url": {
+    "obsidian": {
       "command": "docker",
       "args": [
         "run",
-        "--name", "mcp-obsidian-multi-url",
+        "--name", "mcp-obsidian",
         "--rm",
-        "-p", "3000:3000",
+        "-i",
         "-e", "API_KEY",
-        "-e", "API_URLS",
-        "-e", "MCP_TRANSPORTS",
+        "-e", "API_HOST",
+        "-e", "API_PORT",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
         "API_KEY": "<secret_key>",
-        // JSON array format - tests all URLs in parallel
-        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
-        "MCP_TRANSPORTS": "http"
+        "API_HOST": "https://172.26.32.1",  // single URL without failover
+        "API_PORT": "27124"
       }
     }
   }
 }
 ```
 
-**URL Selection Behavior:**
-
-1. On startup, all URLs are tested in parallel
-2. The fastest responding URL is selected
-3. Connection health is monitored every 30 seconds
-4. On failure, the server automatically reconnects to the next available URL
-5. Exponential backoff prevents connection thrashing
-
-**WSL2 Example:**
-
-```bash
-# Automatically determine WSL gateway IP
-export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
-
-# Configure with multiple fallback URLs
-API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124", "https://host.docker.internal:27124"]'
-```
+**Note:** Single-URL configuration does not provide automatic failover or health monitoring. Use `API_URLS` for production deployments.
 
 ### Health Endpoint
 

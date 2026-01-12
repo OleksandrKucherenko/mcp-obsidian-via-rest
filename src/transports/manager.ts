@@ -113,8 +113,8 @@ export class TransportManager {
       await this.startHttpTransport()
     }
 
-    // Start SSE transport if enabled
-    if (this.config.sse.enabled) {
+    // Start SSE transport if enabled (deprecated)
+    if (this.config.sse?.enabled) {
       await this.startSseTransport()
     }
 
@@ -164,7 +164,7 @@ export class TransportManager {
       },
       sse: {
         running: this.contexts.has("sse"),
-        enabled: this.config.sse.enabled,
+        enabled: this.config.sse?.enabled ?? false,
       },
     }
   }
@@ -207,7 +207,12 @@ export class TransportManager {
 
   private async startSseTransport(): Promise<void> {
     try {
-      log("Starting SSE transport...")
+      if (!this.config.sse) {
+        log("SSE transport config not provided, skipping...")
+        return
+      }
+
+      log("Starting SSE transport (deprecated)...")
       // Create a new server instance for SSE transport
       const server = this.serverFactory()
       this.servers.set("sse", server)
@@ -219,7 +224,7 @@ export class TransportManager {
       }
       const context = await factory(this.config.sse, server)
       this.contexts.set("sse", context)
-      log("SSE transport started")
+      log("SSE transport started (deprecated - use HTTP transport instead)")
     } catch (error) {
       log("Failed to start SSE transport: %O", error)
     }

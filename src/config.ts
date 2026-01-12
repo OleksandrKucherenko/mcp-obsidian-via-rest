@@ -19,10 +19,12 @@ declare namespace NodeJS {
     MCP_HTTP_PORT: string
     MCP_HTTP_HOST: string
     MCP_HTTP_PATH: string
-    MCP_SSE_PATH: string
+    MCP_HTTP_TOKEN: string
     API_TEST_TIMEOUT: string
     API_RETRY_INTERVAL: string
     NODE_ENV: string
+    DEBUG: string
+    TESTCONTAINERS_RYUK_DISABLED: string
   }
 }
 
@@ -132,9 +134,23 @@ export const parseTransports = (transportsEnv?: string): Set<string> => {
 
 /**
  * Create transport configuration based on enabled transports.
+ *
+ * Note: HTTP transport includes built-in SSE streaming support via
+ * WebStandardStreamableHTTPServerTransport. No separate SSE transport needed.
  */
 export const createTransportConfig = (enabledTransports: Set<string>, env: NodeJS.ProcessEnv): Transport.Config => {
   const hasTransport = (name: string) => enabledTransports.has(name)
+
+  // Helper to create auth config from token env var
+  const createAuthConfig = (token?: string) => {
+    if (!token || token.trim().length === 0) {
+      return undefined
+    }
+    return {
+      enabled: true,
+      token: token.trim(),
+    }
+  }
 
   return {
     stdio: {
@@ -145,10 +161,7 @@ export const createTransportConfig = (enabledTransports: Set<string>, env: NodeJ
       port: Number.parseInt(env.MCP_HTTP_PORT ?? "3000", 10),
       host: env.MCP_HTTP_HOST ?? "0.0.0.0",
       path: env.MCP_HTTP_PATH ?? "/mcp",
-    },
-    sse: {
-      enabled: hasTransport("sse"),
-      path: env.MCP_SSE_PATH ?? "/sse",
+      auth: createAuthConfig(env.MCP_HTTP_TOKEN),
     },
   }
 }
@@ -245,7 +258,6 @@ export const loadAppConfig = (configFilePath?: string): AppConfig => {
     transports: {
       stdio: transports.stdio.enabled,
       http: transports.http.enabled,
-      sse: transports.sse.enabled,
     },
     testTimeout,
     retryInterval,

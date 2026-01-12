@@ -111,11 +111,10 @@ describe("Configuration Loading - Multi-URL and Transports", () => {
   describe("Transport Configuration", () => {
     test("should parse transport configuration from env", () => {
       process.env.API_KEY = "a".repeat(64)
-      process.env.MCP_TRANSPORTS = "stdio,http,sse"
+      process.env.MCP_TRANSPORTS = "stdio,http"
       process.env.MCP_HTTP_PORT = "3000"
       process.env.MCP_HTTP_HOST = "0.0.0.0"
       process.env.MCP_HTTP_PATH = "/mcp"
-      process.env.MCP_SSE_PATH = "/sse"
 
       const config = loadAppConfig()
 
@@ -125,8 +124,6 @@ describe("Configuration Loading - Multi-URL and Transports", () => {
       expect(config.transports.http.port).toBe(3000)
       expect(config.transports.http.host).toBe("0.0.0.0")
       expect(config.transports.http.path).toBe("/mcp")
-      expect(config.transports.sse.enabled).toBe(true)
-      expect(config.transports.sse.path).toBe("/sse")
     })
 
     test("should default to stdio-only for backward compatibility", () => {
@@ -137,7 +134,6 @@ describe("Configuration Loading - Multi-URL and Transports", () => {
       expect(config).toBeDefined()
       expect(config.transports.stdio.enabled).toBe(true)
       expect(config.transports.http.enabled).toBe(false)
-      expect(config.transports.sse.enabled).toBe(false)
     })
 
     test("should handle single transport in MCP_TRANSPORTS", () => {
@@ -149,7 +145,6 @@ describe("Configuration Loading - Multi-URL and Transports", () => {
       expect(config).toBeDefined()
       expect(config.transports.stdio.enabled).toBe(false)
       expect(config.transports.http.enabled).toBe(true)
-      expect(config.transports.sse.enabled).toBe(false)
     })
 
     test("should use default HTTP values when not specified", () => {
@@ -163,17 +158,6 @@ describe("Configuration Loading - Multi-URL and Transports", () => {
       expect(config.transports.http.port).toBe(3000)
       expect(config.transports.http.host).toBe("0.0.0.0")
       expect(config.transports.http.path).toBe("/mcp")
-    })
-
-    test("should use default SSE values when not specified", () => {
-      process.env.API_KEY = "a".repeat(64)
-      process.env.MCP_TRANSPORTS = "sse"
-
-      const config = loadAppConfig()
-
-      expect(config).toBeDefined()
-      expect(config.transports.sse.enabled).toBe(true)
-      expect(config.transports.sse.path).toBe("/sse")
     })
   })
 

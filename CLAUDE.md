@@ -64,7 +64,7 @@ bun run checks:knip
 # Build local Docker image
 bun run docker:latest
 
-# Run Docker container (requires API_KEY and API_HOST env vars)
+# Run Docker container (requires API_KEY and API_URLS env vars)
 bun run docker:run
 
 # Start E2E test environment (dockerized Obsidian)
@@ -125,19 +125,20 @@ The MCP SDK's `server.connect(transport)` method replaces any existing transport
         │  (creates instances)│
         └──────────┬──────────┘
                    │
-    ┌──────────────┼──────────────┐
-    │              │              │
-┌───▼────┐   ┌───▼─────┐   ┌───▼─────┐
-│  MCP   │   │  MCP    │   │  MCP    │
-│ Server │   │ Server  │   │ Server  │
-│ (stdio)│   │ (http)  │   │ (sse)   │
-└───┬────┘   └───┬─────┘   └───┬─────┘
-    │            │              │
-┌───▼────┐   ┌──▼───────┐   ┌──▼───────┐
-│ Stdio  │   │ HTTP     │   │ HTTP     │
-│Transport│  │ Transport│   │ Transport│
-└────────┘   │(Hono)   │   │  (SSE)   │
-             └──────────┘   └──────────┘
+            ┌──────┴──────┐
+            │             │
+      ┌─────▼───┐   ┌─────▼────┐
+      │  MCP    │   │   MCP    │
+      │ Server  │   │  Server  │
+      │ (stdio) │   │  (http)  │
+      └────┬────┘   └─────┬────┘
+           │              │
+      ┌────▼────┐   ┌─────▼──────┐
+      │ Stdio   │   │   HTTP     │
+      │Transport│   │ Transport  │
+      └─────────┘   │ (Hono +    │
+                    │  SSE)      │
+                    └────────────┘
 ```
 
 ### MCP Server Implementation
@@ -185,7 +186,8 @@ Each server instance is independent, so tools/resources are registered on each i
 ### Configuration Loading Priority
 
 The configuration system (`src/config.ts`) loads settings in this order (highest priority first):
-1. Environment variables (`API_KEY`, `API_HOST`, `API_PORT`)
+
+1. Environment variables (`API_KEY`, `API_URLS`, or legacy `API_HOST`+`API_PORT`)
 2. `.env.[NODE_ENV].local` files
 3. `.env.local` files (skipped in test mode)
 4. `.env.[NODE_ENV]` files
@@ -194,8 +196,10 @@ The configuration system (`src/config.ts`) loads settings in this order (highest
 7. Hardcoded defaults
 
 **WSL2 Support:**
-- Use `$WSL_GATEWAY_IP` for `API_HOST` when Obsidian runs on Windows host
-- The `.envrc` file (loaded by direnv) automatically sets this variable
+
+- Use `API_URLS` with multiple URLs including `$WSL_GATEWAY_IP` for automatic failover
+- The `.envrc` file (loaded by direnv) automatically sets WSL_GATEWAY_IP variable
+- Example: `API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124"]'`
 
 ### Obsidian API Client
 
@@ -226,7 +230,7 @@ The client (`src/client/obsidian-api.ts`) features:
 **E2E Tests** (`tests/*.e2e.test.ts`):
 - Require a running Obsidian instance with Local REST API plugin
 - Test real API calls against actual Obsidian vault
-- Use `API_KEY` and `API_HOST` environment variables
+- Use `API_KEY` and `API_URLS` (or legacy `API_HOST`) environment variables
 
 **Container Tests** (`tests/*.containers.test.ts`):
 - Use testcontainers to spin up dockerized Obsidian
@@ -250,9 +254,15 @@ When developing on WSL2 with Obsidian running on Windows host:
    export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
    ```
 
-2. **Set API_HOST:**
+2. **Configure API_URLS with automatic failover:**
+   ```bash
+   export API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124"]'
+   ```
+
+   For legacy single-URL configuration:
    ```bash
    export API_HOST="https://$WSL_GATEWAY_IP"
+   export API_PORT="27124"
    ```
 
 3. **Verify connectivity:**
@@ -281,9 +291,13 @@ When developing on WSL2 with Obsidian running on Windows host:
 - `API_URLS` - JSON array of multiple URLs for automatic failover (e.g., `["https://127.0.0.1:27124","https://172.26.32.1:27124"]`)
 - `API_HOST` - Single REST API host (fallback for legacy config, default: "localhost")
 - `API_PORT` - REST API port (default: "27124")
+- `API_TEST_TIMEOUT` - Timeout in milliseconds for API health checks (default: "2000")
+- `API_RETRY_INTERVAL` - Interval in milliseconds for reconnection attempts (default: "30000")
 
 **Transport Configuration:**
 - `MCP_TRANSPORTS` - Comma-separated list of transports to enable (default: "stdio", options: "stdio,http")
+  - `stdio` - Standard input/output transport (default, for local MCP clients)
+  - `http` - HTTP transport with built-in SSE streaming support (for remote access)
 - `MCP_HTTP_PORT` - HTTP transport port (default: "3000")
 - `MCP_HTTP_HOST` - HTTP bind address (default: "0.0.0.0")
 - `MCP_HTTP_PATH` - MCP endpoint path (default: "/mcp")
