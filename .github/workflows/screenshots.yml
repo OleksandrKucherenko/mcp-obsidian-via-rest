@@ -93,31 +93,16 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Generate screenshot index.html
+      - name: Save version for gh-pages
         shell: bash
         continue-on-error: true
         run: |
-          # install image convertion tool
-          sudo apt-get update && sudo apt-get install -y imagemagick jhead
-
-          # ref: https://github.com/Cyclenerd/gallery_shell
-          curl -O "https://raw.githubusercontent.com/Cyclenerd/gallery_shell/master/gallery.sh"
-          chmod +x gallery.sh
-
-          # create screenshots directory if it doesn't exist, it should exist already
-          mkdir -p reports/screenshots
-
-          for img in reports/screenshots/*.png; do
-            convert "$img" -quality 95 "${img%.png}.jpg"
-            rm "$img" 
-          done
+          # Create version.json in docs directory for gh-pages static version
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          mkdir -p reports/docs
+          echo "{\"version\": \"${PACKAGE_VERSION}\", \"updated\": \"$(date -Iseconds +%Y-%m-%dT%H:%M:%SZ)\"}" > reports/docs/version.json
           
-          # generate gallery
-          cd reports/screenshots
-          ../../gallery.sh -t "Build ${{ github.run_id }} CI Screenshot Preview" -d .
-
-      - name: Upload screenshots to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Collect Screenshots (only on failure)
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_branch: gh-pages
