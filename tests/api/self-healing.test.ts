@@ -99,18 +99,20 @@ describe("SelfHealingObsidianAPI", () => {
 
   describe("connection monitoring", () => {
     test("should start health monitoring after initialization", async () => {
-      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
+      const url0 = testUrls[0] ?? "https://127.0.0.1:27124"
+      mockSelectBestUrl.mockReturnValue(url0)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
 
       const health = api.getHealth()
       expect(health.healthy).toBe(true)
-      expect(health.url).toBe(testUrls[0]!)
+      expect(health.url).toBe(url0)
     })
 
     test("should track reconnection count", async () => {
-      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
+      const url0 = testUrls[0] ?? "https://127.0.0.1:27124"
+      mockSelectBestUrl.mockReturnValue(url0)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -122,8 +124,10 @@ describe("SelfHealingObsidianAPI", () => {
 
   describe("reconnection logic", () => {
     test("should attempt reconnection on failure", async () => {
-      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
-      mockTestUrlsInParallel.mockResolvedValue([{ url: testUrls[1]!, success: true, latency: 50 }])
+      mockSelectBestUrl.mockReturnValue(testUrls[0] ?? "https://127.0.0.1:27124")
+      mockTestUrlsInParallel.mockResolvedValue([
+        { url: testUrls[1] ?? "https://192.168.1.100:27124", success: true, latency: 50 },
+      ])
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -135,21 +139,25 @@ describe("SelfHealingObsidianAPI", () => {
     })
 
     test("should switch to alternative URL when current fails", async () => {
-      mockSelectBestUrl.mockReturnValueOnce(testUrls[0]!).mockReturnValue(testUrls[1]!)
+      mockSelectBestUrl
+        .mockReturnValueOnce(testUrls[0] ?? "https://127.0.0.1:27124")
+        .mockReturnValue(testUrls[1] ?? "https://192.168.1.100:27124")
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
 
       // Mock alternative URL testing
-      mockTestUrlsInParallel.mockResolvedValueOnce([{ url: testUrls[1]!, success: true, latency: 50 }])
+      mockTestUrlsInParallel.mockResolvedValueOnce([
+        { url: testUrls[1] ?? "https://192.168.1.100:27124", success: true, latency: 50 },
+      ])
 
       await api.attemptReconnect()
 
-      expect(api.getConnectionUrl()).toBe(testUrls[1]!)
+      expect(api.getConnectionUrl()).toBe(testUrls[1] ?? "https://192.168.1.100:27124")
     })
 
     test("should update health status after changes", async () => {
-      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
+      mockSelectBestUrl.mockReturnValue(testUrls[0] ?? "https://127.0.0.1:27124")
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -162,7 +170,7 @@ describe("SelfHealingObsidianAPI", () => {
 
   describe("cleanup", () => {
     test("should cleanup resources on destroy", async () => {
-      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
+      mockSelectBestUrl.mockReturnValue(testUrls[0] ?? "https://127.0.0.1:27124")
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -173,13 +181,13 @@ describe("SelfHealingObsidianAPI", () => {
       // Note: The implementation doesn't change health on destroy,
       // but timers should be cleared
       const health = api.getHealth()
-      expect(health.url).toBe(testUrls[0]!)
+      expect(health.url).toBe(testUrls[0] ?? "https://127.0.0.1:27124")
     })
   })
 
   describe("connection thrashing prevention", () => {
     test("should prevent concurrent reconnection attempts", async () => {
-      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
+      mockSelectBestUrl.mockReturnValue(testUrls[0] ?? "https://127.0.0.1:27124")
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -191,7 +199,7 @@ describe("SelfHealingObsidianAPI", () => {
       await Promise.all([promise1, promise2])
 
       // Should not crash due to concurrent calls
-      expect(api.getConnectionUrl()).toBe(testUrls[0]!)
+      expect(api.getConnectionUrl()).toBe(testUrls[0] ?? "https://127.0.0.1:27124")
     })
   })
 })

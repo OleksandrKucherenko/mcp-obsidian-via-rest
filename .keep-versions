@@ -12,3 +12,5 @@
 # !2.0.0     # allow cleanup of 2.0.0
 # v1.*       # keep v1 Docker tags
 #
+# Keep rules for this project
+0.*         # keep all 0.x versions (still in pre-1.0 phase)

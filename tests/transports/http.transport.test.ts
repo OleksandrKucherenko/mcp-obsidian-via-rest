@@ -15,7 +15,7 @@ class MockObsidianAPI {
     }
   }
 
-  async searchNotes(query: string) {
+  async searchNotes(_query: string) {
     return []
   }
 }

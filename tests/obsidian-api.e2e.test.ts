@@ -132,7 +132,7 @@ describe("ObsidianAPI - E2E Tests", async () => {
     } else {
       debug("mcp:e2e:config")("config: %o", config)
       // Initialize API only if host is available
-      api = new ObsidianAPI(config)
+      if (config) api = new ObsidianAPI(config)
     }
   })
 

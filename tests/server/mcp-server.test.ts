@@ -10,7 +10,7 @@ const mockReadNote = mock(() =>
     metadata: { stat: { size: 100 }, tags: [] },
   }),
 )
-const mockSearchNotes = mock(() => Promise.resolve([{ path: "/test.md" }]))
+const mockSearchNotes = mock(() => Promise.resolve([{ path: "/test.md", content: "" }]))
 
 class MockObsidianAPI {
   constructor(public config: unknown) {}

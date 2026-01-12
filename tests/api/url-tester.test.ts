@@ -78,22 +78,28 @@ describe("URL Testing", () => {
     })
 
     test("should select fastest working URL from results", () => {
+      const url0 = testUrls[0] ?? "https://127.0.0.1:27124"
+      const url1 = testUrls[1] ?? "https://192.168.1.100:27124"
+      const url2 = testUrls[2] ?? "https://example.com:27124"
       const results = [
-        { url: testUrls[0]!, success: true, latency: 100 },
-        { url: testUrls[1]!, success: true, latency: 50 },
-        { url: testUrls[2]!, success: true, latency: 200 },
+        { url: url0, success: true, latency: 100 },
+        { url: url1, success: true, latency: 50 },
+        { url: url2, success: true, latency: 200 },
       ]
 
       const best = selectBestUrl(results)
 
-      expect(best).toBe(testUrls[1]!)
+      expect(best).toBe(url1)
     })
 
     test("should return null if all URLs fail", () => {
+      const url0 = testUrls[0] ?? "https://127.0.0.1:27124"
+      const url1 = testUrls[1] ?? "https://192.168.1.100:27124"
+      const url2 = testUrls[2] ?? "https://example.com:27124"
       const results = [
-        { url: testUrls[0]!, success: false, latency: 100 },
-        { url: testUrls[1]!, success: false, latency: 50 },
-        { url: testUrls[2]!, success: false, latency: 200 },
+        { url: url0, success: false, latency: 100 },
+        { url: url1, success: false, latency: 50 },
+        { url: url2, success: false, latency: 200 },
       ]
 
       const best = selectBestUrl(results)
@@ -105,11 +111,12 @@ describe("URL Testing", () => {
       // Mock that simulates a timeout error
       mockAxiosInstance.get.mockImplementation(() => Promise.reject(new Error("timeout of 500ms exceeded")))
 
-      const results = await testUrlsInParallel([testUrls[0]!], testApiKey, 500)
+      const url0 = testUrls[0] ?? "https://127.0.0.1:27124"
+      const results = await testUrlsInParallel([url0], testApiKey, 500)
 
       // Should handle the timeout error and return failure
-      expect(results[0].success).toBe(false)
-      expect(results[0].url).toBe(testUrls[0]!)
+      expect(results[0]?.success).toBe(false)
+      expect(results[0]?.url).toBe(url0)
     })
 
     test("should handle mixed success and failure results", async () => {
