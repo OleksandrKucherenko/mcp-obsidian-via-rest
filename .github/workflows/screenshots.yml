@@ -52,7 +52,16 @@ jobs:
           docker compose -f ./docker-compose.test.yaml logs --no-color > compose-logs.txt
           # print to job log
           cat compose-logs.txt
-
+          
+      - name: Save version for gh-pages
+        shell: bash
+        continue-on-error: true
+        run: |
+          # Create version.json for gh-pages static version
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          mkdir -p reports
+          echo "{\"version\": \"${PACKAGE_VERSION}\", \"updated\": \"$(date -Iseconds +%Y-%m-%dT%H:%M:%SZ)\"}" > reports/version.json
+          
       - name: Collect Screenshots (only on failure)
         if: steps.compose.outcome == 'failure'
         shell: bash
