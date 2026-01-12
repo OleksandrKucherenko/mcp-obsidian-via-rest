@@ -37,7 +37,6 @@ jobs:
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
-          cache-install: true
 
       - name: Install jq
         run: sudo apt-get update && sudo apt-get install -y jq
@@ -137,9 +136,10 @@ jobs:
         continue-on-error: true
         with:
           message: |
-            🖼️ [CI Screenshot Preview](https://mcp-obsidian.artfulbits.se/${{ github.run_id }}/)
+            🖼️ Screenshot artifacts are available in the workflow run (check Artifacts section)
 
       - name: Add annotation with screenshot preview link
+        if: github.event_name != 'pull_request'
         run: |
           echo "::notice title=CI Screenshot Preview::View screenshots at https://mcp-obsidian.artfulbits.se/${{ github.run_id }}/"
 
