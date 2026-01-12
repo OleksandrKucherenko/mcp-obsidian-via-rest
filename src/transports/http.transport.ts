@@ -3,6 +3,8 @@ import { cors } from "hono/cors"
 import { logger } from "hono/logger"
 import { serve } from "bun"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
+import { randomUUID } from "node:crypto"
 import { debug } from "debug"
 
 import { createAuthMiddlewareFunction } from "./auth.js"
@@ -11,49 +13,38 @@ import type { HttpConfig, HttpTransportContext } from "./types.js"
 const log = debug("mcp:transports:http")
 
 /**
- * JSON-RPC 2.0 request interface
- */
-interface JsonRpcRequest {
-  jsonrpc: "2.0"
-  id: string | number
-  method: string
-  params?: unknown
-}
-
-/**
- * JSON-RPC 2.0 response interface
- */
-interface JsonRpcResponse {
-  jsonrpc: "2.0"
-  id: string | number
-  result?: unknown
-  error?: {
-    code: number
-    message: string
-    data?: unknown
-  }
-}
-
-/**
  * Create and configure an HTTP transport for MCP server.
  *
  * This function creates a Hono app with CORS middleware, sets up
- * a health endpoint, and implements a basic MCP JSON-RPC endpoint.
+ * a health endpoint, and integrates the MCP server using
+ * WebStandardStreamableHTTPServerTransport for full MCP protocol support.
  *
  * Authentication:
  * - If config.auth.enabled is true, the MCP endpoint requires a valid Bearer token
  * - The token can be provided via config.auth.token or config.auth.tokenEnvVar
  * - The health endpoint is not protected by authentication
  *
- * Note: Full MCP JSON-RPC protocol support requires additional implementation.
- * The current implementation provides the structure and basic endpoint
- * that can be extended with full protocol support.
+ * The transport supports:
+ * - MCP JSON-RPC protocol over HTTP POST
+ * - Server-Sent Events (SSE) for streaming responses
+ * - Session management with unique session IDs
  *
  * @param config - HTTP transport configuration
  * @param server - The MCP server instance
  * @returns A context object with close method for cleanup
  */
-export async function createHttpTransport(config: HttpConfig, server: McpServer): Promise<HttpTransportContext> {
+export async function createHttpTransport(
+  config: HttpConfig,
+  server: McpServer,
+): Promise<HttpTransportContext> {
+  // Create MCP streamable HTTP transport
+  const transport = new WebStandardStreamableHTTPServerTransport({
+    sessionIdGenerator: () => randomUUID(),
+  })
+
+  // Connect MCP server to the transport
+  await server.connect(transport)
+
   // Create Hono app
   const app = new Hono()
 
@@ -84,105 +75,22 @@ export async function createHttpTransport(config: HttpConfig, server: McpServer)
     })
   })
 
-  // MCP JSON-RPC endpoint
-  // This provides a basic MCP endpoint structure.
-  // Full MCP protocol support will be implemented in a future update.
-  app.post(config.path, async (c) => {
-    try {
-      const body = await c.json<JsonRpcRequest>()
-
-      // Validate JSON-RPC request format
-      if (!body.jsonrpc || body.jsonrpc !== "2.0") {
-        return c.json<JsonRpcResponse>(
-          {
-            jsonrpc: "2.0",
-            id: body.id || null,
-            error: {
-              code: -32600,
-              message: "Invalid Request: jsonrpc version must be '2.0'",
-            },
-          },
-          400,
-        )
-      }
-
-      if (!body.method) {
-        return c.json<JsonRpcResponse>(
-          {
-            jsonrpc: "2.0",
-            id: body.id || null,
-            error: {
-              code: -32600,
-              message: "Invalid Request: method is required",
-            },
-          },
-          400,
-        )
-      }
-
-      // For now, return a basic response indicating the endpoint is available
-      // Full MCP protocol support will require integration with the server's
-      // internal request handling methods
-      log(`Received MCP request: ${body.method}`)
-
-      return c.json<JsonRpcResponse>({
-        jsonrpc: "2.0",
-        id: body.id,
-        result: {
-          _comment: "MCP JSON-RPC endpoint is available. Full protocol support coming soon.",
-          _method: body.method,
-          _note: "This is a placeholder response. Full MCP protocol implementation will be added in Phase 3.2+",
-        },
-      })
-    } catch (error) {
-      log("Error processing MCP request: %O", error)
-
-      // Handle JSON parse errors
-      if (error instanceof SyntaxError) {
-        return c.json<JsonRpcResponse>(
-          {
-            jsonrpc: "2.0",
-            id: null,
-            error: {
-              code: -32700,
-              message: "Parse error: Invalid JSON",
-            },
-          },
-          400,
-        )
-      }
-
-      // Handle other errors
-      return c.json<JsonRpcResponse>(
-        {
-          jsonrpc: "2.0",
-          id: null,
-          error: {
-            code: -32603,
-            message: "Internal error",
-            data: error instanceof Error ? error.message : String(error),
-          },
-        },
-        500,
-      )
-    }
-  })
-
-  // Set content-type for JSON responses
-  app.use("*", async (c, next) => {
-    await next()
-    if (c.req.headers.get("content-type")?.includes("application/json")) {
-      c.header("content-type", "application/json")
-    }
+  // MCP endpoint - handles GET (SSE), POST (JSON-RPC), DELETE (session cleanup)
+  app.all(config.path, async (c) => {
+    // Pass the raw Request to the transport for MCP protocol handling
+    return transport.handleRequest(c.req.raw)
   })
 
   // Start the HTTP server using Bun's built-in serve
-  const serverUrl = `http://${config.host}:${config.port}`
   const bunServer = serve({
     fetch: app.fetch,
     hostname: config.host,
     port: config.port,
   })
+
+  // Get the actual port (may be different if port 0 was specified)
+  const actualPort = (bunServer as { port: number }).port
+  const serverUrl = `http://${config.host}:${actualPort}`
 
   log(`HTTP transport started on ${serverUrl}`)
   log(`MCP endpoint available at ${serverUrl}${config.path}`)
@@ -190,10 +98,14 @@ export async function createHttpTransport(config: HttpConfig, server: McpServer)
     log(`MCP endpoint is protected with Bearer token authentication`)
   }
 
-  // Return context with close method
+  // Return context with close method and server info
   return {
+    url: serverUrl,
+    port: actualPort,
     close: async (): Promise<void> => {
       log("Closing HTTP transport")
+      // Close the transport (closes all SSE connections)
+      await transport.close()
       // Stop the server
       if ("stop" in bunServer && typeof bunServer.stop === "function") {
         bunServer.stop()

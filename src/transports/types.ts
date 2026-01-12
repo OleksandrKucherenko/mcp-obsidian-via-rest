@@ -10,7 +10,12 @@ export interface TransportContext {
 export interface StdioTransportContext extends TransportContext {}
 
 /** HTTP transport-specific context. */
-export interface HttpTransportContext extends TransportContext {}
+export interface HttpTransportContext extends TransportContext {
+  /** The actual server URL (including dynamically assigned port) */
+  url: string
+  /** The actual port the server is listening on */
+  port: number
+}
 
 /** SSE transport-specific context. */
 export interface SseTransportContext extends TransportContext {}
