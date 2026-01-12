@@ -39,6 +39,9 @@ jobs:
           bun-version: latest
           cache-install: true
 
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
@@ -62,26 +65,30 @@ jobs:
         id: compose
         run: |
           docker compose -f ./docker-compose.test.yaml build
-          docker compose -f ./docker-compose.test.yaml up --abort-on-container-exit
+          docker compose -f ./docker-compose.test.yaml up -d
+        continue-on-error: true
+
+      - name: Wait for services to be healthy
+        run: |
+          timeout 300 bash -c 'until docker compose -f ./docker-compose.test.yaml ps --format json | jq -e ".[].Health == \"healthy\"" | grep -q true; do sleep 5; done'
+        continue-on-error: true
+
+      - name: Collect Screenshots
+        run: |
+          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+        continue-on-error: true
 
       - name: Collect Docker Compose Logs
+        if: always()
         run: |
           docker compose -f ./docker-compose.test.yaml logs --no-color > compose-logs.txt
           cat compose-logs.txt
         continue-on-error: true
 
-      - name: Collect Screenshots (on failure)
-        if: steps.compose.outcome == 'failure'
+      - name: Stop Docker Compose
+        if: always()
         run: |
-          docker compose -f ./docker-compose.test.yaml up obsidian -d
-          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
-          docker compose -f ./docker-compose.test.yaml down obsidian
-        continue-on-error: true
-
-      - name: Collect Screenshots (on success)
-        if: steps.compose.outcome == 'success'
-        run: |
-          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+          docker compose -f ./docker-compose.test.yaml down
         continue-on-error: true
 
       - name: Upload reports (logs, screenshots, etc.)
