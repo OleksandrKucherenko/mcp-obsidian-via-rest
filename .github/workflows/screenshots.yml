@@ -60,11 +60,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Using version: $VERSION"
 
-      - name: Cleanup previous Docker Compose
-        run: |
-          docker compose -f ./docker-compose.test.yaml down --remove-orphans || true
-        continue-on-error: true
-
       - name: Run Docker Compose
         id: compose
         run: |
