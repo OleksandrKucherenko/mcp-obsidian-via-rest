@@ -117,7 +117,7 @@ export const parseUrls = (urlsEnv?: string): string[] => {
 
 /**
  * Parse transport configuration from MCP_TRANSPORTS environment variable.
- * Format: comma-separated list of transport names (e.g., "stdio,http,sse")
+ * Format: comma-separated list of transport names (e.g., "stdio,http")
  */
 export const parseTransports = (transportsEnv?: string): Set<string> => {
   // Handle undefined, null, empty string, and string "undefined"

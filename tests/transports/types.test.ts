@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test"
 import {
   type HttpConfig,
   Schema,
-  type SseConfig,
   type StdioConfig,
   type TransportConfig,
   type TransportContext,
@@ -39,25 +38,14 @@ describe("Transport Interfaces", () => {
       expect(config.path).toBe("/mcp")
     })
 
-    test("should type-check SseConfig structure", () => {
-      const config: SseConfig = {
-        enabled: true,
-        path: "/sse",
-      }
-
-      expect(config.path).toBe("/sse")
-    })
-
     test("should type-check TransportConfig structure", () => {
       const config: TransportConfig = {
         stdio: { enabled: true },
         http: { enabled: false, port: 3000, host: "0.0.0.0", path: "/mcp" },
-        sse: { enabled: false, path: "/sse" },
       }
 
       expect(config.stdio.enabled).toBe(true)
       expect(config.http.enabled).toBe(false)
-      expect(config.sse?.enabled).toBe(false)
     })
   })
 
@@ -205,63 +193,6 @@ describe("Transport Interfaces", () => {
       })
     })
 
-    describe("sseConfig schema", () => {
-      const schema = Schema.sseConfig
-
-      test("should validate valid sse config", () => {
-        const result = schema.safeParse({
-          enabled: true,
-          path: "/sse",
-        })
-        expect(result.success).toBe(true)
-      })
-
-      test("should apply default for path", () => {
-        const result = schema.safeParse({ enabled: true })
-        expect(result.success).toBe(true)
-        if (result.success) {
-          expect(result.data.path).toBe("/sse")
-        }
-      })
-
-      describe("with authentication", () => {
-        test("should validate sse config with auth enabled", () => {
-          const result = schema.safeParse({
-            enabled: true,
-            path: "/sse",
-            auth: {
-              enabled: true,
-              token: "sse-secret-token",
-            },
-          })
-          expect(result.success).toBe(true)
-        })
-
-        test("should validate sse config with auth and tokenEnvVar", () => {
-          const result = schema.safeParse({
-            enabled: true,
-            path: "/sse",
-            auth: {
-              enabled: true,
-              tokenEnvVar: "MCP_SSE_TOKEN",
-            },
-          })
-          expect(result.success).toBe(true)
-        })
-
-        test("should validate sse config with auth disabled", () => {
-          const result = schema.safeParse({
-            enabled: true,
-            path: "/sse",
-            auth: {
-              enabled: false,
-            },
-          })
-          expect(result.success).toBe(true)
-        })
-      })
-    })
-
     describe("transports schema", () => {
       const schema = Schema.transports
 
@@ -269,7 +200,6 @@ describe("Transport Interfaces", () => {
         const result = schema.safeParse({
           stdio: { enabled: true },
           http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-          sse: { enabled: true, path: "/sse" },
         })
         expect(result.success).toBe(true)
       })
@@ -278,14 +208,12 @@ describe("Transport Interfaces", () => {
         const result = schema.safeParse({
           stdio: { enabled: false },
           http: { enabled: false },
-          sse: { enabled: false },
         })
         expect(result.success).toBe(true)
         if (result.success) {
           expect(result.data.http.port).toBe(3000)
           expect(result.data.http.host).toBe("0.0.0.0")
           expect(result.data.http.path).toBe("/mcp")
-          expect(result.data.sse.path).toBe("/sse")
         }
       })
     })

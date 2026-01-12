@@ -1,0 +1,82 @@
+# Build and deploy static website to GitHub Pages
+
+on:
+  push:
+    branches: ["main"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to use (default: from package.json)'
+        required: false
+        type: string
+      include_screenshots:
+        description: 'Download latest screenshots artifact'
+        type: boolean
+        default: false
+
+# Sets permissions of GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment, skipping runs queued between run in-progress and latest queued.
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Download latest screenshots artifact (optional)
+        if: github.event.inputs.include_screenshots == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          pattern: 'screenshots-*'
+          path: docs/
+          merge-multiple: true
+        continue-on-error: true
+
+      - name: Get version from package.json or tag
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ] && [ "${{ github.ref }}" == "refs/tags/"* ]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+            echo "Using tag version: $VERSION"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+            echo "Using manual version: $VERSION"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+            echo "Using package.json version: $VERSION"
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build static website
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}" \
+          ./scripts/build-website.sh
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: 'docs/'
+
+      - name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4

@@ -28,7 +28,7 @@ export interface UnauthorizedResponse {
 }
 
 /**
- * Authentication middleware for protecting HTTP and SSE transports.
+ * Authentication middleware for protecting HTTP transport.
  *
  * This middleware validates Bearer tokens from the Authorization header
  * against a configured token or environment variable.

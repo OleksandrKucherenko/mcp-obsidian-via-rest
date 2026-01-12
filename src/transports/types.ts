@@ -17,11 +17,6 @@ export interface HttpTransportContext extends TransportContext {
   port: number
 }
 
-/** SSE transport-specific context.
- * @deprecated SSE transport is deprecated. Use HTTP transport which includes SSE streaming.
- */
-export interface SseTransportContext extends TransportContext {}
-
 /** Authentication configuration for transports. */
 export interface AuthConfig {
   /** Enable authentication for this transport. */
@@ -52,22 +47,10 @@ export interface HttpConfig {
   auth?: AuthConfig
 }
 
-/** SSE transport configuration.
- * @deprecated SSE transport is deprecated. Use HTTP transport which includes SSE streaming.
- */
-export interface SseConfig {
-  enabled: boolean
-  path: string
-  /** Authentication configuration. */
-  auth?: AuthConfig
-}
-
 /** Complete transport configuration. */
 export interface TransportConfig {
   stdio: StdioConfig
   http: HttpConfig
-  /** @deprecated SSE transport is deprecated. Use HTTP transport which includes SSE streaming. */
-  sse?: SseConfig
 }
 
 /** Zod validation schemas for transport configuration. */
@@ -97,21 +80,11 @@ export namespace Schema {
     })
     .strict()
 
-  /** SSE transport schema. */
-  export const sseConfig = z
-    .object({
-      enabled: z.boolean(),
-      path: z.string().default("/sse"),
-      auth: authConfig.optional(),
-    })
-    .strict()
-
   /** Complete transports schema. */
   export const transports = z
     .object({
       stdio: stdioConfig,
       http: httpConfig,
-      sse: sseConfig,
     })
     .strict()
 }
