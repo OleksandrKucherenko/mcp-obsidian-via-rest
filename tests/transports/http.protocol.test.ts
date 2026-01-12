@@ -9,13 +9,14 @@ class MockObsidianAPI {
 
   async readNote(_filePath: string) {
     return {
+      path: _filePath,
       content: "test content",
-      metadata: { filepath: _filePath },
+      metadata: { filepath: _filePath, stat: { ctime: 0, mtime: 0, size: 0 } },
     }
   }
 
   async searchNotes(_query: string) {
-    return [{ content: "result", metadata: { filepath: "/test.md" } }]
+    return [{ path: "/test.md", content: "result", metadata: { stat: { ctime: 0, mtime: 0, size: 0 }, tags: [] } }]
   }
 }
 

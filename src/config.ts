@@ -138,7 +138,10 @@ export const parseTransports = (transportsEnv?: string): Set<string> => {
  * Note: HTTP transport includes built-in SSE streaming support via
  * WebStandardStreamableHTTPServerTransport. No separate SSE transport needed.
  */
-export const createTransportConfig = (enabledTransports: Set<string>, env: NodeJS.ProcessEnv): Transport.Config => {
+export const createTransportConfig = (
+  enabledTransports: Set<string>,
+  env: Record<string, string | undefined>,
+): Transport.Config => {
   const hasTransport = (name: string) => enabledTransports.has(name)
 
   // Helper to create auth config from token env var
@@ -190,7 +193,11 @@ export const loadAppConfig = (configFilePath?: string): AppConfig => {
   }
 
   // Guard against undefined values for dotenv-expand
-  const safeParsed = Object.fromEntries(Object.entries(parsed).filter(([_, v]) => v !== undefined))
+  const safeParsed = Object.fromEntries(
+    Object.entries(parsed)
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => [k, v ?? ""]) as [string, string][],
+  )
 
   const { parsed: resolved } = expand({ parsed: safeParsed })
   const configEnv = schemaEnv.parse(resolved)
@@ -216,6 +223,9 @@ export const loadAppConfig = (configFilePath?: string): AppConfig => {
   if (apiUrls.length > 0) {
     // Use API_URLS
     urls = apiUrls
+    if (urls[0] === undefined) {
+      throw new Error("URLs array cannot be empty")
+    }
     baseURL = urls[0] // Use first URL as primary
     // Extract host and port from first URL for backward compatibility
     const url = new URL(baseURL)

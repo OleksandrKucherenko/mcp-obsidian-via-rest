@@ -188,7 +188,7 @@ export function createAuthMiddlewareFunction(config: AuthConfig): MiddlewareHand
         c.header(key, value)
       }
 
-      return c.json(JSON.parse(errorResponse.body), errorResponse.status)
+      return c.json(JSON.parse(errorResponse.body), 401)
     }
 
     // Token is valid, proceed to next handler

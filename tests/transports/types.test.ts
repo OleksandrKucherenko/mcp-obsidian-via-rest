@@ -57,7 +57,7 @@ describe("Transport Interfaces", () => {
 
       expect(config.stdio.enabled).toBe(true)
       expect(config.http.enabled).toBe(false)
-      expect(config.sse.enabled).toBe(false)
+      expect(config.sse?.enabled).toBe(false)
     })
   })
 

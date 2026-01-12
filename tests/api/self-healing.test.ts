@@ -1,8 +1,8 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { SelfHealingObsidianAPI } from "../../src/api/self-healing"
 
-// Mock the url-tester module
-const mockSelectBestUrl = mock(() => "https://fastest.com:27124")
+// Mock url-tester module
+const mockSelectBestUrl = mock((): string | null => null)
 const mockTestUrlsInParallel = mock(() =>
   Promise.resolve([
     { url: "https://fastest.com:27124", success: true, latency: 10 },
@@ -37,15 +37,16 @@ class MockObsidianAPI {
   }
 }
 
-// Mock the obsidian-api module
+// Mock obsidian-api module
 mock.module("../../src/client/obsidian-api", () => ({
   ObsidianAPI: MockObsidianAPI,
 }))
 
 describe("SelfHealingObsidianAPI", () => {
   let api: SelfHealingObsidianAPI
+  const testUrls = ["https://127.0.0.1:27124", "https://192.168.1.100:27124"]
   const testConfig = {
-    urls: ["https://127.0.0.1:27124", "https://192.168.1.100:27124"],
+    urls: testUrls,
     apiKey: "a".repeat(64),
     baseURL: "https://127.0.0.1:27124",
     host: "https://127.0.0.1",
@@ -87,7 +88,7 @@ describe("SelfHealingObsidianAPI", () => {
     })
 
     test("should throw when no working URL is found", async () => {
-      mockSelectBestUrl.mockReturnValue(null)
+      mockSelectBestUrl.mockReturnValue(null as string | null)
 
       api = new SelfHealingObsidianAPI(testConfig)
 
@@ -98,18 +99,18 @@ describe("SelfHealingObsidianAPI", () => {
 
   describe("connection monitoring", () => {
     test("should start health monitoring after initialization", async () => {
-      mockSelectBestUrl.mockReturnValue(testConfig.urls[0])
+      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
 
       const health = api.getHealth()
       expect(health.healthy).toBe(true)
-      expect(health.url).toBe(testConfig.urls[0])
+      expect(health.url).toBe(testUrls[0]!)
     })
 
     test("should track reconnection count", async () => {
-      mockSelectBestUrl.mockReturnValue(testConfig.urls[0])
+      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -121,8 +122,8 @@ describe("SelfHealingObsidianAPI", () => {
 
   describe("reconnection logic", () => {
     test("should attempt reconnection on failure", async () => {
-      mockSelectBestUrl.mockReturnValue(testConfig.urls[0])
-      mockTestUrlsInParallel.mockResolvedValue([{ url: testConfig.urls[1], success: true, latency: 50 }])
+      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
+      mockTestUrlsInParallel.mockResolvedValue([{ url: testUrls[1]!, success: true, latency: 50 }])
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -134,21 +135,21 @@ describe("SelfHealingObsidianAPI", () => {
     })
 
     test("should switch to alternative URL when current fails", async () => {
-      mockSelectBestUrl.mockReturnValueOnce(testConfig.urls[0]).mockReturnValue(testConfig.urls[1])
+      mockSelectBestUrl.mockReturnValueOnce(testUrls[0]!).mockReturnValue(testUrls[1]!)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
 
       // Mock alternative URL testing
-      mockTestUrlsInParallel.mockResolvedValueOnce([{ url: testConfig.urls[1], success: true, latency: 50 }])
+      mockTestUrlsInParallel.mockResolvedValueOnce([{ url: testUrls[1]!, success: true, latency: 50 }])
 
       await api.attemptReconnect()
 
-      expect(api.getConnectionUrl()).toBe(testConfig.urls[1])
+      expect(api.getConnectionUrl()).toBe(testUrls[1]!)
     })
 
     test("should update health status after changes", async () => {
-      mockSelectBestUrl.mockReturnValue(testConfig.urls[0])
+      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -161,7 +162,7 @@ describe("SelfHealingObsidianAPI", () => {
 
   describe("cleanup", () => {
     test("should cleanup resources on destroy", async () => {
-      mockSelectBestUrl.mockReturnValue(testConfig.urls[0])
+      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -172,13 +173,13 @@ describe("SelfHealingObsidianAPI", () => {
       // Note: The implementation doesn't change health on destroy,
       // but timers should be cleared
       const health = api.getHealth()
-      expect(health.url).toBe(testConfig.urls[0])
+      expect(health.url).toBe(testUrls[0]!)
     })
   })
 
   describe("connection thrashing prevention", () => {
     test("should prevent concurrent reconnection attempts", async () => {
-      mockSelectBestUrl.mockReturnValue(testConfig.urls[0])
+      mockSelectBestUrl.mockReturnValue(testUrls[0]!)
 
       api = new SelfHealingObsidianAPI(testConfig)
       await api.initialize()
@@ -190,7 +191,7 @@ describe("SelfHealingObsidianAPI", () => {
       await Promise.all([promise1, promise2])
 
       // Should not crash due to concurrent calls
-      expect(api.getConnectionUrl()).toBe(testConfig.urls[0])
+      expect(api.getConnectionUrl()).toBe(testUrls[0]!)
     })
   })
 })

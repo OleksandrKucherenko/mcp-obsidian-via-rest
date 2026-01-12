@@ -17,10 +17,6 @@ export function createMcpServer(api: IObsidianAPI): McpServer {
   const server = new McpServer({
     name: PackageJson.name,
     version: PackageJson.version,
-    capabilities: {
-      resources: {},
-      tools: {},
-    },
   })
 
   // Register get_note_content tool
@@ -33,7 +29,7 @@ export function createMcpServer(api: IObsidianAPI): McpServer {
 
       const meta = {
         tags: note.metadata?.tags ?? [],
-        size: note.metadata?.stat?.size ?? 0,
+        size: (note.metadata?.stat as { size?: number } | undefined)?.size ?? 0,
       }
 
       return {

@@ -40,12 +40,16 @@ export class SelfHealingObsidianAPI {
   constructor(config: SelfHealingConfig) {
     // Initialize with the first URL (will be updated after URL testing)
     this.config = config
-    this.currentUrl = config.urls[0]
+    if (config.urls.length === 0) {
+      throw new Error("At least one URL must be provided")
+    }
+    const firstUrl = <string>config.urls[0]
+    this.currentUrl = firstUrl
     this.api = new ObsidianAPI({
       apiKey: config.apiKey,
-      host: new URL(config.urls[0]).hostname,
-      port: parseInt(new URL(config.urls[0]).port || "27124", 10),
-      baseURL: config.urls[0],
+      host: new URL(firstUrl).hostname,
+      port: parseInt(new URL(firstUrl).port || "27124", 10),
+      baseURL: firstUrl,
     })
   }
 

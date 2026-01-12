@@ -40,7 +40,7 @@ describe("URL Testing", () => {
     })
 
     test("should return success for working URLs", async () => {
-      mockAxiosInstance.get.mockImplementation((_url: string) =>
+      mockAxiosInstance.get.mockImplementation(() =>
         Promise.resolve({
           data: { status: "OK" },
           status: 200,
@@ -79,21 +79,21 @@ describe("URL Testing", () => {
 
     test("should select fastest working URL from results", () => {
       const results = [
-        { url: testUrls[0], success: true, latency: 100 },
-        { url: testUrls[1], success: true, latency: 50 },
-        { url: testUrls[2], success: true, latency: 200 },
+        { url: testUrls[0]!, success: true, latency: 100 },
+        { url: testUrls[1]!, success: true, latency: 50 },
+        { url: testUrls[2]!, success: true, latency: 200 },
       ]
 
       const best = selectBestUrl(results)
 
-      expect(best).toBe(testUrls[1])
+      expect(best).toBe(testUrls[1]!)
     })
 
     test("should return null if all URLs fail", () => {
       const results = [
-        { url: testUrls[0], success: false, latency: 100 },
-        { url: testUrls[1], success: false, latency: 50 },
-        { url: testUrls[2], success: false, latency: 200 },
+        { url: testUrls[0]!, success: false, latency: 100 },
+        { url: testUrls[1]!, success: false, latency: 50 },
+        { url: testUrls[2]!, success: false, latency: 200 },
       ]
 
       const best = selectBestUrl(results)
@@ -105,11 +105,11 @@ describe("URL Testing", () => {
       // Mock that simulates a timeout error
       mockAxiosInstance.get.mockImplementation(() => Promise.reject(new Error("timeout of 500ms exceeded")))
 
-      const results = await testUrlsInParallel([testUrls[0]], testApiKey, 500)
+      const results = await testUrlsInParallel([testUrls[0]!], testApiKey, 500)
 
       // Should handle the timeout error and return failure
       expect(results[0].success).toBe(false)
-      expect(results[0].url).toBe(testUrls[0])
+      expect(results[0].url).toBe(testUrls[0]!)
     })
 
     test("should handle mixed success and failure results", async () => {

@@ -27,7 +27,7 @@ describe("Documentation Consistency", () => {
       let match: RegExpExecArray | null
       // biome-ignore lint/suspicious/noAssignInExpressions: Standard pattern for regex exec loop
       while ((match = envVarPattern.exec(claudeMd)) !== null) {
-        documentedVars.add(match[1])
+        documentedVars.add(match[1]!)
       }
 
       // Read src/config.ts to find declared env vars in ProcessEnv interface
@@ -46,7 +46,7 @@ describe("Documentation Consistency", () => {
         let varMatch: RegExpExecArray | null
         // biome-ignore lint/suspicious/noAssignInExpressions: Standard pattern for regex exec loop
         while ((varMatch = varPattern.exec(processEnvSection)) !== null) {
-          declaredVars.add(varMatch[1])
+          declaredVars.add(varMatch[1]!)
         }
       }
 
@@ -93,7 +93,7 @@ describe("Documentation Consistency", () => {
         let varMatch: RegExpExecArray | null
         // biome-ignore lint/suspicious/noAssignInExpressions: Standard pattern for regex exec loop
         while ((varMatch = varPattern.exec(processEnvSection)) !== null) {
-          declaredMcpVars.add(varMatch[1])
+          declaredMcpVars.add(varMatch[1]!)
         }
       }
 
@@ -104,7 +104,7 @@ describe("Documentation Consistency", () => {
       let usageMatch: RegExpExecArray | null
       // biome-ignore lint/suspicious/noAssignInExpressions: Standard pattern for regex exec loop
       while ((usageMatch = usagePattern.exec(configSource)) !== null) {
-        usedVars.add(usageMatch[1])
+        usedVars.add(usageMatch[1]!)
       }
 
       // Find MCP variables declared but not used anywhere in config.ts

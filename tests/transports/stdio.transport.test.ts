@@ -24,6 +24,17 @@ mock.module("@modelcontextprotocol/sdk/server/stdio.js", () => ({
 
 // Mock server type - matches McpServer interface enough for our tests
 type MockServer = {
+  _registeredResources: {}
+  _registeredResourceTemplates: {}
+  _registeredTools: {}
+  _registeredPrompts: {}
+  _toolHandlersInitialized: false
+  _completionHandlerInitialized: false
+  _resourceHandlersInitialized: false
+  _promptHandlersInitialized: false
+  _experimental: undefined
+
+  server: unknown
   connect: (transport: unknown) => Promise<void>
 }
 

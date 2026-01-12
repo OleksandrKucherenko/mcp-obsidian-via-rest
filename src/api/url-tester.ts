@@ -89,7 +89,10 @@ export function selectBestUrl(results: URLTestResult[]): string | null {
   }
 
   // Sort by latency and return the fastest
-  const best = successful.sort((a, b) => a.latency - b.latency)[0]
+  const best = successful.toSorted((a, b) => a.latency - b.latency)[0]
+  if (!best) {
+    return null
+  }
   log("Selected best URL: %s (%dms)", best.url, best.latency)
 
   return best.url

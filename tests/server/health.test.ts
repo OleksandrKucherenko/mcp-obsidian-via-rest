@@ -5,7 +5,7 @@ import { getHealthStatus } from "../../src/server/health"
 // Mock the URL testing functions
 mock.module("../../src/api/url-tester", () => ({
   testUrlsInParallel: async () => [{ url: "https://127.0.0.1:27124", success: true, latency: 50 }],
-  selectBestUrl: (results: unknown[]) => results[0]?.url,
+  selectBestUrl: (results: unknown[]) => (results[0] as { url: string } | undefined)?.url,
 }))
 
 // Mock ObsidianAPI (not IObsidianAPI, since that's just the interface)
@@ -40,6 +40,9 @@ describe("Health Monitoring", () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),
       urls: ["https://127.0.0.1:27124"],
+      port: 27124,
+      host: "https://127.0.0.1",
+      baseURL: "https://127.0.0.1:27124",
       testTimeout: 2000,
       retryInterval: 30000,
     })
@@ -47,8 +50,8 @@ describe("Health Monitoring", () => {
 
     const mockTransportManager = {
       getStatus: () => ({
-        stdio: { running: true },
-        http: { running: true },
+        stdio: { enabled: true, running: true },
+        http: { enabled: true, running: true },
       }),
     }
 
@@ -64,6 +67,9 @@ describe("Health Monitoring", () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),
       urls: ["https://127.0.0.1:27124"],
+      port: 27124,
+      host: "https://127.0.0.1",
+      baseURL: "https://127.0.0.1:27124",
       testTimeout: 2000,
       retryInterval: 30000,
     })
@@ -71,8 +77,8 @@ describe("Health Monitoring", () => {
 
     const mockTransportManager = {
       getStatus: () => ({
-        stdio: { running: true },
-        http: { running: true },
+        stdio: { enabled: true, running: true },
+        http: { enabled: true, running: true },
       }),
     }
 
@@ -86,6 +92,9 @@ describe("Health Monitoring", () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),
       urls: ["https://127.0.0.1:27124"],
+      port: 27124,
+      host: "https://127.0.0.1",
+      baseURL: "https://127.0.0.1:27124",
       testTimeout: 2000,
       retryInterval: 30000,
     })
@@ -93,8 +102,8 @@ describe("Health Monitoring", () => {
 
     const mockTransportManager = {
       getStatus: () => ({
-        stdio: { running: true },
-        http: { running: true },
+        stdio: { enabled: true, running: true },
+        http: { enabled: true, running: true },
       }),
     }
 
@@ -109,6 +118,9 @@ describe("Health Monitoring", () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),
       urls: ["https://127.0.0.1:27124"],
+      port: 27124,
+      host: "https://127.0.0.1",
+      baseURL: "https://127.0.0.1:27124",
       testTimeout: 2000,
       retryInterval: 30000,
     })
@@ -116,8 +128,8 @@ describe("Health Monitoring", () => {
 
     const mockTransportManager = {
       getStatus: () => ({
-        stdio: { running: true },
-        http: { running: true },
+        stdio: { enabled: true, running: true },
+        http: { enabled: true, running: true },
       }),
     }
 
@@ -132,6 +144,9 @@ describe("Health Monitoring", () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),
       urls: ["https://127.0.0.1:27124"],
+      port: 27124,
+      host: "https://127.0.0.1",
+      baseURL: "https://127.0.0.1:27124",
       testTimeout: 2000,
       retryInterval: 30000,
     })
@@ -139,8 +154,8 @@ describe("Health Monitoring", () => {
 
     const mockTransportManager = {
       getStatus: () => ({
-        stdio: { running: true },
-        http: { running: true },
+        stdio: { enabled: true, running: true },
+        http: { enabled: true, running: true },
       }),
     }
 
@@ -155,6 +170,9 @@ describe("Health Monitoring", () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),
       urls: ["https://127.0.0.1:27124"],
+      port: 27124,
+      host: "https://127.0.0.1",
+      baseURL: "https://127.0.0.1:27124",
       testTimeout: 2000,
       retryInterval: 30000,
     })
@@ -162,8 +180,8 @@ describe("Health Monitoring", () => {
 
     const mockTransportManager = {
       getStatus: () => ({
-        stdio: { running: true },
-        http: { running: true },
+        stdio: { enabled: true, running: true },
+        http: { enabled: true, running: true },
       }),
     }
 
@@ -177,6 +195,9 @@ describe("Health Monitoring", () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),
       urls: ["https://127.0.0.1:27124"],
+      port: 27124,
+      host: "https://127.0.0.1",
+      baseURL: "https://127.0.0.1:27124",
       testTimeout: 2000,
       retryInterval: 30000,
     })

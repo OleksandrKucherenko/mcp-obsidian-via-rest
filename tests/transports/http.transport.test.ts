@@ -6,6 +6,18 @@ import type { HttpConfig } from "../../src/transports/types"
 // Mock ObsidianAPI
 class MockObsidianAPI {
   constructor(public config: unknown) {}
+
+  async readNote(filePath: string) {
+    return {
+      path: filePath,
+      content: `Mock content for ${filePath}`,
+      metadata: { filepath: filePath, stat: { ctime: 0, mtime: 0, size: 0 } },
+    }
+  }
+
+  async searchNotes(query: string) {
+    return []
+  }
 }
 
 // Mock stdio module (required by mcp-server)
