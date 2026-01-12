@@ -1,7 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { debug } from "debug"
 
-import { createAuthMiddlewareFunction } from "./auth.js"
 import type { SseConfig, SseTransportContext } from "./types.js"
 
 const log = debug("mcp:transports:sse")
@@ -9,24 +8,19 @@ const log = debug("mcp:transports:sse")
 /**
  * Create and configure an SSE transport for MCP server.
  *
- * This function creates an SSE transport for real-time streaming
- * of MCP responses. The SSE transport allows clients to receive
- * streaming responses over HTTP using Server-Sent Events.
+ * @deprecated SSE transport is deprecated in favor of WebStandardStreamableHTTPServerTransport,
+ * which handles both HTTP POST and SSE streaming through a single endpoint at /mcp.
  *
- * Authentication:
- * - If config.auth.enabled is true, the SSE endpoint requires a valid Bearer token
- * - The token can be provided via config.auth.token or config.auth.tokenEnvVar
- * - Clients must include the Authorization header when establishing SSE connections
+ * The HTTP transport already supports streaming responses via Server-Sent Events,
+ * making a separate SSE transport unnecessary. Use HTTP transport instead.
  *
- * Note: Full SSE transport implementation is planned for future phases.
- * The current implementation provides the structure and basic endpoint
- * that can be extended with full protocol support.
+ * This stub remains for backward compatibility but is not actively maintained.
  *
  * @param config - SSE transport configuration
- * @param server - The MCP server instance
+ * @param _server - The MCP server instance (unused, kept for interface compatibility)
  * @returns A context object with close method for cleanup
  */
-export async function createSseTransport(config: SseConfig, server: McpServer): Promise<SseTransportContext> {
+export async function createSseTransport(config: SseConfig, _server: McpServer): Promise<SseTransportContext> {
   log(`SSE transport configured with path: ${config.path}`)
 
   // Log authentication configuration

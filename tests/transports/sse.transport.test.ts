@@ -1,6 +1,6 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
-import { createSseTransport } from "../../src/transports/sse.transport"
+import { afterEach, beforeEach, describe, expect, test } from "bun:test"
 import { createMcpServer } from "../../src/server/mcp-server"
+import { createSseTransport } from "../../src/transports/sse.transport"
 import type { SseConfig } from "../../src/transports/types"
 
 // Mock ObsidianAPI
@@ -12,6 +12,7 @@ class MockObsidianAPI {
 const mockIntercept = { stdin: process.stdin, stdout: process.stdout }
 
 import { mock } from "bun:test"
+
 mock.module("../../src/client/obsidian-api", () => ({
   ObsidianAPI: MockObsidianAPI,
 }))
@@ -106,46 +107,6 @@ describe("SSE Transport", () => {
   })
 })
 
-describe("SSE Transport - Future Implementation", () => {
-  // These tests document the expected behavior of the SSE transport
-  // when it is fully implemented. They are skipped for now.
-
-  test.skip("should mount on shared Hono app", async () => {
-    // SSE should share the HTTP server for efficiency
-  })
-
-  test.skip("should handle GET /sse for connection establishment", async () => {
-    // SSE endpoint should accept GET requests at configured path
-  })
-
-  test.skip("should generate unique session IDs", async () => {
-    // Each SSE connection should have a unique session ID
-  })
-
-  test.skip("should establish SSE connection with proper headers", async () => {
-    // Response should have:
-    // - Content-Type: text/event-stream
-    // - Cache-Control: no-cache
-    // - Connection: keep-alive
-  })
-
-  test.skip("should handle POST /messages with valid session ID", async () => {
-    // JSON-RPC messages should be sent via POST /messages
-  })
-
-  test.skip("should reject messages with invalid session ID", async () => {
-    // Invalid session IDs should return error response
-  })
-
-  test.skip("should manage session-to-transport mapping", async () => {
-    // Each SSE session should map to a transport instance
-  })
-
-  test.skip("should cleanup sessions on disconnect", async () => {
-    // Sessions should be cleaned up when client disconnects
-  })
-
-  test.skip("should send events via SSE stream", async () => {
-    // Server should send MCP responses via SSE events
-  })
-})
+// Note: SSE transport is deprecated in favor of WebStandardStreamableHTTPServerTransport,
+// which handles both HTTP POST and SSE streaming through a single endpoint.
+// The stub implementation remains for backward compatibility but is not actively developed.
