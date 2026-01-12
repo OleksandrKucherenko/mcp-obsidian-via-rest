@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { createHttpTransport } from "../../src/transports/http.transport"
 import { createMcpServer } from "../../src/server/mcp-server"
+import { createHttpTransport } from "../../src/transports/http.transport"
 import type { HttpConfig } from "../../src/transports/types"
 
 // Mock ObsidianAPI
@@ -12,6 +12,7 @@ class MockObsidianAPI {
 const mockIntercept = { stdin: process.stdin, stdout: process.stdout }
 
 import { mock } from "bun:test"
+
 mock.module("../../src/client/obsidian-api", () => ({
   ObsidianAPI: MockObsidianAPI,
 }))

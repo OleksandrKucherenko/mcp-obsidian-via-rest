@@ -9,6 +9,7 @@
       "!**/coverage/**/*",
       "!**/dist/**/*",
       "!**/node_modules/**/*",
+      "!**/.worktrees/**/*",
       "!**/tmp/**/*",
       "!**/yarn.lock",
       "!**/.secrets/**/*",
@@ -31,7 +32,7 @@
         "noUnusedTemplateLiteral": "off"
       }
     },
-    "includes": ["**", "!**/typings/**/*.d.ts"]
+    "includes": ["**", "!**/typings/**/*.d.ts", "!**/.worktrees/**/*"]
   },
   "javascript": {
     "globals": ["exports"],

@@ -1,8 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test"
-import { createHttpTransport } from "../../src/transports/http.transport"
 import { createMcpServer } from "../../src/server/mcp-server"
+import { createHttpTransport } from "../../src/transports/http.transport"
 import type { HttpConfig } from "../../src/transports/types"
-import { randomUUID } from "node:crypto"
 
 // Mock ObsidianAPI
 class MockObsidianAPI {
@@ -24,6 +23,7 @@ class MockObsidianAPI {
 const mockIntercept = { stdin: process.stdin, stdout: process.stdout }
 
 import { mock } from "bun:test"
+
 mock.module("../../src/client/obsidian-api", () => ({
   ObsidianAPI: MockObsidianAPI,
 }))
@@ -35,7 +35,7 @@ mock.module("../../src/stdio.js", () => ({
 describe("HTTP Transport - MCP Protocol Integration", () => {
   let context: Awaited<ReturnType<typeof createHttpTransport>> | undefined
   let close: (() => Promise<void>) | undefined
-  let serverUrl: string | undefined
+  let _serverUrl: string | undefined
   const testConfig: HttpConfig = {
     enabled: true,
     port: 0, // Use 0 to get random available port
@@ -53,7 +53,7 @@ describe("HTTP Transport - MCP Protocol Integration", () => {
   beforeEach(() => {
     // Reset context
     context = undefined
-    serverUrl = undefined
+    _serverUrl = undefined
   })
 
   afterEach(async () => {

@@ -46,8 +46,9 @@ RUN sed -i 's/"husky || true"/"exit 0"/g' package.json && grep exit package.json
 
 # install with --production (exclude devDependencies)
 # force NPM registry for enterprise environments, where may set artifactory in a middle
+# skip lifecycle scripts since dist already built in builder stage
 #RUN bun install --frozen-lockfile --production --registry "https://registry.npmjs.org/"
-RUN bun install --frozen-lockfile --production --verbose --registry "https://registry.npmjs.org/"
+RUN bun install --frozen-lockfile --production --ignore-scripts --verbose --registry "https://registry.npmjs.org/"
 
 # environment variables for injecting via docker run command
 # ENV API_KEY=secret

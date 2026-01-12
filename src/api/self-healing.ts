@@ -1,7 +1,7 @@
 import { debug } from "debug"
-import { selectBestUrl, testUrlsInParallel, type URLTestResult } from "./url-tester"
 import { ObsidianAPI } from "../client/obsidian-api"
-import type { IObsidianAPI, Note, ObsidianConfig } from "../client/types"
+import type { Note, ObsidianConfig } from "../client/types"
+import { selectBestUrl, testUrlsInParallel } from "./url-tester"
 
 const log = debug("mcp:self-healing")
 

@@ -22,10 +22,9 @@
  */
 
 import { execSync } from "node:child_process"
-import { inspect } from "node:util"
-import { writeFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import process from "node:process"
-import { readFileSync } from "node:fs"
+import { inspect } from "node:util"
 
 // Configuration constants
 const CONFIG = {
@@ -216,7 +215,7 @@ const checkGitHubAuthentication = () => {
 }
 
 // Request a new Github Token
-const refreshGithubToken = () => {
+const _refreshGithubToken = () => {
   // if CI mode, unset GITHUB_TOKEN and re-run gh auth login
   if (process.env.CI) {
     warning("Detected CI mode - unsetting GITHUB_TOKEN and re-running gh auth login")
@@ -452,7 +451,7 @@ const loadKeepVersionsFile = () => {
     if (result.patternNegative.length > 0) {
       debug(`NOT explicitly keeping versions matching pattern(s):`, inspect(result.patternNegative))
     }
-  } catch (e) {
+  } catch (_e) {
     // File does not exist or unreadable; ignore
   }
 

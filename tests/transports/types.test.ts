@@ -1,12 +1,11 @@
 import { describe, expect, test } from "bun:test"
-import { z } from "zod"
 import {
-  type StdioConfig,
   type HttpConfig,
+  Schema,
   type SseConfig,
+  type StdioConfig,
   type TransportConfig,
   type TransportContext,
-  Schema,
 } from "../../src/transports/types"
 
 describe("Transport Interfaces", () => {

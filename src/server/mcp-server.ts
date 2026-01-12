@@ -1,7 +1,7 @@
 import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { debug } from "debug"
 import { dedent } from "ts-dedent"
 import { z } from "zod"
-import { debug } from "debug"
 
 import PackageJson from "../../package.json" with { type: "json" }
 import type { IObsidianAPI } from "../client/types"

@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
-import { TransportManager, type TransportFactories } from "../../src/transports/manager"
-import type { TransportConfig, TransportContext } from "../../src/transports/types"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { type TransportFactories, TransportManager } from "../../src/transports/manager"
+import type { TransportConfig } from "../../src/transports/types"
 
 // Mock server type for tests
 type MockServer = McpServer

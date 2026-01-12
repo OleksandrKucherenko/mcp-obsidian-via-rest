@@ -1,8 +1,8 @@
 #!/usr/bin/env bun
 
-import { debug } from "debug"
 import fs from "node:fs/promises"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { debug } from "debug"
 
 import PackageJson from "../package.json" with { type: "json" }
 import { SelfHealingObsidianAPI } from "./api/self-healing.js"

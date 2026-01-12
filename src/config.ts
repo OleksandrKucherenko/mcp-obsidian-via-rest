@@ -1,13 +1,13 @@
+import { existsSync, readFileSync } from "node:fs"
+import path from "node:path"
 import { debug } from "debug"
 import { config } from "dotenv"
 import { expand } from "dotenv-expand"
 import findConfig from "find-config"
 import JSON5 from "json5"
-import { existsSync, readFileSync } from "node:fs"
-import path from "node:path"
 import { z } from "zod/v4"
 import type { ObsidianConfig } from "./client/types"
-import type { AppConfig, Schema, Transport, ObsidianAPI as ObsidianAPIConfig } from "./config.types"
+import type { AppConfig, ObsidianAPI as ObsidianAPIConfig, Transport } from "./config.types"
 
 declare namespace NodeJS {
   interface ProcessEnv {

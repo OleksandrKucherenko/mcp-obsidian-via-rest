@@ -1,5 +1,5 @@
-import { beforeEach, describe, expect, test, mock } from "bun:test"
-import { testUrlsInParallel, selectBestUrl } from "../../src/api/url-tester"
+import { beforeEach, describe, expect, mock, test } from "bun:test"
+import { selectBestUrl, testUrlsInParallel } from "../../src/api/url-tester"
 
 // Create a mock axios instance
 const mockAxiosInstance = {
@@ -40,7 +40,7 @@ describe("URL Testing", () => {
     })
 
     test("should return success for working URLs", async () => {
-      mockAxiosInstance.get.mockImplementation((url: string) =>
+      mockAxiosInstance.get.mockImplementation((_url: string) =>
         Promise.resolve({
           data: { status: "OK" },
           status: 200,
@@ -61,9 +61,9 @@ describe("URL Testing", () => {
     })
 
     test("should measure latency for each URL", async () => {
-      let callCount = 0
+      let _callCount = 0
       mockAxiosInstance.get.mockImplementation(() => {
-        callCount++
+        _callCount++
         // Simulate different latencies
         return Promise.resolve({
           data: { status: "OK" },

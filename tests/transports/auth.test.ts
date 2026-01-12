@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, test } from "bun:test"
+import { describe, expect, test } from "bun:test"
 import { createAuthMiddleware } from "../../src/transports/auth"
 import type { AuthConfig } from "../../src/transports/types"
 

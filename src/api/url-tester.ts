@@ -1,6 +1,6 @@
+import https from "node:https"
 import axios, { AxiosError } from "axios"
 import { debug } from "debug"
-import https from "node:https"
 
 const log = debug("mcp:url-tester")
 

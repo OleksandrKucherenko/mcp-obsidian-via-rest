@@ -1,5 +1,5 @@
-import { type MiddlewareHandler } from "hono"
 import { debug } from "debug"
+import type { MiddlewareHandler } from "hono"
 
 const log = debug("mcp:http")
 

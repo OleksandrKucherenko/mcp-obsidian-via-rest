@@ -1,5 +1,5 @@
-import debug from "debug"
 import path from "node:path"
+import debug from "debug"
 import { DockerComposeEnvironment, Wait, type WaitStrategy } from "testcontainers"
 
 import { ContainerStdio } from "./container.stdio"

@@ -1,9 +1,8 @@
-import axios from "axios"
 import { afterEach, beforeEach, describe, expect, it, jest, mock, spyOn } from "bun:test"
-
+import axios from "axios"
+import { composeBaseURL } from "../config.ts"
 import { ObsidianAPI } from "./obsidian-api.ts"
 import type { ObsidianConfig } from "./types.ts"
-import { composeBaseURL } from "../config.ts"
 
 const configPartial: Omit<ObsidianConfig, "baseURL"> = {
   apiKey: "test-api-key",
@@ -48,7 +47,7 @@ describe("ObsidianAPI - Unit Tests", () => {
   describe("constructor", () => {
     it("should create an axios client with the correct configuration", () => {
       // GIVEN: api client created
-      const api = new ObsidianAPI(config)
+      const _api = new ObsidianAPI(config)
 
       // WHEN: constructor is called
 
@@ -72,7 +71,7 @@ describe("ObsidianAPI - Unit Tests", () => {
       const httpsConfig = { ...config, host, port, baseURL: composeBaseURL(host, port) }
 
       // WHEN: constructor is called
-      const api = new ObsidianAPI(httpsConfig)
+      const _api = new ObsidianAPI(httpsConfig)
 
       // THEN: axios client is created with the correct configuration
       const createCall = axiosCreateSpy.mock.calls[0][0]

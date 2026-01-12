@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, jest } from "bun:test"
-import type { StartedDockerComposeEnvironment } from "testcontainers"
 import debug from "debug"
+import type { StartedDockerComposeEnvironment } from "testcontainers"
 
-import { logJsonRpcMessage, type ContainerStdio } from "./utils/container.stdio"
+import { type ContainerStdio, logJsonRpcMessage } from "./utils/container.stdio"
 import { setupContainers } from "./utils/setup.containers"
 import { gracefulShutdown } from "./utils/teardown.containers"
 

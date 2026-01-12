@@ -1,4 +1,5 @@
 import { debug } from "debug"
+import type { MiddlewareHandler } from "hono"
 
 import type { AuthConfig } from "./types.js"
 
@@ -164,10 +165,10 @@ export function createAuthMiddleware(config: AuthConfig): AuthMiddleware {
  * @param config - Authentication configuration
  * @returns Hono middleware function
  */
-export function createAuthMiddlewareFunction(config: AuthConfig) {
+export function createAuthMiddlewareFunction(config: AuthConfig): MiddlewareHandler {
   const auth = new AuthMiddleware(config)
 
-  return async (c: any, next: any) => {
+  return async (c, next) => {
     // If auth is disabled, skip validation
     if (!config.enabled) {
       return next()

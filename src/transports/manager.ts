@@ -1,8 +1,8 @@
-import { debug } from "debug"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
+import { debug } from "debug"
 
 import { createStdioTransport } from "./stdio.transport.js"
-import type { HttpConfig, SseConfig, StdioConfig, TransportConfig, TransportContext } from "./types.js"
+import type { HttpConfig, SseConfig, TransportConfig, TransportContext } from "./types.js"
 
 const log = debug("mcp:transports:manager")
 

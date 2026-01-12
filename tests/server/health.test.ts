@@ -1,9 +1,6 @@
-import { beforeEach, describe, expect, test } from "bun:test"
-import { getHealthStatus } from "../../src/server/health"
-import type { HealthStatus } from "../../src/server/health"
+import { describe, expect, mock, test } from "bun:test"
 import { SelfHealingObsidianAPI } from "../../src/api/self-healing"
-import type { IObsidianAPI } from "../../src/client/types"
-import { mock } from "bun:test"
+import { getHealthStatus } from "../../src/server/health"
 
 // Mock the URL testing functions
 mock.module("../../src/api/url-tester", () => ({
@@ -39,15 +36,6 @@ mock.module("../../src/client/obsidian-api", () => ({
 }))
 
 describe("Health Monitoring", () => {
-  let mockApi: SelfHealingObsidianAPI | undefined
-  let transportManager: any | undefined
-
-  beforeEach(() => {
-    // Reset
-    mockApi = undefined
-    transportManager = undefined
-  })
-
   test("should return healthy status when all systems operational", async () => {
     const selfHealingApi = new SelfHealingObsidianAPI({
       apiKey: "a".repeat(64),

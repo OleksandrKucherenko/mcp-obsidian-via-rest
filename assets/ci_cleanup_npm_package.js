@@ -23,10 +23,9 @@
  */
 
 import { execSync } from "node:child_process"
-import { writeFileSync } from "node:fs"
-import process from "node:process"
-import { readFileSync } from "node:fs"
+import { readFileSync, writeFileSync } from "node:fs"
 import https from "node:https"
+import process from "node:process"
 import { inspect } from "node:util"
 
 // Configuration constants
@@ -76,7 +75,7 @@ const parseArgs = () => {
       } else {
         throw new Error("No name field in package.json.")
       }
-    } catch (err) {
+    } catch (_err) {
       critical("Usage: assets/ci_cleanup_npm_package.js <package-name>")
       critical("Or run from a directory containing a valid package.json.")
       process.exit(1)
@@ -102,7 +101,7 @@ const getNpmRegistryUrl = () => {
     }
 
     return registryUrl
-  } catch (e) {
+  } catch (_e) {
     warning("Failed to get npm registry URL, using default")
     return "https://registry.npmjs.org/" // Default NPM registry if command fails
   }
@@ -116,7 +115,7 @@ const verifyNpmTokenAccess = () => {
       stdio: ["pipe", "pipe", "ignore"],
     })
     info("NPM token access verified")
-  } catch (e) {
+  } catch (_e) {
     warning("Failed to verify NPM token access")
   }
 }
@@ -156,7 +155,7 @@ const checkNpmConfiguration = () => {
       }
       warning("These may affect which registry is used for specific package scopes")
     }
-  } catch (e) {
+  } catch (_e) {
     warning("Failed to check npm configuration")
   }
 }
@@ -289,7 +288,7 @@ const loadKeepVersionsFile = () => {
     if (result.patternNegative.length > 0) {
       debug(`NOT explicitly keeping versions matching pattern(s):`, inspect(result.patternNegative))
     }
-  } catch (e) {
+  } catch (_e) {
     // File does not exist or unreadable; ignore
   }
 
