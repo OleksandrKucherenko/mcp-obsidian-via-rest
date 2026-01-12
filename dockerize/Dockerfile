@@ -19,9 +19,8 @@ ENV DBUS_SESSION_BUS_ADDRESS=/dev/null
 ENV TZ=Etc/UTC
 ENV SCREEN_RESOLUTION=1280x1024x24
 
-# Install dependencies
-RUN apt-get update  \
-    && apt-get install -y --no-install-recommends \
+# Install system dependencies (cached layer)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     # generic tools
     tini wget curl ca-certificates git unzip bsdextrautils procps \
     # x11 virtual display, fluxbox window manager, x11vnc (VNC server)
@@ -47,6 +46,13 @@ RUN apt-get update  \
     && find /var/lib/apt/lists -delete \
     && ln -sf /usr/bin/tini /tini
 
+# Create a non-root user (cached layer)
+RUN useradd --create-home --shell /bin/bash ${USERNAME} && \
+    mkdir -p ${APP_DIR} ${OBSIDIAN_CONFIG_DIR} && \
+    mkdir -p ${OBSIDIAN_APP_CONFIG_DIR} && \
+    chown -R ${USERNAME}:${USERNAME} ${APP_DIR} ${OBSIDIAN_CONFIG_DIR} && \
+    chown -R ${USERNAME}:${USERNAME} ${OBSIDIAN_APP_CONFIG_DIR}
+
 # Create a non-root user
 RUN useradd --create-home --shell /bin/bash ${USERNAME} && \
     # Create app and config directories 
@@ -57,14 +63,14 @@ RUN useradd --create-home --shell /bin/bash ${USERNAME} && \
 
 WORKDIR ${APP_DIR}
 
-# Download and set up Obsidian AppImage
+# Copy entrypoint script (before AppImage download for better caching)
+COPY --chown=${USERNAME}:${USERNAME} entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+# Download and set up Obsidian AppImage (separate layer for version changes)
 RUN if [ "${TARGETARCH}" = "arm64" ]; then URL=${OBSIDIAN_APPIMAGE_ARM64_URL}; else URL=${OBSIDIAN_APPIMAGE_STD_URL}; fi && \
     wget -O Obsidian.AppImage "${URL}" && \
     chmod +x Obsidian.AppImage
-
-# Copy entrypoint script
-COPY --chown=${USERNAME}:${USERNAME} entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 # Expose VNC port and a port for Obsidian Sync (if needed, adjust as necessary)
 EXPOSE 5900

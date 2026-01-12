@@ -1,4 +1,4 @@
-name: Screenshots VNC Obsidian GUI
+name: Screenshots and Website Deployment
 
 on:
   release:
@@ -6,6 +6,8 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -13,34 +15,47 @@ on:
         required: false
         type: string
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  pages: write
+  id-token: write
 
 jobs:
-  screenshots:
+  test-build-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: write
-      pages: write
-      id-token: write
     steps:
-      - name: Checkout Code with full history
+      - name: Checkout Code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
-      - name: Setup Bun
+      - name: Setup Bun with cache
         uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
+          cache-install: true
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
 
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Get version
         id: version
@@ -57,33 +72,38 @@ jobs:
 
       - name: Run Docker Compose
         id: compose
-        uses: hoverkraft-tech/compose-action@v2.2.0
+        env:
+          BUILDKIT_PROGRESS: plain
+        run: |
+          docker compose -f ./docker-compose.test.yaml build --cache-from type=local,src=/tmp/.buildx-cache --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max
+          docker compose -f ./docker-compose.test.yaml up --abort-on-container-exit
+
+      - name: Move Docker cache
+        if: always()
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache || true
         continue-on-error: true
-        with:
-          compose-file: ./docker-compose.test.yaml
 
       - name: Collect Docker Compose Logs
-        shell: bash
-        continue-on-error: true
         run: |
           docker compose -f ./docker-compose.test.yaml logs --no-color > compose-logs.txt
           cat compose-logs.txt
+        continue-on-error: true
 
       - name: Collect Screenshots (on failure)
         if: steps.compose.outcome == 'failure'
-        shell: bash
-        continue-on-error: true
         run: |
           docker compose -f ./docker-compose.test.yaml up obsidian -d
           SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
           docker compose -f ./docker-compose.test.yaml down obsidian
+        continue-on-error: true
 
       - name: Collect Screenshots (on success)
         if: steps.compose.outcome == 'success'
-        shell: bash
-        continue-on-error: true
         run: |
           SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+        continue-on-error: true
 
       - name: Upload reports (logs, screenshots, etc.)
         uses: actions/upload-artifact@v4
@@ -96,13 +116,27 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+      - name: Copy screenshots to docs directory
+        run: |
+          mkdir -p docs
+          if [ -d "reports/screenshots" ]; then
+            cp -r reports/screenshots/* docs/ 2>/dev/null || true
+          fi
+        continue-on-error: true
+
+      - name: Build static website
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}" \
+          ./scripts/build-website.sh
+
       - name: Upload screenshots as artifact
         uses: actions/upload-artifact@v4
         continue-on-error: true
         with:
           name: screenshots-${{ github.run_id }}
-          path: |
-            reports/screenshots/**/*
+          path: reports/screenshots/**/*
           if-no-files-found: warn
           retention-days: 30
 
@@ -117,3 +151,17 @@ jobs:
       - name: Add annotation with screenshot preview link
         run: |
           echo "::notice title=CI Screenshot Preview::View screenshots at https://mcp-obsidian.artfulbits.se/${{ github.run_id }}/"
+
+      - name: Setup Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/deploy-pages@v4
