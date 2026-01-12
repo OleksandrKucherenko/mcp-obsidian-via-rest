@@ -1,0 +1,42 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "mcp-obsidian": {
+      "type": "local",
+      "command": ["bun", "run", "src/index.ts"],
+      "environment": {
+        "API_KEY": "{env:API_KEY}",
+        "API_HOST": "{env:API_HOST}",
+        "API_PORT": "{env:API_PORT}",
+        "DEBUG": "mcp:*"
+      },
+      "enabled": true
+    },
+    "mcp-obsidian-built": {
+      "type": "local",
+      "command": ["mcp-obsidian"],
+      "environment": {
+        "API_KEY": "{env:API_KEY}",
+        "API_HOST": "{env:API_HOST}",
+        "API_PORT": "{env:API_PORT}",
+        "DEBUG": "mcp:*"
+      },
+      "enabled": false
+    },
+    "mcp-obsidian-docker": {
+      "type": "local",
+      "command": ["docker", "run", "--name", "mcp-obsidian", "--rm", "-i", "--network=host", "mcp/obsidian:latest"],
+      "environment": {
+        "API_KEY": "{env:API_KEY}",
+        "API_HOST": "{env:API_HOST}",
+        "API_PORT": "{env:API_PORT}",
+        "DEBUG": "mcp:*"
+      },
+      "enabled": false
+    }
+  },
+  "tools": {
+    "mcp-obsidian-built_*": false,
+    "mcp-obsidian-docker_*": false
+  }
+}

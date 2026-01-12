@@ -1,0 +1,33 @@
+{
+  "$schema": "https://code.claude.ai/mcp.json",
+  "mcpServers": {
+    "obsidian-stdio-local": {
+      "type": "stdio",
+      "command": ["bun", "run", "src/index.ts"],
+      "env": {
+        "API_KEY": "your-obsidian-api-key-here",
+        "API_HOST": "https://172.26.32.1",
+        "API_PORT": "27124"
+      },
+      "disabled": true,
+      "description": "Run MCP Obsidian server from source code (local development)"
+    },
+    "obsidian-docker-http": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "timeout": 30000,
+      "disabled": true,
+      "description": "Connect to Docker-hosted MCP Obsidian server via HTTP transport"
+    },
+    "obsidian-docker-http-auth": {
+      "type": "http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer your-token-here"
+      },
+      "timeout": 30000,
+      "disabled": true,
+      "description": "Connect to Docker-hosted MCP Obsidian server with Bearer token authentication"
+    }
+  }
+}

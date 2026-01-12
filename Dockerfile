@@ -3,7 +3,8 @@
 FROM oven/bun:1.2-alpine AS base
 
 # Add tini for proper signal handling (crucial for STDIO communication)
-RUN apk add --no-cache tini
+# Add wget for health check
+RUN apk add --no-cache tini wget
 
 WORKDIR /app
 
@@ -45,14 +46,23 @@ RUN sed -i 's/"husky || true"/"exit 0"/g' package.json && grep exit package.json
 
 # install with --production (exclude devDependencies)
 # force NPM registry for enterprise environments, where may set artifactory in a middle
+# skip lifecycle scripts since dist already built in builder stage
 #RUN bun install --frozen-lockfile --production --registry "https://registry.npmjs.org/"
-RUN bun install --frozen-lockfile --production --verbose --registry "https://registry.npmjs.org/"
+RUN bun install --frozen-lockfile --production --ignore-scripts --verbose --registry "https://registry.npmjs.org/"
 
 # environment variables for injecting via docker run command
 # ENV API_KEY=secret
 # ENV API_HOST=https://localhost
 # ENV API_PORT=27124
 ENV TINI_SUBREAPER=true
+
+# Expose HTTP transport port (default: 3000)
+EXPOSE 3000
+
+# Health check using HTTP endpoint
+# Note: HTTP transport must be enabled for health checks to work
+HEALTHCHECK --interval=10s --timeout=5s --start-period=30s --retries=5 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
 
 # Create a non-root user to run the application
 USER bun

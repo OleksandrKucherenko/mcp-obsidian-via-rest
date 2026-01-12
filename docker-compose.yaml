@@ -33,6 +33,40 @@ services:
     security_opt:
       - apparmor:unconfined
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-check-certificate", "-S", "https://127.0.0.1:27124", "-O", "/dev/null", "-q"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  mcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mcp-obsidian
+    networks:
+      - vnc-net
+    depends_on:
+      obsidian:
+        condition: service_healthy
+    ports:
+      - "3000:3000" # HTTP transport port
+    environment:
+      - DEBUG=mcp:*
+      # Enable HTTP transport
+      - MCP_TRANSPORTS=http
+      - MCP_HTTP_PORT=3000
+      - MCP_HTTP_HOST=0.0.0.0
+      - MCP_HTTP_PATH=/mcp
+      # Configure Obsidian API connection (points to obsidian service)
+      - API_HOST=https://obsidian
+      - API_PORT=27124
+      # API_KEY must be provided (set in .env or via docker run)
+      # - API_KEY=your-api-key-here
+    restart: unless-stopped
+    # Uncomment to enable authentication
+    # - MCP_HTTP_TOKEN=your-secret-token
 
 networks:
   vnc-net:

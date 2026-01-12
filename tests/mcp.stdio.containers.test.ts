@@ -1,8 +1,8 @@
 import { afterAll, beforeAll, describe, expect, it, jest } from "bun:test"
-import type { StartedDockerComposeEnvironment } from "testcontainers"
 import debug from "debug"
+import type { StartedDockerComposeEnvironment } from "testcontainers"
 
-import { logJsonRpcMessage, type ContainerStdio } from "./utils/container.stdio"
+import { type ContainerStdio, logJsonRpcMessage } from "./utils/container.stdio"
 import { setupContainers } from "./utils/setup.containers"
 import { gracefulShutdown } from "./utils/teardown.containers"
 
@@ -27,10 +27,12 @@ describe("MCP Server E2E with Testcontainers", () => {
 
     environment = containers.environment
     mcpStdio = containers.mcpStdio
-  })
+  }, 180_000) // 3 minutes timeout for container startup
 
+  // FIXME: 30 seconds timeout for shutdown
   afterAll(async () => gracefulShutdown({ environment, mcpStdio }))
 
+  // FIXME: 30 seconds timeout for the test
   it("should receive method not found error when not existing method is called", async () => {
     // GIVEN: request
     const requestId = "test-heartbeat-1"

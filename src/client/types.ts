@@ -6,6 +6,12 @@ export interface ObsidianConfig {
   baseURL: string
 }
 
+/** Interface for Obsidian API client methods required by MCP server. */
+export interface IObsidianAPI {
+  readNote(filePath: string): Promise<Note>
+  searchNotes(query: string): Promise<Note[]>
+}
+
 /** Represents a note in Obsidian. */
 export interface Note {
   path: string
