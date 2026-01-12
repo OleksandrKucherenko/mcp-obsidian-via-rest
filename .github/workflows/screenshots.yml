@@ -70,7 +70,6 @@ jobs:
         run: |
           docker compose -f ./docker-compose.test.yaml build
           docker compose -f ./docker-compose.test.yaml up -d
-        continue-on-error: true
 
       - name: Wait for services to be healthy
         run: |
