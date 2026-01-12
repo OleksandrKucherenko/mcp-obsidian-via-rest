@@ -75,7 +75,7 @@ jobs:
 
       - name: Wait for services to be healthy
         run: |
-          timeout 300 bash -c 'until docker compose -f ./docker-compose.test.yaml ps --format json | jq -e ".[].Health == \"healthy\"" | grep -q true; do sleep 5; done'
+          timeout 300 bash -c 'until docker compose -f ./docker-compose.test.yaml ps --format json | jq -s "any(.Health == \"healthy\")" | grep -q true; do sleep 5; done'
         continue-on-error: true
 
       - name: Collect Screenshots
