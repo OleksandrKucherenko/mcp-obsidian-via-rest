@@ -1,4 +1,14 @@
 #
-# This file is used to force keeping versions of the npm package during the cleanup process.
-# Script assets/ci_cleanup_npm_package.js will use this file to determine which versions to keep.
+# Used by GitHub Actions cleanup jobs to keep specific versions/tags for npm and Docker
+# (see assets/ci_cleanup_npm_package.js and assets/ci_cleanup_docker_images.js).
+# One rule per line:
+# - exact: 1.2.3
+# - wildcard *: 1.* or v2.* (matches the full string)
+# - exclude: !1.2.3 or !1.* (allow cleanup to remove those; keep wins if both match)
+# - # comments and blank lines are ignored
+#
+# Examples:
+# 2.*        # keep all 2.x
+# !2.0.0     # allow cleanup of 2.0.0
+# v1.*       # keep v1 Docker tags
 #

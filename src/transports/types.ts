@@ -6,6 +6,9 @@ export interface TransportContext {
   close(): Promise<void>
 }
 
+/** Stdio transport-specific context. */
+export interface StdioTransportContext extends TransportContext {}
+
 /** Stdio transport configuration. */
 export interface StdioConfig {
   enabled: boolean

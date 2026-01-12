@@ -7,7 +7,11 @@ import { dedent } from "ts-dedent"
 import { z } from "zod"
 import fs from "node:fs/promises"
 
-import PackageJson from "../package.json" assert { type: "json" }
+import PackageJson from "../package.json"
+assert
+{
+  type: "json"
+}
 import { ObsidianAPI } from "./client/obsidian-api.js"
 import { diagnostics, loadConfiguration } from "./config.js"
 import { intercept } from "./stdio.js"
