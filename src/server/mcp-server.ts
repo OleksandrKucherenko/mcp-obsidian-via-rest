@@ -3,7 +3,7 @@ import { dedent } from "ts-dedent"
 import { z } from "zod"
 import { debug } from "debug"
 
-import PackageJson from "../../package.json" assert { type: "json" }
+import PackageJson from "../../package.json" with { type: "json" }
 import type { IObsidianAPI } from "../client/types"
 
 const log = debug("mcp:server")

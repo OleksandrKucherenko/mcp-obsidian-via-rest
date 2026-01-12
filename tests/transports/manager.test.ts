@@ -1,15 +1,14 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { TransportManager, type TransportFactories } from "../../src/transports/manager"
 import type { TransportConfig, TransportContext } from "../../src/transports/types"
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 // Mock server type for tests
-type MockServer = {
-  connect: (transport: unknown) => Promise<void>
-}
+type MockServer = McpServer
 
 describe("TransportManager", () => {
   let manager: TransportManager
-  let mockServer: MockServer
+  let mockServerFactory: () => MockServer
   let mockFactories: TransportFactories
 
   // Track mock transport contexts
@@ -36,11 +35,15 @@ describe("TransportManager", () => {
   let mockHttpFactory: ReturnType<typeof mock>
   let mockSseFactory: ReturnType<typeof mock>
 
+  // Track server factory calls
+  let serverCallCount = 0
+
   beforeEach(() => {
     // Clear all mock trackers
     mockStdioContexts.length = 0
     mockHttpContexts.length = 0
     mockSseContexts.length = 0
+    serverCallCount = 0
 
     // Create fresh mocks for each test
     mockStdioFactory = mock(() => createMockContext(mockStdioContexts))
@@ -54,9 +57,12 @@ describe("TransportManager", () => {
       sse: mockSseFactory,
     }
 
-    // Create fresh mock server
-    mockServer = {
-      connect: mock(async () => Promise.resolve()),
+    // Server factory that creates mock servers and tracks calls
+    mockServerFactory = (): MockServer => {
+      serverCallCount++
+      return {
+        connect: mock(async () => Promise.resolve()),
+      } as unknown as MockServer
     }
   })
 
@@ -73,7 +79,7 @@ describe("TransportManager", () => {
       sse: { enabled: false, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
     await manager.startTransports()
 
     // Verify stdio and http transports were created
@@ -90,7 +96,7 @@ describe("TransportManager", () => {
       sse: { enabled: false, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
     await manager.startTransports()
 
     // Only stdio should be created
@@ -106,7 +112,7 @@ describe("TransportManager", () => {
       sse: { enabled: true, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
     await manager.startTransports()
 
     // All transports should be created
@@ -122,7 +128,7 @@ describe("TransportManager", () => {
       sse: { enabled: true, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
     await manager.startTransports()
 
     // Verify all transports started
@@ -146,7 +152,7 @@ describe("TransportManager", () => {
       sse: { enabled: false, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
     await manager.startTransports()
 
     const status = manager.getStatus()
@@ -170,7 +176,7 @@ describe("TransportManager", () => {
       sse: { enabled: true, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
 
     // Should not throw, should handle error gracefully
     await manager.startTransports()
@@ -194,7 +200,7 @@ describe("TransportManager", () => {
       sse: { enabled: true, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
     await manager.startTransports()
 
     // Get reference to close methods
@@ -217,7 +223,7 @@ describe("TransportManager", () => {
       sse: { enabled: false, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
 
     // Should not throw even when no transports are running
     await manager.stopTransports()
@@ -237,7 +243,7 @@ describe("TransportManager", () => {
       sse: { enabled: false, path: "/sse" },
     }
 
-    manager = new TransportManager(config, mockServer, mockFactories)
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
     await manager.startTransports()
 
     expect(mockStdioContexts.length).toBe(1)
@@ -248,5 +254,33 @@ describe("TransportManager", () => {
     // Start again
     await manager.startTransports()
     expect(mockStdioContexts.length).toBe(1)
+  })
+
+  test("should create separate server instances for each transport", async () => {
+    const config: TransportConfig = {
+      stdio: { enabled: true },
+      http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
+      sse: { enabled: false, path: "/sse" },
+    }
+
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
+    await manager.startTransports()
+
+    // Should have created 2 server instances (one for stdio, one for http)
+    expect(serverCallCount).toBe(2)
+  })
+
+  test("should create only one server instance when only one transport enabled", async () => {
+    const config: TransportConfig = {
+      stdio: { enabled: true },
+      http: { enabled: false, port: 3000, host: "0.0.0.0", path: "/mcp" },
+      sse: { enabled: false, path: "/sse" },
+    }
+
+    manager = new TransportManager(config, mockServerFactory, mockFactories)
+    await manager.startTransports()
+
+    // Should have created only 1 server instance (for stdio)
+    expect(serverCallCount).toBe(1)
   })
 })

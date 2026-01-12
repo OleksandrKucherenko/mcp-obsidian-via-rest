@@ -19,7 +19,7 @@ interface JsonRpcMessage {
 }
 
 describe("MCP Server E2E with Testcontainers", () => {
-  let environment: StartedDockerComposeEnvironment
+  let environment: StartedDockerComposeEnvironment | undefined
   let mcpStdio: ContainerStdio
 
   beforeAll(async () => {
@@ -27,9 +27,9 @@ describe("MCP Server E2E with Testcontainers", () => {
 
     environment = containers.environment
     mcpStdio = containers.mcpStdio
-  })
+  }, 180_000) // 3 minutes timeout for container startup
 
-  afterAll(async () => gracefulShutdown({ environment, mcpStdio }))
+  afterAll(async () => gracefulShutdown({ environment, mcpStdio }), 30_000) // 30 seconds timeout for shutdown
 
   it("should receive method not found error when not existing method is called", async () => {
     // GIVEN: request
@@ -57,5 +57,5 @@ describe("MCP Server E2E with Testcontainers", () => {
 
     // THEN: expect a response with error code -32601 (Method not found)
     expect(response).toContain("-32601")
-  })
+  }, 30_000) // 30 seconds timeout for the test
 })

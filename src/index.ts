@@ -2,8 +2,9 @@
 
 import { debug } from "debug"
 import fs from "node:fs/promises"
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
-import PackageJson from "../package.json" assert { type: "json" }
+import PackageJson from "../package.json" with { type: "json" }
 import { SelfHealingObsidianAPI } from "./api/self-healing.js"
 import { loadAppConfig } from "./config.js"
 import { createMcpServer } from "./server/mcp-server.js"
@@ -20,11 +21,17 @@ const appConfig = loadAppConfig()
 // Create self-healing API (will select best URL on initialization)
 const api = new SelfHealingObsidianAPI(appConfig.obsidian)
 
-// Create MCP server with tools and resources
-const server = createMcpServer(api)
-
 // Create transport manager
 let transportManager: TransportManager | null = null
+
+/**
+ * Factory function to create MCP server instances with tools and resources.
+ * Each transport gets its own server instance, allowing multiple transports
+ * to run simultaneously without interference.
+ */
+const createMcpServerInstance = (): McpServer => {
+  return createMcpServer(api)
+}
 
 // Health check for Docker container
 let counter = 1 // print only one time
@@ -54,7 +61,7 @@ async function initialize() {
     log(`Obsidian API: %O`, health)
 
     // Create and start transports based on configuration
-    transportManager = new TransportManager(appConfig.transports, server)
+    transportManager = new TransportManager(appConfig.transports, createMcpServerInstance)
     await transportManager.startTransports()
 
     const transportStatus = transportManager.getStatus()

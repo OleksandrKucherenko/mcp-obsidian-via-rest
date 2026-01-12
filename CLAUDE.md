@@ -6,10 +6,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 This is an MCP (Model Context Protocol) server that provides access to Obsidian vaults via the Local REST API plugin. The server can run as a standalone Node/Bun application or as a Docker container, enabling AI assistants to read, search, and interact with Obsidian notes.
 
-**Key Architecture:**
-- MCP Server (`src/index.ts`) - Exposes tools and resources via stdio transport
-- Obsidian API Client (`src/client/obsidian-api.ts`) - Wraps the Obsidian Local REST API with retry logic and error handling
-- Configuration System (`src/config.ts`) - Loads config from .env files, JSON config files, and environment variables
+**Multi-Transport Architecture:**
+- **Transport Manager** (`src/transports/manager.ts`) - Manages lifecycle of multiple transport types
+- **MCP Server Factory** (`src/server/mcp-server.ts`) - Creates MCP server instances with tools and resources
+- **Transports:**
+  - `stdio` - Standard input/output transport (default, best for local MCP clients)
+  - `http` - HTTP JSON-RPC with streaming support (best for remote access)
+- **Self-Healing API** (`src/api/self-healing.ts`) - Automatic URL selection and reconnection
+- **Configuration System** (`src/config.ts`) - Multi-URL and transport configuration
 
 ## Development Commands
 
@@ -96,9 +100,49 @@ bun run commit
 
 ## Architecture Details
 
+### Multi-Transport Architecture
+
+The MCP server supports multiple transport types simultaneously. Each transport gets its own isolated MCP server instance with tools and resources registered.
+
+**Transport Manager** (`src/transports/manager.ts`):
+- Accepts a server factory function that creates new MCP server instances
+- Creates a separate server instance for each enabled transport
+- Manages lifecycle (start/stop) for all transports
+- Provides status information for all transports
+
+**Why Separate Server Instances?**
+The MCP SDK's `server.connect(transport)` method replaces any existing transport. To support multiple transports simultaneously, each transport needs its own server instance.
+
+**Architecture Diagram:**
+```
+┌─────────────────────────────────────────┐
+│       Self-Healing Obsidian API         │
+│  (Multi-URL selection & reconnection)    │
+└──────────────────┬──────────────────────┘
+                   │
+        ┌──────────┴──────────┐
+        │  Server Factory     │
+        │  (creates instances)│
+        └──────────┬──────────┘
+                   │
+    ┌──────────────┼──────────────┐
+    │              │              │
+┌───▼────┐   ┌───▼─────┐   ┌───▼─────┐
+│  MCP   │   │  MCP    │   │  MCP    │
+│ Server │   │ Server  │   │ Server  │
+│ (stdio)│   │ (http)  │   │ (sse)   │
+└───┬────┘   └───┬─────┘   └───┬─────┘
+    │            │              │
+┌───▼────┐   ┌──▼───────┐   ┌──▼───────┐
+│ Stdio  │   │ HTTP     │   │ HTTP     │
+│Transport│  │ Transport│   │ Transport│
+└────────┘   │(Hono)   │   │  (SSE)   │
+             └──────────┘   └──────────┘
+```
+
 ### MCP Server Implementation
 
-The MCP server (`src/index.ts`) registers:
+The MCP server factory (`src/server/mcp-server.ts`) creates server instances that register:
 
 **Tools:**
 - `get_note_content` - Retrieves note content and metadata by file path
@@ -108,8 +152,35 @@ The MCP server (`src/index.ts`) registers:
 **Resources:**
 - `obsidian://{name}` - Resource template for accessing notes via URI (e.g., `obsidian://Skills/JavaScript/CORS.md`)
 
-**Health Check:**
-- Creates/updates `/tmp/mcp_healthy` file every 5 seconds for Docker health monitoring
+Each server instance is independent, so tools/resources are registered on each instance separately.
+
+### HTTP Transport
+
+**Hono-based HTTP Server** (`src/transports/http.transport.ts`):
+- Uses `WebStandardStreamableHTTPServerTransport` for full MCP protocol support
+- Supports JSON-RPC over HTTP POST
+- Supports SSE streaming for responses
+- Includes `/health` endpoint for health checks
+- Optional Bearer token authentication via `MCP_HTTP_TOKEN`
+
+**Request Logger** (`src/transports/hono-logger.ts`):
+- Logs incoming/outgoing HTTP requests
+- Uses `debug` library (writes to stderr, not stdout)
+- Inspired by Hono's built-in logger middleware
+
+### Self-Healing API
+
+**Self-Healing Wrapper** (`src/api/self-healing.ts`):
+- Tests multiple URLs in parallel on startup
+- Selects fastest responding URL
+- Monitors connection health every 30 seconds
+- Automatically reconnects to alternative URLs on failure
+- Uses exponential backoff to prevent connection thrashing
+
+**URL Tester** (`src/api/url-tester.ts`):
+- Tests multiple URLs in parallel using `Promise.all`
+- Measures latency for each URL
+- Returns results sorted by response time
 
 ### Configuration Loading Priority
 
@@ -206,9 +277,19 @@ When developing on WSL2 with Obsidian running on Windows host:
 **Required:**
 - `API_KEY` - Obsidian Local REST API key (minimum 32 characters)
 
-**Optional:**
-- `API_HOST` - REST API host (default: "localhost", WSL2: "$WSL_GATEWAY_IP")
+**Obsidian API Configuration:**
+- `API_URLS` - JSON array of multiple URLs for automatic failover (e.g., `["https://127.0.0.1:27124","https://172.26.32.1:27124"]`)
+- `API_HOST` - Single REST API host (fallback for legacy config, default: "localhost")
 - `API_PORT` - REST API port (default: "27124")
+
+**Transport Configuration:**
+- `MCP_TRANSPORTS` - Comma-separated list of transports to enable (default: "stdio", options: "stdio,http")
+- `MCP_HTTP_PORT` - HTTP transport port (default: "3000")
+- `MCP_HTTP_HOST` - HTTP bind address (default: "0.0.0.0")
+- `MCP_HTTP_PATH` - MCP endpoint path (default: "/mcp")
+- `MCP_HTTP_TOKEN` - Bearer token for HTTP authentication (optional, enables auth)
+
+**Debugging:**
 - `DEBUG` - Debug logging filter (e.g., "mcp:*" for all MCP logs)
 - `NODE_ENV` - Environment mode (development/production/test)
 
@@ -229,6 +310,60 @@ Release workflow:
 
 ## Common Patterns
 
+### Running with Specific Transports
+
+**Stdio only (default):**
+```bash
+bun run start
+# or explicitly
+MCP_TRANSPORTS=stdio bun run start
+```
+
+**HTTP only:**
+```bash
+MCP_TRANSPORTS=http MCP_HTTP_PORT=3000 bun run start
+```
+
+**Both transports simultaneously:**
+```bash
+MCP_TRANSPORTS=stdio,http MCP_HTTP_PORT=3000 bun run start
+```
+
+**HTTP with authentication:**
+```bash
+MCP_TRANSPORTS=http MCP_HTTP_TOKEN=secret123 bun run start
+```
+
+### Testing HTTP Transport
+
+**Health check:**
+```bash
+curl http://localhost:3000/health
+```
+
+**Initialize MCP connection:**
+```bash
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "test", "version": "1.0"}
+    }
+  }'
+```
+
+**List tools:**
+```bash
+curl -X POST http://localhost:3000/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc": "2.0", "id": 1, "method": "tools/list"}'
+```
+
 ### Running Single Test File
 ```bash
 bun test ./tests/obsidian-api.e2e.test.ts
@@ -244,11 +379,33 @@ DEBUG=mcp:client,mcp:config bun run src/index.ts
 
 # Show STDIN/STDOUT communication
 DEBUG=mcp:push,mcp:pull bun run src/index.ts
+
+# Show transport logs
+DEBUG=mcp:transports:* bun run src/index.ts
 ```
 
 ### Manual STDIN Testing
 ```bash
 echo '{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2024-11-05", "capabilities": {}, "clientInfo": {"name": "test-client", "version": "1.0.0"}}}' | DEBUG=mcp:* bun run src/index.ts
+```
+
+### Multi-URL Configuration
+
+**WSL2 with automatic failover:**
+```bash
+export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124"]' \
+MCP_TRANSPORTS=http \
+bun run start
+```
+
+**Docker with multiple URLs:**
+```bash
+docker run --rm -p 3000:3000 \
+  -e API_KEY=xxx \
+  -e API_URLS='["https://host.docker.internal:27124","https://172.17.0.1:27124"]' \
+  -e MCP_TRANSPORTS=http \
+  ghcr.io/oleksandrkucherenko/obsidian-mcp:latest
 ```
 
 ### Load Custom Config

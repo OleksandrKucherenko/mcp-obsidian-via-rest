@@ -1,5 +1,6 @@
 import axios, { AxiosError } from "axios"
 import { debug } from "debug"
+import https from "node:https"
 
 const log = debug("mcp:url-tester")
 
@@ -21,14 +22,18 @@ async function testSingleUrl(url: string, apiKey: string, timeout: number): Prom
   const startTime = Date.now()
 
   try {
+    // Create https agent that accepts self-signed certificates
+    const httpsAgent = new https.Agent({
+      rejectUnauthorized: false, // Allow self-signed certificates
+    })
+
     const axiosInstance = axios.create({
       baseURL: url,
       timeout,
       headers: {
         Authorization: `Bearer ${apiKey}`,
       },
-      // Allow self-signed certificates
-      httpsAgent: undefined, // Will use default agent that rejects self-signed certs
+      httpsAgent, // Use the custom agent for HTTPS requests
       validateStatus: (status) => status >= 200 && status < 300,
     })
 

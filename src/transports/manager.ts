@@ -1,4 +1,5 @@
 import { debug } from "debug"
+import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 
 import { createStdioTransport } from "./stdio.transport.js"
 import type { HttpConfig, SseConfig, StdioConfig, TransportConfig, TransportContext } from "./types.js"
@@ -6,9 +7,12 @@ import type { HttpConfig, SseConfig, StdioConfig, TransportConfig, TransportCont
 const log = debug("mcp:transports:manager")
 
 // Transport factory types
-type StdioTransportFactory = (server: unknown) => TransportContext
-type HttpTransportFactory = (config: HttpConfig, server: unknown) => Promise<TransportContext>
-type SseTransportFactory = (config: SseConfig, server: unknown) => Promise<TransportContext>
+type StdioTransportFactory = (server: McpServer) => TransportContext
+type HttpTransportFactory = (config: HttpConfig, server: McpServer) => Promise<TransportContext>
+type SseTransportFactory = (config: SseConfig, server: McpServer) => Promise<TransportContext>
+
+// Server factory type - creates a new MCP server instance with tools/resources
+type ServerFactory = () => McpServer
 
 // Default transport factories (lazy loaded)
 let defaultHttpTransportFactory: HttpTransportFactory | null = null
@@ -67,27 +71,31 @@ export interface TransportFactories {
 /**
  * Manages multiple transport lifecycles based on configuration.
  *
- * This class is responsible for starting and stopping transports
- * based on the provided configuration. It handles errors gracefully
- * and provides status information for each transport.
+ * This class creates separate MCP server instances for each transport,
+ * allowing multiple transports to run simultaneously without interference.
+ * Each transport gets its own server instance with tools/resources registered.
  *
  * For testing purposes, transport factories can be injected via the
  * third constructor parameter.
  */
 export class TransportManager {
   private config: TransportConfig
-  private server: unknown
+  private serverFactory: ServerFactory
   private factories: TransportFactories
   private contexts: Map<string, TransportContext> = new Map()
+  private servers: Map<string, McpServer> = new Map()
 
-  constructor(config: TransportConfig, server: unknown, factories: TransportFactories = {}) {
+  constructor(config: TransportConfig, serverFactory: ServerFactory, factories: TransportFactories = {}) {
     this.config = config
-    this.server = server
+    this.serverFactory = serverFactory
     this.factories = factories
   }
 
   /**
    * Start all enabled transports based on configuration.
+   *
+   * Each transport gets its own MCP server instance with tools/resources
+   * registered, allowing multiple transports to work simultaneously.
    *
    * Errors during transport initialization are logged but don't
    * prevent other transports from starting.
@@ -134,6 +142,7 @@ export class TransportManager {
 
     await Promise.all(stopPromises)
     this.contexts.clear()
+    this.servers.clear()
 
     log("All transports stopped")
   }
@@ -163,8 +172,12 @@ export class TransportManager {
   private async startStdioTransport(): Promise<void> {
     try {
       log("Starting stdio transport...")
+      // Create a new server instance for stdio transport
+      const server = this.serverFactory()
+      this.servers.set("stdio", server)
+
       const factory = this.factories.stdio || createStdioTransport
-      const context = factory(this.server)
+      const context = factory(server)
       this.contexts.set("stdio", context)
       log("Stdio transport started")
     } catch (error) {
@@ -175,12 +188,16 @@ export class TransportManager {
   private async startHttpTransport(): Promise<void> {
     try {
       log("Starting HTTP transport...")
+      // Create a new server instance for HTTP transport
+      const server = this.serverFactory()
+      this.servers.set("http", server)
+
       const factory = this.factories.http || (await loadHttpTransport())
       if (!factory) {
         log("HTTP transport not available, skipping...")
         return
       }
-      const context = await factory(this.config.http, this.server)
+      const context = await factory(this.config.http, server)
       this.contexts.set("http", context)
       log("HTTP transport started")
     } catch (error) {
@@ -191,12 +208,16 @@ export class TransportManager {
   private async startSseTransport(): Promise<void> {
     try {
       log("Starting SSE transport...")
+      // Create a new server instance for SSE transport
+      const server = this.serverFactory()
+      this.servers.set("sse", server)
+
       const factory = this.factories.sse || (await loadSseTransport())
       if (!factory) {
         log("SSE transport not available, skipping...")
         return
       }
-      const context = await factory(this.config.sse, this.server)
+      const context = await factory(this.config.sse, server)
       this.contexts.set("sse", context)
       log("SSE transport started")
     } catch (error) {

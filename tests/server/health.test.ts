@@ -7,9 +7,7 @@ import { mock } from "bun:test"
 
 // Mock the URL testing functions
 mock.module("../../src/api/url-tester", () => ({
-  testUrlsInParallel: async () => [
-    { url: "https://127.0.0.1:27124", success: true, latency: 50 },
-  ],
+  testUrlsInParallel: async () => [{ url: "https://127.0.0.1:27124", success: true, latency: 50 }],
   selectBestUrl: (results: unknown[]) => results[0]?.url,
 }))
 
@@ -32,9 +30,7 @@ class MockObsidianAPIImpl {
   }
 
   async searchNotes(_query: string) {
-    return [
-      { content: "result", metadata: { filepath: "/test.md" } },
-    ]
+    return [{ content: "result", metadata: { filepath: "/test.md" } }]
   }
 }
 

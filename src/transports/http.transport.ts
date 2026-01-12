@@ -1,6 +1,5 @@
 import { Hono } from "hono"
 import { cors } from "hono/cors"
-import { logger } from "hono/logger"
 import { serve } from "bun"
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js"
 import { WebStandardStreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js"
@@ -8,6 +7,7 @@ import { randomUUID } from "node:crypto"
 import { debug } from "debug"
 
 import { createAuthMiddlewareFunction } from "./auth.js"
+import { createRequestLogger } from "./hono-logger.js"
 import type { HttpConfig, HttpTransportContext } from "./types.js"
 
 const log = debug("mcp:transports:http")
@@ -33,10 +33,7 @@ const log = debug("mcp:transports:http")
  * @param server - The MCP server instance
  * @returns A context object with close method for cleanup
  */
-export async function createHttpTransport(
-  config: HttpConfig,
-  server: McpServer,
-): Promise<HttpTransportContext> {
+export async function createHttpTransport(config: HttpConfig, server: McpServer): Promise<HttpTransportContext> {
   // Create MCP streamable HTTP transport
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: () => randomUUID(),
@@ -51,8 +48,8 @@ export async function createHttpTransport(
   // Apply CORS middleware
   app.use("*", cors())
 
-  // Add request logging
-  app.use("*", logger())
+  // Add request logging middleware using debug (writes to stderr)
+  app.use("*", createRequestLogger())
 
   // Apply authentication middleware if enabled
   if (config.auth?.enabled) {

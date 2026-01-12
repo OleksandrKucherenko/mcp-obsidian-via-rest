@@ -42,6 +42,7 @@
   "scripts": {
     "pre-commit": "lint-staged",
     "prepare": "husky || true",
+    "postinstall": "bun run build",
     "build": "bun build --minify --target=bun --outdir=dist --sourcemap=external src/index.ts",
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=${DEBUG:-mcp:\\*} bun run src/index.ts --watch",

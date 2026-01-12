@@ -207,7 +207,13 @@ export const performFullDockerCleanup = async ({ environment, forceCleanup, test
   log("Performing comprehensive Docker cleanup...")
 
   const { removeNetworks, removeVolumes, removeImages } = cleanupConfig
-  await environment.down({ removeVolumes })
+
+  // Use testcontainers down() if environment is available
+  if (environment) {
+    await environment.down({ removeVolumes })
+  } else {
+    log("No environment to shutdown, using manual cleanup")
+  }
 
   // Final container cleanup - more comprehensive pattern matching
   await cleanupContainer()

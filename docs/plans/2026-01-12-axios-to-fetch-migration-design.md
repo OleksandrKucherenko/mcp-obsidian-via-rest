@@ -1,15 +1,21 @@
 ---
-title: Axios to Fetch Migration Findings
+title: Axios to Undici Migration Findings
 date: 2026-01-12
 status: draft
 ---
 
-# Axios to Fetch Migration Findings
+# Axios to Undici Migration Findings
 
 ## Context and Goals
 - Primary target runtime: Node 18+.
-- Goal: replace Axios with native `fetch` to reduce dependencies while preserving current behavior.
-- Secondary goal: investigate `undici` where native `fetch` needs extra control (TLS, retries, timeouts).
+- Goal: replace Axios with `undici` while preserving current behavior (timeouts, retries, logging, error shaping).
+- Use `undici-retry` for fixed, fail-fast retries aligned with MCP availability reporting.
+
+## Why Undici
+Node's native `fetch` is powered by `undici`, but using `undici` directly provides:
+- Explicit control over timeouts, TLS settings, and connection reuse.
+- Better unit test ergonomics via `MockAgent` without global `fetch` mocks.
+- A clean retry story with `undici-retry` when we need predictable, fixed attempts.
 
 ## Current Axios Usage (Observed)
 - `src/client/obsidian-api.ts`
@@ -23,60 +29,62 @@ status: draft
   - Unit tests mock Axios modules (`src/client/obsidian-api.test.ts`, `tests/api/url-tester.test.ts`).
   - E2E tests use Axios to probe host availability with self-signed TLS in `tests/obsidian-api.e2e.test.ts`.
 
-## Options Considered
-### 1) Native `fetch` with a small wrapper (recommended)
-Use a single wrapper for headers, timeout, retries, logging, and JSON parsing.
-- Pros: minimal dependencies, consistent behavior across call sites, easy to unit test.
-- Cons: need to re-implement retries and error shaping, careful handling of timeouts and aborts.
+## Comparison Table
+| Axios usage today | Undici replacement | Pros | Cons |
+| --- | --- | --- | --- |
+| `axios.create` with `baseURL` and default headers | `undici` Client or Pool with base URL and default headers | Explicit connection reuse | Requires client lifecycle management |
+| Timeout via Axios config | `headersTimeout` / `bodyTimeout` on undici request | Clear separation of timeout types | Must set per-request or in client defaults |
+| Retries via `axios-retry` | `undici-retry` with fixed attempts | Built-in retryable status list | Adds dependency and ties to undici Client |
+| Logging via `axios-debug-log` | `debug` logging around request/response | Consistent with existing logging | Manual mapping of request/response details |
+| Self-signed TLS via `https.Agent` | `undici` Client with `connect` TLS options (configurable) | Explicit TLS control | Must ensure TLS bypass is opt-in |
+| Error shaping via `axios.isAxiosError` | Inspect status code + parse JSON `{ errorCode, message }` | Clear error mapping | Must handle non-JSON and network errors |
+| `response.data` convenience | `body.json()` / `body.text()` on undici response | No extra deps | Must always consume body |
+| URL tester axios instance | Shared undici client + simple `GET /` | Reuse shared logic | Update tests and mocks |
+| Tests mocking Axios module | `undici` `MockAgent` | Cleaner, isolated unit tests | Requires refactor of test setup |
 
-### 2) Native `fetch` + `undici` Agent only (recommended add-on)
-Use `undici.Agent` for self-signed TLS and pass as `dispatcher` to `fetch` requests.
-- Pros: keep fetch API, add TLS control without Axios.
-- Cons: TypeScript types for `dispatcher` are not in standard `fetch` types; may need explicit types or `undici` fetch.
+## Undici Approaches
+### 1) `undici` Client + `undici-retry` (recommended)
+Use `undici` Client for requests and `undici-retry` for fixed retry attempts.
+- Pros: explicit control + predictable retry behavior.
+- Cons: extra dependency, must always consume response bodies.
 
-### 3) Full `undici` Client/Pool
-Use `undici` directly for all HTTP calls.
-- Pros: strongest control over TLS, timeouts, and connection reuse.
-- Cons: more verbose, larger refactor in tests, no standard `fetch` semantics.
-
-### 4) Lightweight fetch wrapper (`ky`, `ofetch`)
-- Pros: retries/timeouts provided out of the box, clean API.
-- Cons: new dependency, may still need `undici` for TLS, less aligned with "native fetch only".
+### 2) `undici` Client with manual retry loop
+Implement a small retry loop in the wrapper without `undici-retry`.
+- Pros: fewer dependencies.
+- Cons: more custom logic to maintain.
 
 ## Recommendation
-Adopt a native `fetch` wrapper as the primary client and use `undici.Agent` only when self-signed TLS is required. This keeps dependencies minimal while preserving Axios behavior (retry, timeout, logging, error shaping).
+Adopt `undici` Client with `undici-retry` as the primary HTTP stack. This keeps tight control over TLS and timeouts, improves unit test ergonomics via `MockAgent`, and gives a consistent retry mechanism while preserving existing behavior.
 
 ## Implementation Sketch (No Code Yet)
-1. Create `src/client/http-client.ts` wrapper:
+1. Create `src/client/http-client.ts` wrapper around `undici`:
    - Inputs: `baseURL`, `headers`, `timeout`, `retries`, `logger`, `tls` options.
-   - Implement timeout via `AbortController`.
-   - Implement retry loop (retry all errors, log each retry).
+   - Configure a shared Client or Pool with TLS settings and default headers.
+   - Use `undici-retry` with fixed attempts; log each retry.
    - Parse JSON responses where applicable; preserve status and error payloads.
 2. Update `src/client/obsidian-api.ts`:
-   - Replace Axios instance with the wrapper.
-   - Keep existing `safeCall` error shaping but adjust to fetch errors and response payloads.
+   - Replace Axios instance with the undici wrapper.
+   - Keep existing `safeCall` error shaping but adjust to undici response payloads.
 3. Update `src/api/url-tester.ts`:
-   - Use wrapper for `GET /` requests.
+   - Use wrapper for `GET /` requests with short timeouts.
 4. Update tests:
-   - Mock wrapper functions instead of Axios module.
-   - E2E host check: use fetch + optional `undici.Agent` for self-signed TLS.
+   - Use `undici` `MockAgent` to simulate responses in unit tests.
+   - E2E host check: use undici client with TLS config.
 5. Dependencies:
    - Remove `axios`, `axios-retry`, `axios-debug-log` from `package.json`.
-   - Add `undici` only if using an explicit Agent for TLS.
+   - Add `undici` and `undici-retry`.
 
 ## Risks and Considerations
-- Node 18 `fetch` supports `dispatcher` for `undici.Agent`, but standard TS types do not. Options:
-  - Import `fetch` from `undici` and use its types.
-  - Extend RequestInit typing locally to include `dispatcher`.
 - TLS: self-signed cert handling must remain explicit and safe (avoid global TLS overrides).
 - Error mapping: ensure `safeCall` still surfaces `Error <code>: <message>` for REST API errors.
 - Retries: current behavior retries all errors; keep same semantics or document change.
-- Runtime differences: Bun has built-in `fetch` but does not support `undici` dispatchers. If Bun is still used at runtime, guard Node-only TLS logic.
+- Response bodies must always be consumed to avoid connection leaks with undici.
 
 ## Open Questions
-- Should TLS bypass be configurable (on/off) rather than always enabled?
-- Do we want exponential backoff instead of fixed retries?
-- Should the wrapper expose a typed response helper to simplify parsing in callers?
+Resolved:
+- TLS bypass should be configurable (on/off) to allow future use of trusted certs.
+- Use fixed retries to fail fast and surface Obsidian availability issues quickly.
+- Provide a typed response helper in the wrapper to simplify caller parsing.
 
 ## Next Steps (If Approved)
 1. Implement wrapper and update API client and URL tester.

@@ -10,9 +10,15 @@
 
 - [mcp-obsidian](#mcp-obsidian)
   - [Configure MCP](#configure-mcp)
+    - [Multi-Transport Configuration](#multi-transport-configuration)
+    - [HTTP Transport Configuration](#http-transport-configuration)
+    - [Authentication (Optional)](#authentication-optional)
+    - [Stdio Transport Configuration](#stdio-transport-configuration)
+    - [Multi-URL Configuration (Self-Healing)](#multi-url-configuration-self-healing)
+    - [Health Endpoint](#health-endpoint)
   - [Setup and Troubleshooting](#setup-and-troubleshooting)
     - [Setup](#setup)
-    - [Verify that the Obsidian REST API is running Windows Host, MacOS, Linux](#verify-that-the-obsidian-rest-api-is-running-windows-host-macos-linux)
+    - [Verify that the Obsidian REST API is running (Windows Host, MacOS, Linux)](#verify-that-the-obsidian-rest-api-is-running-windows-host-macos-linux)
     - [WSL2, Docker hosted on Ubuntu](#wsl2-docker-hosted-on-ubuntu)
     - [Verify Windows Firewall](#verify-windows-firewall)
     - [Disable/Enable Firewall](#disableenable-firewall)
@@ -22,6 +28,46 @@
 <!-- /TOC -->
 
 ## Configure MCP
+
+### Multi-Transport Configuration
+
+The MCP server supports running multiple transports simultaneously. Each transport gets its own isolated MCP server instance, allowing you to use stdio for local development while also exposing HTTP for remote access.
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian-multi": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian-multi",
+        "--rm",
+        "-i",  // Keep STDIN open for stdio transport
+        "-p", "3000:3000",
+        "-e", "API_KEY",
+        "-e", "API_HOST",
+        "-e", "MCP_TRANSPORTS",
+        "-e", "MCP_HTTP_PORT",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",
+        "API_HOST": "https://172.26.32.1",
+        "MCP_TRANSPORTS": "stdio,http",  // Enable both transports
+        "MCP_HTTP_PORT": "3000",
+        "DEBUG": "mcp:*"
+      }
+    }
+  }
+}
+```
+
+**Available transports:**
+
+- `stdio` - Standard input/output (default, best for local MCP clients)
+- `http` - HTTP JSON-RPC with streaming support (best for remote access)
+
+**Note:** SSE transport is deprecated in favor of the streamable HTTP transport, which handles both HTTP POST and SSE streaming through a single endpoint.
 
 ### HTTP Transport Configuration
 
@@ -133,6 +179,93 @@ For local development with stdio transport (default):
 
 - [NPM Package Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/npm/mcp-obsidian)
 - [Docker Image Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/container/obsidian-mcp)
+
+### Multi-URL Configuration (Self-Healing)
+
+The MCP server supports multiple Obsidian REST API URLs with automatic failover. The server will test all URLs in parallel, select the fastest working one, and automatically reconnect to alternative URLs if the connection fails.
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian-multi-url": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian-multi-url",
+        "--rm",
+        "-p", "3000:3000",
+        "-e", "API_KEY",
+        "-e", "API_URLS",
+        "-e", "MCP_TRANSPORTS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",
+        // JSON array format - tests all URLs in parallel
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
+        "MCP_TRANSPORTS": "http"
+      }
+    }
+  }
+}
+```
+
+**URL Selection Behavior:**
+
+1. On startup, all URLs are tested in parallel
+2. The fastest responding URL is selected
+3. Connection health is monitored every 30 seconds
+4. On failure, the server automatically reconnects to the next available URL
+5. Exponential backoff prevents connection thrashing
+
+**WSL2 Example:**
+
+```bash
+# Automatically determine WSL gateway IP
+export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+
+# Configure with multiple fallback URLs
+API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124", "https://host.docker.internal:27124"]'
+```
+
+### Health Endpoint
+
+When HTTP transport is enabled, the server exposes a health check endpoint at `/health`:
+
+```bash
+curl http://localhost:3000/health
+```
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-12T12:00:00.000Z",
+  "transport": "http",
+  "authEnabled": false
+}
+```
+
+For comprehensive health status including Obsidian API connection and all transports, you can use the `getHealthStatus()` function which returns:
+
+```json
+{
+  "healthy": true,
+  "obsidian": {
+    "connected": true,
+    "url": "https://obsidian:27124",
+    "lastCheck": 1705065600000
+  },
+  "transports": {
+    "stdio": { "running": true, "enabled": true },
+    "http": { "running": true, "enabled": true },
+    "sse": { "running": false, "enabled": false }
+  },
+  "uptime": 3600,
+  "timestamp": 1705065600000
+}
+```
 
 ## Setup and Troubleshooting
 

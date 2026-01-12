@@ -16,9 +16,7 @@ class MockObsidianAPI {
   }
 
   async searchNotes(_query: string) {
-    return [
-      { content: "result", metadata: { filepath: "/test.md" } },
-    ]
+    return [{ content: "result", metadata: { filepath: "/test.md" } }]
   }
 }
 

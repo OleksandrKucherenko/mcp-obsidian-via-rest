@@ -81,10 +81,7 @@ export async function getHealthStatus(
   }
 
   // Calculate overall health (all systems must be healthy)
-  const healthy =
-    obsidianHealth.connected &&
-    transportsHealth.stdio.running &&
-    transportsHealth.http.running
+  const healthy = obsidianHealth.connected && transportsHealth.stdio.running && transportsHealth.http.running
 
   // Calculate uptime in seconds
   const uptime = Math.floor((timestamp - PROCESS_START_TIME) / 1000)
@@ -112,10 +109,7 @@ export interface SimpleHealthResponse {
 /**
  * Convert full health status to simple HTTP response format
  */
-export function toSimpleHealthResponse(
-  health: HealthStatus,
-  authEnabled: boolean,
-): SimpleHealthResponse {
+export function toSimpleHealthResponse(health: HealthStatus, authEnabled: boolean): SimpleHealthResponse {
   return {
     status: health.healthy ? "healthy" : "unhealthy",
     timestamp: new Date(health.timestamp).toISOString(),
