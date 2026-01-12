@@ -11,6 +11,13 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 - [ ] Confirm npm access: `npm whoami`
 - [ ] Record intended version/tag from `bun run release:dry` (example format: `vX.Y.Z` or `vX.Y.Z-rc.1`)
 - [ ] Review `.keep-versions` to ensure the new major/minor is preserved by cleanup jobs
+- [ ] **CRITICAL:** Verify npm token is valid before releasing (token in `.secrets/npm_registry_publish_token` must be active and not expired)
+
+  **Note:** If npmjs.org workflow fails with "Access token expired or revoked":
+  1. Regenerate token at https://www.npmjs.com/settings/oleksandrkucherenko/tokens/
+  2. Update local file: `echo "NEW_TOKEN_HERE" > .secrets/npm_registry_publish_token`
+  3. Update GitHub secret: `gh secret set NPM_PUBLISH_TOKEN -b"$(cat .secrets/npm_registry_publish_token)" -R OleksandrKucherenko/mcp-obsidian-via-rest`
+  4. Re-run failed workflow from Actions tab
 
 ## Update
 
@@ -93,3 +100,20 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 - [ ] Verify GitHub Packages version: `npm view @oleksandrkucherenko/mcp-obsidian --registry https://npm.pkg.github.com`
 - [ ] Verify GHCR tags: `docker pull ghcr.io/oleksandrkucherenko/obsidian-mcp:<tag>`
 - [ ] Verify GHCR tags: `docker pull ghcr.io/oleksandrkucherenko/obsidian-vnc:<tag>`
+
+## Troubleshooting workflow failures
+
+### npmjs.org workflow fails with "Access token expired or revoked"
+
+If npmjs publish workflow fails due to expired token:
+
+1. Regenerate npm token at https://www.npmjs.com/settings/oleksandrkucherenko/tokens/
+2. Update local file: `echo "NEW_TOKEN_HERE" > .secrets/npm_registry_publish_token`
+3. Update GitHub secret: `gh secret set NPM_PUBLISH_TOKEN -b"$(cat .secrets/npm_registry_publish_token)" -R OleksandrKucherenko/mcp-obsidian-via-rest`
+4. Re-run failed workflow from https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions
+
+### GitHub Packages workflow fails with "Cannot publish over existing version"
+
+This occurs when the `sha-<short>` tag was already used. The workflow publishes with `sha-<short>` tags which can conflict. This is non-blocking - npmjs.org and Docker publish workflows are the critical ones.
+
+**Note:** GitHub Packages workflow is informational only. Primary publishing is done via npmjs.org workflow.
