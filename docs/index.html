@@ -65,6 +65,19 @@
         .rounded {
             border: none;
         }
+        .screenshot-link {
+            color: var(--primary-color);
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .screenshot-link:hover {
+            text-decoration: underline;
+        }
+        .screenshot-date {
+            color: #666;
+            font-size: 0.9rem;
+            margin: 0.5rem 0;
+        }
     </style>
 </head>
 <body>
@@ -113,6 +126,13 @@
           </a>
       </div>
     </header>
+
+    <div class="container">
+        <h2>Latest Screenshots</h2>
+        <div class="step" id="screenshots-section">
+            <p>Loading screenshots...</p>
+        </div>
+    </div>
 
     <div class="container">
         <h2>Step 1: Set Up Obsidian</h2>
@@ -274,5 +294,37 @@ Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled True</code></pre>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-bash.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-powershell.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/prismjs@1.29.0/components/prism-json.min.js"></script>
+
+    <!-- Script to load and display screenshots -->
+    <script>
+        async function loadScreenshots() {
+            const section = document.getElementById('screenshots-section');
+            try {
+                const response = await fetch('./screenshots.json');
+                if (!response.ok) throw new Error('Failed to load screenshots');
+                const data = await response.json();
+
+                if (!data.screenshots || data.screenshots.length === 0) {
+                    section.innerHTML = '<p>No screenshots available yet.</p>';
+                    return;
+                }
+
+                const latest = data.screenshots[0];
+                section.innerHTML = `
+                    <p><a href="./${latest.id}/" class="screenshot-link">
+                        <strong>📸 Latest Screenshots</strong> (Run #${latest.id})
+                    </a></p>
+                    <p class="screenshot-date">Last updated: ${new Date(latest.modified).toLocaleString()}</p>
+                    <p><a href="./screenshots.json" class="screenshot-link">View all screenshots</a></p>
+                `;
+            } catch (error) {
+                console.error('Error loading screenshots:', error);
+                section.innerHTML = '<p>No screenshots available yet.</p>';
+            }
+        }
+
+        // Load screenshots on page load
+        document.addEventListener('DOMContentLoaded', loadScreenshots);
+    </script>
 </body>
 </html>
