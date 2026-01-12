@@ -35,6 +35,7 @@ export class SelfHealingObsidianAPI {
   private isReconnecting = false
   private reconnectCount = 0
   private lastHealthCheck: Date = new Date()
+  private isHealthy = false
 
   constructor(config: SelfHealingConfig) {
     // Initialize with the first URL (will be updated after URL testing)
@@ -76,6 +77,7 @@ export class SelfHealingObsidianAPI {
     // Verify connection
     try {
       await this.api.getServerInfo()
+      this.isHealthy = true
       log("Successfully connected to Obsidian API at %s", this.currentUrl)
     } catch (error) {
       log("Failed to connect to Obsidian API: %O", error)
@@ -120,8 +122,10 @@ export class SelfHealingObsidianAPI {
 
     try {
       await this.api.getServerInfo()
+      this.isHealthy = true
       log("Health check passed for %s", this.currentUrl)
     } catch (error) {
+      this.isHealthy = false
       log("Health check failed for %s: %O", this.currentUrl, error)
       // Trigger reconnection attempt
       await this.attemptReconnect()
@@ -160,12 +164,14 @@ export class SelfHealingObsidianAPI {
         log("Switching to alternative URL: %s", bestUrl)
         this.currentUrl = bestUrl
         this.updateApiClient()
-        this.reconnectCount = 0
 
         // Verify the new connection
         await this.api.getServerInfo()
+        this.isHealthy = true
+        this.reconnectCount = 0
         log("Successfully reconnected to %s", this.currentUrl)
       } else {
+        this.isHealthy = false
         log("No working alternative URLs found")
       }
     } catch (error) {
@@ -180,7 +186,7 @@ export class SelfHealingObsidianAPI {
    */
   getHealth(): HealthStatus {
     return {
-      healthy: this.reconnectCount === 0,
+      healthy: this.isHealthy,
       url: this.currentUrl,
       lastCheck: this.lastHealthCheck,
       reconnectCount: this.reconnectCount,
