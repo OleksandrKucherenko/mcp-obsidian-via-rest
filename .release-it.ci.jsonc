@@ -27,8 +27,7 @@
     "release": false // Do not create GitHub releases automatically
   },
   "npm": {
-    "publish": false, // Do not publish to npm registry
-    "ignoreVersion": true // Don't read/update version from package.json
+    "publish": false // Do not publish to npm registry
   },
   "plugins": {
     "@release-it/conventional-changelog": {

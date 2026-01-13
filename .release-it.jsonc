@@ -16,8 +16,7 @@
   },
   // no direct publishing to NPM, only via workflows
   "npm": {
-    "publish": false,
-    "ignoreVersion": true
+    "publish": false
   },
   // compose CHANGELOG.md from conventional commits
   "plugins": {
