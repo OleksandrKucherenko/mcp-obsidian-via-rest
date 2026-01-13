@@ -11,7 +11,7 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 - [ ] Confirm npm access: `npm whoami`
 - [ ] **CRITICAL:** Verify npm token is valid (token in `.secrets/npm_registry_publish_token` must be active and not expired)
 - [ ] Review `.keep-versions` to ensure the new major/minor version will be preserved by cleanup jobs
-- [ ] **CRITICAL:** Verify CI workflows exist: `ls .github/workflows/npm-*.yml .github/workflows/docker-*.yml`
+- [ ] **CRITICAL:** Verify CI workflows exist: `ls .github/workflows/*.yml`
 - [ ] **CRITICAL:** Verify CI secrets are configured: `gh secret list -R OleksandrKucherenko/mcp-obsidian-via-rest`
   - Required: `NPM_PUBLISH_TOKEN` (for npmjs.org)
   - Required: `GHCR_PAT` or `GITHUB_TOKEN` (auto-provided by GitHub Actions for GHCR Docker images, but required for local run)
@@ -20,56 +20,74 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 
 ## 2. Choose release version
 
-- [ ] Run dry-run to see recommended version: `bun run release:dry`
-- [ ] Record the recommended next version from output (example format: `vX.Y.Z` or `vX.Y.Z-rc.1`)
 - [ ] Confirm SemVer intent matches the change set:
   - Breaking changes or incompatible API/config → MAJOR
   - Backward-compatible new features → MINOR
   - Bug fixes only → PATCH
-- [ ] Decide the final version number and tag format: `vX.Y.Z` or `vX.Y.Z-rc.N`
+- [ ] Decide the version bump type: `major`, `minor`, or `patch`
 
-## 3. Update content
-
-- [ ] Update `CHANGELOG.md` to match the planned release notes from `bun run release:dry`
-- [ ] Update `readme.md` and `docs/` to reflect any user-visible changes
-- [ ] Verify `package.json` metadata (name, version, bin, publishConfig) is correct
-- [ ] Verify `configs/config.default.jsonc` and `configs/config.wsl2.jsonc` reflect current defaults
-- [ ] (Optional) Review cleanup preview: `node assets/ci_cleanup_npm_package.js "$(jq -r '.name' package.json)"` and `node assets/ci_cleanup_docker_images.js "$GH_OWNER" "obsidian-mcp" --force`
-
-## 4. Test locally
+## 3. Test locally (optional but recommended)
 
 - [ ] Install dependencies: `bun install`
 - [ ] Typecheck: `bun run checks:types`
 - [ ] Lint: `bun run checks:lint`
 - [ ] Unit tests: `bun test`
-- [ ] E2E tests: `bun run test:e2e`
-- [ ] Container tests: `bun run test:containers`
-- [ ] Build package: `bun run publish:prepare`
-- [ ] Dry-run npm publish: `npm publish --dry-run --access public --registry="https://registry.npmjs.org/"`
+- [ ] Build package: `bun run build`
 
-## 5. Create release
+## 4. Create automated release
 
-- [ ] Run the release command:
-  - For automatic version increment: `bun run release` (or `bun run release-it major|minor|patch`)
-  - For exact version: `bun run release-it X.Y.Z`
-- [ ] Confirm the release:
-  - Git tag `vX.Y.Z` created and pushed
-  - GitHub Release created (draft status)
-  - Changelog updated
-  - package.json version bumped
+- [ ] Navigate to: https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/release.yml
+- [ ] Click "Run workflow"
+- [ ] Select version bump type (major/minor/patch)
+- [ ] (Optional) Enable dry-run mode to test without creating actual release
+- [ ] Click "Run workflow"
+- [ ] Monitor the workflow at: https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions
 
-## 6. Add release notes
+**The automated workflow will:**
+1. Run all pre-flight checks (typecheck, lint, tests)
+2. Generate CHANGELOG with release-it
+3. Bump version in package.json
+4. Commit changes to main branch
+5. Create and push git tag (vX.Y.Z)
+6. Create GitHub Release
 
-- [ ] Navigate to the draft GitHub Release: `gh release view vX.Y.Z --web`
-- [ ] Draft release notes with:
-  - Features added
-  - Fixes applied
-  - Breaking changes (if any)
-  - Migration notes for config or CLI changes
-  - Upgrade steps for users
-- [ ] Publish the GitHub Release (this triggers CI/CD workflows)
+### Alternative: Manual release process
 
-## 7. Monitor CI/CD workflows
+If the automated workflow fails, follow these manual steps:
+
+#### Manual: Update content
+
+- [ ] Update `CHANGELOG.md` with release notes
+- [ ] Update `readme.md` and `docs/` to reflect user-visible changes
+- [ ] Verify `package.json` metadata (name, version, bin, publishConfig) is correct
+
+#### Manual: Create release
+
+- [ ] Run the release command locally:
+  ```bash
+  # For patch release
+  bun run release-it patch --ci --no-git
+
+  # Or for specific version
+  bun run release-it X.Y.Z --ci --no-git
+  ```
+- [ ] Review and commit changes:
+  ```bash
+  git add CHANGELOG.md package.json
+  git commit -m "chore(release): vX.Y.Z"
+  git push
+  ```
+- [ ] Create and push git tag:
+  ```bash
+  git tag vX.Y.Z
+  git push origin vX.Y.Z
+  ```
+- [ ] Create GitHub Release:
+  ```bash
+  gh release create vX.Y.Z --notes "Release notes..."
+  ```
+
+## 5. Monitor CI/CD workflows
 
 After publishing the GitHub Release, the following workflows trigger automatically:
 
@@ -93,6 +111,10 @@ After publishing the GitHub Release, the following workflows trigger automatical
 ### Docker Hub workflow (PRIMARY - critical)
 
 - Workflow: `.github/workflows/docker-hub.yml`
+- [ ] Navigate to: https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml
+- [ ] Click "Run workflow"
+- [ ] Enter version tag (optional, or leave blank for latest)
+- [ ] Click "Run workflow"
 - [ ] Monitor workflow completes successfully
 
 ## 8. Verify deployment

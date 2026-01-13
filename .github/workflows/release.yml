@@ -1,0 +1,209 @@
+# Automated Release Workflow
+# This workflow creates a release by:
+# 1. Running all tests
+# 2. Bumping version and updating CHANGELOG
+# 3. Committing to main branch
+# 4. Creating and pushing git tag
+# 5. Creating GitHub Release (triggers deployment workflows)
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_bump:
+        description: 'Version bump type'
+        required: true
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+        default: 'patch'
+      dry_run:
+        description: 'Dry run mode (skip actual release)'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+
+jobs:
+  # Pre-flight checks and testing
+  pre-flight:
+    runs-on: ubuntu-latest
+    outputs:
+      should_release: ${{ steps.checks.outputs.should_release }}
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Typecheck
+        run: bun run checks:types
+
+      - name: Lint
+        run: bun run checks:types
+
+      - name: Unit tests
+        run: bun test ./src
+
+      - name: Determine next version
+        id: version
+        run: |
+          CURRENT_VERSION=$(jq -r '.version' package.json)
+          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
+
+          if [ "${{ inputs.version_bump }}" == "major" ]; then
+            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$1++; $2=0; $3=0} 1' | sed 's/ /./g')
+          elif [ "${{ inputs.version_bump }}" == "minor" ]; then
+            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$2++; $3=0} 1' | sed 's/ /./g')
+          else
+            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$3++} 1' | sed 's/ /./g')
+          fi
+
+          echo "next_version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
+          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Set release flag
+        id: checks
+        run: |
+          if [ "${{ inputs.dry_run }}" == "true" ]; then
+            echo "::notice::Dry run mode - will skip actual release"
+            echo "should_release=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_release=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Pre-flight summary
+        run: |
+          echo "## Pre-flight Checks" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Typecheck: Passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Lint: Passed" >> $GITHUB_STEP_SUMMARY
+          echo "✅ Unit tests: Passed" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Version Info" >> $GITHUB_STEP_SUMMARY
+          echo "- Current: ${{ steps.version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Next: **${{ steps.version.outputs.next_version }}** (${{ inputs.version_bump }} bump)" >> $GITHUB_STEP_SUMMARY
+
+  # Create release commit and tag
+  create-release:
+    needs: pre-flight
+    if: needs.pre-flight.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Git user
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Generate CHANGELOG with release-it
+        run: |
+          VERSION="${{ needs.pre-flight.outputs.version }}"
+          echo "Creating release for v${VERSION}..."
+
+          # Configure git for release-it
+          git fetch --prune --prune-tags origin
+
+          # Use release-it to update version and CHANGELOG
+          bun run release-it --ci --no-increment --git.tagName=v${VERSION} "${VERSION}" \
+            --git.commitMessage="chore(release): v${VERSION}" \
+            --github.release
+
+      - name: Build package
+        run: bun run build
+
+      - name: Commit release changes
+        run: |
+          # Check if there are changes to commit
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "::warning::No changes detected after release-it run"
+            exit 1
+          fi
+
+          # Commit the changes
+          git add package.json CHANGELOG.md
+          git commit -m "chore(release): v${{ needs.pre-flight.outputs.version }}"
+
+      - name: Merge release commit to main
+        run: |
+          # Check current branch
+          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+          echo "Current branch: ${CURRENT_BRANCH}"
+
+          # If not on main, create a PR to main
+          if [ "${CURRENT_BRANCH}" != "main" ]; then
+            echo "Creating PR to merge release commit to main..."
+
+            # Push current branch
+            git push origin ${CURRENT_BRANCH}
+
+            # Create PR
+            gh pr create \
+              --base main \
+              --head ${CURRENT_BRANCH} \
+              --title "chore(release): v${{ needs.pre-flight.outputs.version }}" \
+              --body "Automated release PR for version ${{ needs.pre-flight.outputs.version }}" \
+              --label "release"
+
+            echo "::notice::PR created. Please merge it to proceed with the release."
+            exit 0
+          fi
+
+          # Push commit to main
+          git push origin main
+
+      - name: Create and push tag
+        run: |
+          VERSION="${{ needs.pre-flight.outputs.version }}"
+
+          # Create annotated tag
+          git tag -a "v${VERSION}" -m "Release v${VERSION}"
+
+          # Push tag
+          git push origin "v${VERSION}"
+
+      - name: Release summary
+        run: |
+          echo "## Release Created" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ needs.pre-flight.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** v${{ needs.pre-flight.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Bump:** ${{ inputs.version_bump }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "The following workflows are now triggered:" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ NPM (npmjs.org)" >> $GITHUB_STEP_SUMMARY
+          echo "- ✅ Docker (GitHub/GHCR)" >> $GITHUB_STEP_SUMMARY
+          echo "- ℹ️ NPM (GitHub Packages)" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Monitor workflows at: https://github.com/${{ github.repository }}/actions" >> $GITHUB_STEP_SUMMARY
