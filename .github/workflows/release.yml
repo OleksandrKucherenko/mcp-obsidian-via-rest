@@ -61,29 +61,6 @@ jobs:
       - name: Unit tests
         run: bun test ./src
 
-      - name: Determine next version
-        id: version
-        run: |
-          CURRENT_VERSION=$(jq -r '.version' package.json)
-          echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
-
-          # Use npm version with --dry-run to calculate the next version
-          NEXT_VERSION=$(npm version ${{ inputs.version_bump }} --dry-run --silent 2>/dev/null | sed 's/^v//')
-
-          # Fallback to manual calculation if npm version fails
-          if [ -z "$NEXT_VERSION" ]; then
-            if [ "${{ inputs.version_bump }}" == "major" ]; then
-              NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$1++; $2=0; $3=0} 1' | sed 's/ /./g')
-            elif [ "${{ inputs.version_bump }}" == "minor" ]; then
-              NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$2++; $3=0} 1' | sed 's/ /./g')
-            else
-              NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$3++} 1' | sed 's/ /./g')
-            fi
-          fi
-
-          echo "next_version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
-          echo "version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
-
       - name: Set release flag
         id: checks
         run: |
@@ -101,9 +78,8 @@ jobs:
           echo "✅ Lint: Passed" >> $GITHUB_STEP_SUMMARY
           echo "✅ Unit tests: Passed" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Version Info" >> $GITHUB_STEP_SUMMARY
-          echo "- Current: ${{ steps.version.outputs.current_version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- Next: **${{ steps.version.outputs.next_version }}** (${{ inputs.version_bump }} bump)" >> $GITHUB_STEP_SUMMARY
+          echo "### Release Configuration" >> $GITHUB_STEP_SUMMARY
+          echo "- Bump type: **${{ inputs.version_bump }}**" >> $GITHUB_STEP_SUMMARY
 
   # Create release commit and tag
   create-release:
@@ -132,32 +108,30 @@ jobs:
         run: bun install
 
       - name: Generate CHANGELOG with release-it
+        id: release
         run: |
-          VERSION="${{ needs.pre-flight.outputs.version }}"
-          echo "Creating release for v${VERSION}..."
+          echo "Running release-it with ${{ inputs.version_bump }} bump..."
 
           # Configure git for release-it
           git fetch --prune --prune-tags origin
 
-          # Use release-it to update version and CHANGELOG
-          bun run release-it --ci --no-increment --git.tagName=v${VERSION} "${VERSION}" \
-            --git.commitMessage="chore(release): v${VERSION}" \
-            --github.release
+          # Use release-it to calculate version from git commits and update CHANGELOG
+          # The --no-git.skipPush ensures tag is pushed, --no-git.skipCommit ensures commit is made
+          bun run release-it --ci ${{ inputs.version_bump }} --github.release
+
+          # Extract the version that release-it calculated
+          VERSION=$(jq -r '.version' package.json)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Release version: ${VERSION}"
 
       - name: Build package
         run: bun run build
 
       - name: Commit release changes
         run: |
-          # Check if there are changes to commit
-          if git diff --quiet && git diff --cached --quiet; then
-            echo "::warning::No changes detected after release-it run"
-            exit 1
-          fi
-
-          # Commit the changes
+          # Commit the changes (release-it updates package.json and CHANGELOG.md)
           git add package.json CHANGELOG.md
-          git commit -m "chore(release): v${{ needs.pre-flight.outputs.version }}"
+          git commit -m "chore(release): v${{ steps.release.outputs.version }}"
 
       - name: Merge release commit to main
         run: |
@@ -176,8 +150,8 @@ jobs:
             gh pr create \
               --base main \
               --head ${CURRENT_BRANCH} \
-              --title "chore(release): v${{ needs.pre-flight.outputs.version }}" \
-              --body "Automated release PR for version ${{ needs.pre-flight.outputs.version }}" \
+              --title "chore(release): v${{ steps.release.outputs.version }}" \
+              --body "Automated release PR for version ${{ steps.release.outputs.version }}" \
               --label "release"
 
             echo "::notice::PR created. Please merge it to proceed with the release."
@@ -189,7 +163,7 @@ jobs:
 
       - name: Create and push tag
         run: |
-          VERSION="${{ needs.pre-flight.outputs.version }}"
+          VERSION="${{ steps.release.outputs.version }}"
 
           # Create annotated tag
           git tag -a "v${VERSION}" -m "Release v${VERSION}"
@@ -202,8 +176,8 @@ jobs:
           echo "## Release Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** v${{ needs.pre-flight.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag:** v${{ needs.pre-flight.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** v${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
           echo "- **Bump:** ${{ inputs.version_bump }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY

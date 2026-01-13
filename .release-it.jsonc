@@ -29,6 +29,9 @@
   },
   // fetch latest tags from remote before running the release
   "hooks": {
-    "before:init": "git fetch --prune --prune-tags origin"
+    "before:init": [
+      "git fetch --prune --prune-tags origin",
+      "npm pkg set version=$(git describe --tags --abbrev=0 | sed 's/^v//')"
+    ]
   }
 }
