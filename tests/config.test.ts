@@ -126,14 +126,14 @@ describe("Configuration Loading - Multi-URL and Transports", () => {
       expect(config.transports.http.path).toBe("/mcp")
     })
 
-    test("should default to stdio-only for backward compatibility", () => {
+    test("should enable both stdio and http transports by default", () => {
       process.env.API_KEY = "a".repeat(64)
 
       const config = loadAppConfig()
 
       expect(config).toBeDefined()
       expect(config.transports.stdio.enabled).toBe(true)
-      expect(config.transports.http.enabled).toBe(false)
+      expect(config.transports.http.enabled).toBe(true)
     })
 
     test("should handle single transport in MCP_TRANSPORTS", () => {
