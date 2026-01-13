@@ -1,0 +1,115 @@
+# Publish Docker Images to Docker Hub
+name: Docker (Docker Hub)
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (optional)'
+        required: false
+        type: string
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  build-vnc:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set lowercase repository name
+        id: repo_name
+        run: |
+          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata (tags, labels) for Docker (VNC Obsidian)
+        id: metaVnc
+        uses: docker/metadata-action@v5
+        with:
+          images: docker.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,format=short
+            type=raw,value=latest
+
+      - name: Build and push Docker image (VNC Obsidian)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./dockerize
+          file: ./dockerize/Dockerfile
+          provenance: false
+          push: true
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.metaVnc.outputs.tags }}
+          labels: ${{ steps.metaVnc.outputs.labels }}
+
+  build-mcp:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code with full history
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Set lowercase repository name
+        id: repo_name
+        run: |
+          echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Extract metadata (tags, labels) for Docker (MCP Obsidian)
+        id: metaMcp
+        uses: docker/metadata-action@v5
+        with:
+          images: docker.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp
+          flavor: latest=false
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha,format=short
+            type=raw,value=latest
+
+      - name: Build and push Docker image (MCP Obsidian)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          provenance: false
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.metaMcp.outputs.tags }}
+          labels: ${{ steps.metaMcp.outputs.labels }}

@@ -1,10 +1,10 @@
 {
   "name": "@oleksandrkucherenko/mcp-obsidian",
   "description": "MCP Server for Obsidian Vault Access via Local REST API",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "license": "MIT",
   "author": "Oleksandr Kucherenko <oleksandr.kucherenko@artfulbits.se>",
-  "module": "index.ts",
+  "module": "src/index.ts",
   "type": "module",
   "private": false,
   "bin": {
@@ -42,6 +42,7 @@
   "scripts": {
     "pre-commit": "lint-staged",
     "prepare": "husky || true",
+    "postinstall": "bun run build",
     "build": "bun build --minify --target=bun --outdir=dist --sourcemap=external src/index.ts",
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=${DEBUG:-mcp:\\*} bun run src/index.ts --watch",
@@ -60,42 +61,43 @@
     "mcp:inspector:docker": "bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\\* -e API_KEY=$API_KEY -e API_HOST=https://$WSL_GATEWAY_IP docker run --name mcp-obsidian --env DEBUG --env API_KEY --env API_HOST --rm -a STDOUT -i mcp/obsidian:latest",
     "mcp:inspector:local": "bunx @modelcontextprotocol/inspector -e DEBUG=mcp:\\* -e API_KEY=$API_KEY -e API_HOST=https://$WSL_GATEWAY_IP bun run src/index.ts",
     "publish:prepare": "bun run build && bun pm pack",
-    "release": "bun run release-it",
-    "release:dry": "bun run release-it --dry-run",
+    "release": "release-it",
+    "release:dry": "release-it --dry-run",
     "commit": "git-cz"
   },
   "devDependencies": {
-    "@biomejs/biome": "^1.9.4",
-    "@commitlint/cli": "^19.8.1",
-    "@commitlint/config-conventional": "^19.8.1",
-    "@release-it/conventional-changelog": "^10.0.1",
-    "@types/bun": "^1.2.15",
+    "@biomejs/biome": "^2.3.11",
+    "@commitlint/cli": "^20.3.1",
+    "@commitlint/config-conventional": "^20.3.1",
+    "@release-it/conventional-changelog": "^10.0.4",
+    "@types/bun": "^1.3.5",
     "@types/find-config": "^1.0.4",
     "@types/js-yaml": "^4.0.9",
     "commitizen": "^4.3.1",
     "cz-conventional-changelog": "^3.3.0",
     "husky": "^9.1.7",
-    "js-yaml": "^4.1.0",
-    "knip": "^5.60.0",
-    "lint-staged": "^16.1.0",
-    "release-it": "^19.0.3",
-    "testcontainers": "^10.10.3"
+    "js-yaml": "^4.1.1",
+    "knip": "^5.80.2",
+    "lint-staged": "^16.2.7",
+    "release-it": "^19.2.3",
+    "testcontainers": "^11.11.0"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.12.1",
-    "axios": "^1.9.0",
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "axios": "^1.13.2",
     "axios-debug-log": "^1.0.0",
     "axios-retry": "^4.5.0",
-    "debug": "^4.4.1",
-    "dotenv": "^16.5.0",
-    "dotenv-expand": "^12.0.2",
+    "debug": "^4.4.3",
+    "dotenv": "^17.2.3",
+    "dotenv-expand": "^12.0.3",
     "find-config": "^1.0.0",
+    "hono": "^4.11.3",
     "json5": "^2.2.3",
     "ts-dedent": "^2.2.0",
-    "zod": "^3.25.51"
+    "zod": "^4.3.5"
   },
   "config": {
     "commitizen": {

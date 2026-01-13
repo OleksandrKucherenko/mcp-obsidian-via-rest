@@ -39,6 +39,8 @@ services:
     depends_on:
       obsidian:
         condition: service_healthy
+    ports:
+      - "3000:3000" # HTTP transport port
     environment:
       - DEBUG=mcp:*
       # This API_HOST points to the obsidian service name, using Docker's internal DNS.
@@ -48,7 +50,11 @@ services:
     stdin_open: true # Keep STDIN open to allow the test runner to send MCP commands.
     tty: false # Allocate a TTY for interactive communication.
     healthcheck:
-      #test: [ "CMD", "stat", "/tmp/mcp_healthy" ]
+      # Use HTTP endpoint for health check (HTTP transport is enabled)
+      # test: [ "CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/health" ]
+      # OR alternative way to check health:
+      # test: [ "CMD", "stat", "/tmp/mcp_healthy" ]
+      # OR alternative way to check health, file change time:
       # if file is older than 30 seconds, it is not healthy
       test: [ "CMD-SHELL", "test -f /tmp/mcp_healthy && test $(($(date +%s) - $(stat -c %Y /tmp/mcp_healthy))) -lt 30" ]
       interval: 10s

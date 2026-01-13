@@ -1,8 +1,12 @@
 # mcp-obsidian
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker Images](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml) 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest)  
 
-[![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
+[![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml) [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml)
+
+[![Docker (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml) [![Docker (Docker Hub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml)
+
+[![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
 
 ---
 
@@ -10,9 +14,15 @@
 
 - [mcp-obsidian](#mcp-obsidian)
   - [Configure MCP](#configure-mcp)
+    - [Multi-URL Configuration (Recommended)](#multi-url-configuration-recommended)
+    - [HTTP Transport Configuration](#http-transport-configuration)
+      - [Decoupled Configuration with Authentication](#decoupled-configuration-with-authentication)
+    - [Stdio Transport Configuration](#stdio-transport-configuration)
+    - [Legacy Single-URL Configuration](#legacy-single-url-configuration)
+    - [Health Endpoint](#health-endpoint)
   - [Setup and Troubleshooting](#setup-and-troubleshooting)
     - [Setup](#setup)
-    - [Verify that the Obsidian REST API is running Windows Host, MacOS, Linux](#verify-that-the-obsidian-rest-api-is-running-windows-host-macos-linux)
+    - [Verify that the Obsidian REST API is running (Windows Host, MacOS, Linux)](#verify-that-the-obsidian-rest-api-is-running-windows-host-macos-linux)
     - [WSL2, Docker hosted on Ubuntu](#wsl2-docker-hosted-on-ubuntu)
     - [Verify Windows Firewall](#verify-windows-firewall)
     - [Disable/Enable Firewall](#disableenable-firewall)
@@ -21,7 +31,132 @@
 
 <!-- /TOC -->
 
-## Configure MCP 
+## Configure MCP
+
+### Multi-URL Configuration (Recommended)
+
+**Use `API_URLS` for automatic failover and self-healing.** The server tests all URLs in parallel, selects the fastest one, and automatically reconnects on failure.
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian",
+        "--rm",
+        "-i",  // Keep STDIN open for stdio transport
+        "-p", "3000:3000",
+        "-e", "API_KEY",
+        "-e", "API_URLS",
+        "-e", "DEBUG", // for logs
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",
+        // JSON array - automatically tests and selects fastest URL
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
+        "DEBUG": "mcp:*"
+      }
+    }
+  }
+}
+```
+
+**Self-Healing Features:**
+
+- ✅ Parallel URL testing on startup
+- ✅ Automatic selection of fastest URL
+- ✅ Health monitoring every 30 seconds
+- ✅ Automatic failover on connection loss
+- ✅ Exponential backoff to prevent thrashing
+
+**Available transports:**
+
+- `stdio` - Standard input/output (default, best for local MCP clients)
+- `http` - HTTP JSON-RPC with SSE streaming (best for remote access)
+
+**WSL2 Example:**
+
+```bash
+# Automatically determine WSL gateway IP
+export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+
+# Configure with multiple fallback URLs
+API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124", "https://host.docker.internal:27124"]'
+```
+
+### HTTP Transport Configuration
+
+The MCP server supports HTTP transport for remote access with automatic URL failover:
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian-http": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian-http",
+        "--rm",
+        "-p", "3000:3000",
+        "-e", "API_KEY",
+        "-e", "API_URLS",
+        "-e", "MCP_HTTP_PATH",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
+        "MCP_HTTP_PATH": "/mcp" // endpoint path (default is: /mcp)
+      }
+    }
+  }
+}
+```
+
+#### Decoupled Configuration with Authentication
+
+```bash
+# Automatically determine WSL gateway IP
+export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+
+# Configure with multiple fallback URLs
+API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124", "https://host.docker.internal:27124"]'
+
+# run MCP server on docker separately from IDE
+docker run --name mcp-obsidian-http --rm \
+  -p 3000:3000 \
+  -e API_KEY="<secret_key>" \
+  -e API_URLS="${API_URLS}" \
+  -e MCP_HTTP_TOKEN=<your-secret-token-here> \
+  ghcr.io/oleksandrkucherenko/obsidian-mcp:latest
+```
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-secret-token-here>"
+      }      
+    }
+  }
+}
+```
+
+Clients must include the Authorization header:
+
+```http
+Authorization: Bearer your-secret-token-here
+```
+
+### Stdio Transport Configuration
+
+For local development with stdio transport (default):
 
 ```jsonc
 {
@@ -34,18 +169,16 @@
         "--interactive",
         "--rm",
         "-e", "API_KEY",
-        "-e", "API_HOST",
-        "-e", "API_PORT",
+        "-e", "API_URLS",
         "-e", "DEBUG",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
-        "API_KEY": "<secret_key>",         // required
-        "API_HOST": "https://172.26.32.1", // default: localhost
-        "API_PORT": "27124",               // default: 27124
-        "DEBUG": "mcp:*"                   // default: disabled logs
+        "API_KEY": "<secret_key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\"]",
+        "DEBUG": "mcp:*" // default: disabled logs
       }
-    } 
+    }
   }
 }
 ```
@@ -54,9 +187,80 @@
 - `-i, --interactive` - Keep STDIN open
 - `-e, --env` - Set environment variables
 - `--name string` - Assign a name to the container
+- `-p, --publish` - Publish container port to host
 
 - [NPM Package Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/npm/mcp-obsidian)
 - [Docker Image Releases](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/pkgs/container/obsidian-mcp)
+
+### Legacy Single-URL Configuration
+
+For backward compatibility, you can still use single-URL configuration with `API_HOST` and `API_PORT`:
+
+```jsonc
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "docker",
+      "args": [
+        "run",
+        "--name", "mcp-obsidian",
+        "--rm",
+        "-i",
+        "-e", "API_KEY",
+        "-e", "API_HOST",
+        "-e", "API_PORT",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
+      ],
+      "env": {
+        "API_KEY": "<secret_key>",
+        "API_HOST": "https://172.26.32.1",  // single URL without failover
+        "API_PORT": "27124"
+      }
+    }
+  }
+}
+```
+
+**Note:** Single-URL configuration does not provide automatic failover or health monitoring. Use `API_URLS` for production deployments.
+
+### Health Endpoint
+
+When HTTP transport is enabled, the server exposes a health check endpoint at `/health`:
+
+```bash
+curl http://localhost:3000/health
+```
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2025-01-12T12:00:00.000Z",
+  "transport": "http",
+  "authEnabled": false
+}
+```
+
+For comprehensive health status including Obsidian API connection and all transports, you can use the `getHealthStatus()` function which returns:
+
+```json
+{
+  "healthy": true,
+  "obsidian": {
+    "connected": true,
+    "url": "https://obsidian:27124",
+    "lastCheck": 1705065600000
+  },
+  "transports": {
+    "stdio": { "running": true, "enabled": true },
+    "http": { "running": true, "enabled": true },
+    "sse": { "running": false, "enabled": false }
+  },
+  "uptime": 3600,
+  "timestamp": 1705065600000
+}
+```
 
 ## Setup and Troubleshooting
 

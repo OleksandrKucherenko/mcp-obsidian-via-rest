@@ -1,4 +1,4 @@
-name: Screenshots VNC Obsidian GUI
+name: Website
 
 on:
   release:
@@ -6,6 +6,8 @@ on:
   push:
     branches: [main]
     tags: ['v*']
+  pull_request:
+    branches: [main]
   workflow_dispatch:
     inputs:
       version:
@@ -13,23 +15,31 @@ on:
         required: false
         type: string
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  packages: write
+  pull-requests: write
+  pages: write
+  id-token: write
 
 jobs:
-  screenshots:
+  test-build-deploy:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      packages: write
-      pull-requests: write
-      pages: write
-      id-token: write
     steps:
-      - name: Checkout Code with full history
+      - name: Checkout Code
         uses: actions/checkout@v4
+
+      - name: Setup Bun with cache
+        uses: oven-sh/setup-bun@v2
         with:
-          fetch-depth: 0
-          fetch-tags: true
+          bun-version: latest
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -37,41 +47,47 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" == "release" ] && [ "${{ github.ref }}" == "refs/tags/"* ]; then
+            VERSION="${GITHUB_REF#refs/tags/}"
+          elif [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Using version: $VERSION"
+
       - name: Run Docker Compose
         id: compose
-        uses: hoverkraft-tech/compose-action@v2.2.0
+        run: |
+          docker compose -f ./docker-compose.test.yaml build
+          docker compose -f ./docker-compose.test.yaml up -d
+
+      - name: Wait for services to be healthy
+        run: |
+          timeout 300 bash -c 'until docker compose -f ./docker-compose.test.yaml ps --format json | jq -s "any(.Health == \"healthy\")" | grep -q true; do sleep 5; done'
         continue-on-error: true
-        with:
-          compose-file: ./docker-compose.test.yaml
+
+      - name: Collect Screenshots
+        run: |
+          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+        continue-on-error: true
 
       - name: Collect Docker Compose Logs
-        shell: bash
-        continue-on-error: true
+        if: always()
         run: |
-          # or: docker logs $(docker ps -aq) > compose-logs.txt
           docker compose -f ./docker-compose.test.yaml logs --no-color > compose-logs.txt
-          # print to job log
           cat compose-logs.txt
-
-      - name: Collect Screenshots (only on failure)
-        if: steps.compose.outcome == 'failure'
-        shell: bash
         continue-on-error: true
-        run: |
-          # force docker to run VNC Obsidian container for making possible screenshots
-          docker compose -f ./docker-compose.test.yaml up obsidian -d
-          # try to capture screenshots
-          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
-          # stop VNC Obsidian container
-          docker compose -f ./docker-compose.test.yaml down obsidian
 
-      - name: Collect Screenshots (only on success)
-        if: steps.compose.outcome == 'success'
-        shell: bash
-        continue-on-error: true
+      - name: Stop Docker Compose
+        if: always()
         run: |
-          # try to capture screenshots
-          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+          docker compose -f ./docker-compose.test.yaml down
+        continue-on-error: true
 
       - name: Upload reports (logs, screenshots, etc.)
         uses: actions/upload-artifact@v4
@@ -84,45 +100,53 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-      - name: Generate screenshot index.html
-        shell: bash
-        continue-on-error: true
+      - name: Copy screenshots to docs directory
         run: |
-          # install image convertion tool
-          sudo apt-get update && sudo apt-get install -y imagemagick jhead
+          mkdir -p docs
+          if [ -d "reports/screenshots" ]; then
+            cp -r reports/screenshots/* docs/ 2>/dev/null || true
+          fi
+        continue-on-error: true
 
-          # ref: https://github.com/Cyclenerd/gallery_shell
-          curl -O "https://raw.githubusercontent.com/Cyclenerd/gallery_shell/master/gallery.sh"
-          chmod +x gallery.sh
+      - name: Build static website
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          VERSION="${{ steps.version.outputs.version }}" \
+          ./scripts/build-website.sh
 
-          # create screenshots directory if it doesn't exist, it should exist already
-          mkdir -p reports/screenshots
-
-          for img in reports/screenshots/*.png; do
-            convert "$img" -quality 95 "${img%.png}.jpg"
-            rm "$img" 
-          done
-          
-          # generate gallery
-          cd reports/screenshots
-          ../../gallery.sh -t "Build ${{ github.run_id }} CI Screenshot Preview" -d .
-
-      - name: Upload screenshots to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+      - name: Upload screenshots as artifact
+        uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_branch: gh-pages
-          publish_dir: ./reports/screenshots
-          destination_dir: ./docs/${{ github.run_id }}
+          name: screenshots-${{ github.run_id }}
+          path: reports/screenshots/**/*
+          if-no-files-found: warn
+          retention-days: 30
 
-      - name: Comment with screenshot preview
+      - name: Comment with screenshot preview (PR only)
+        if: github.event_name == 'pull_request'
         uses: marocchino/sticky-pull-request-comment@v2
         continue-on-error: true
         with:
           message: |
-            🖼️ [CI Screenshot Preview](https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.run_id }}/)
+            🖼️ Screenshot artifacts are available in the workflow run (check Artifacts section)
 
       - name: Add annotation with screenshot preview link
-        shell: bash
+        if: github.event_name != 'pull_request'
         run: |
-          echo "::notice title=CI Screenshot Preview::View screenshots https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/${{ github.run_id }}/"
+          echo "::notice title=CI Screenshot Preview::View screenshots at https://mcp-obsidian.artfulbits.se/${{ github.run_id }}/"
+
+      - name: Setup Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: docs/
+
+      - name: Deploy to GitHub Pages
+        if: github.event_name != 'pull_request'
+        uses: actions/deploy-pages@v4
