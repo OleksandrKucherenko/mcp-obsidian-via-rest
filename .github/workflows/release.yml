@@ -56,7 +56,7 @@ jobs:
         run: bun run checks:types
 
       - name: Lint
-        run: bun run checks:types
+        run: bun run checks:lint
 
       - name: Unit tests
         run: bun test ./src
