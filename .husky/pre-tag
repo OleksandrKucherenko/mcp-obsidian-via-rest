@@ -1,0 +1,59 @@
+#!/usr/bin/env bash
+
+# Pre-tag hook: Validate that tag version matches package.json version
+# This ensures version tags and package.json always stay in sync
+
+set -e
+
+TAG_NAME=$1
+
+echo "Validating tag: $TAG_NAME"
+
+# Extract version from tag (strip 'v' prefix)
+TAG_VERSION=${TAG_NAME#v}
+
+# Validate tag format (semantic versioning)
+if [[ ! $TAG_NAME =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9]+)?$ ]]; then
+  echo "❌ Tag '$TAG_NAME' does not follow semantic versioning format (vX.Y.Z or vX.Y.Z-prerelease)"
+  exit 1
+fi
+
+# Read version from package.json
+if [ ! -f "package.json" ]; then
+  echo "❌ package.json not found"
+  exit 1
+fi
+
+PACKAGE_VERSION=$(node -p "require('./package.json').version")
+
+# Compare versions
+if [ "$TAG_VERSION" != "$PACKAGE_VERSION" ]; then
+  echo "❌ Tag version mismatch!"
+  echo "   Tag version:       $TAG_VERSION"
+  echo "   package.json:      $PACKAGE_VERSION"
+  echo ""
+  echo "To fix this, update package.json version to match the tag, or use a matching tag."
+  echo ""
+  echo "Example:"
+  echo "  # Update package.json to match tag"
+  echo "  npm pkg set version=\"$TAG_VERSION\""
+  echo "  git add package.json"
+  echo "  git commit -m \"chore: bump version to $TAG_VERSION\""
+  echo ""
+  echo "  # Or use a tag matching package.json"
+  echo "  git tag v$PACKAGE_VERSION"
+  exit 1
+fi
+
+echo "✅ Tag version matches package.json: v$TAG_VERSION"
+echo "   Tag and package.json are now synchronized"
+
+# Verify we're on main branch for version tags (optional, can be commented out)
+CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+if [ "$CURRENT_BRANCH" != "main" ] && [ "$CURRENT_BRANCH" != "HEAD" ]; then
+  echo "⚠️  Warning: Creating version tag on branch '$CURRENT_BRANCH'"
+  echo "   Version tags are typically created on main branch"
+  echo "   Consider merging to main first, or be intentional about this tag"
+fi
+
+exit 0

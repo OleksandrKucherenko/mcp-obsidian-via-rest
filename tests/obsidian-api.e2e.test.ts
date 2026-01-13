@@ -61,18 +61,24 @@ mock.module("axios", async () => {
 async function isHostAvailable(url: string): Promise<boolean> {
   try {
     // Create an axios instance that doesn't reject unauthorized SSL certificates
+    // and fails fast for quick availability check
     const instance = axios.create({
       httpsAgent: new https.Agent({
         rejectUnauthorized: false,
       }),
-      timeout: 1000, // 1 second timeout
+      timeout: 500, // 500ms timeout - fail fast
+      // Disable retries for availability check
+      "axios-retry": {
+        retries: 0,
+      },
     })
 
     await instance.get(url)
     return true
   } catch (error: unknown) {
     if (error !== null && typeof error === "object" && "message" in error) {
-      console.error("e2e testing host is not available. Error:", (error as Error).message)
+      const errorCode = axios.isAxiosError(error) ? error.code : "UNKNOWN"
+      console.error(`e2e testing host is not available. Error: ${errorCode}`)
     }
 
     if (axios.isAxiosError(error) && error.response) {
@@ -108,13 +114,17 @@ describe("ObsidianAPI - E2E Tests", async () => {
     (config, index, list) => list.findIndex((item) => item.baseURL === config.baseURL) === index,
   )
 
+  // Check all candidates in parallel for faster detection
   let config: ObsidianConfig | undefined
-  for (const candidate of uniqueCandidates) {
-    // eslint-disable-next-line no-await-in-loop
-    if (await isHostAvailable(candidate.baseURL)) {
-      config = candidate
-      break
-    }
+  const availabilityChecks = uniqueCandidates.map(async (candidate) => ({
+    candidate,
+    available: await isHostAvailable(candidate.baseURL),
+  }))
+
+  const results = await Promise.all(availabilityChecks)
+  const firstAvailable = results.find((result) => result.available)
+  if (firstAvailable) {
+    config = firstAvailable.candidate
   }
 
   const hostAvailable = !!config

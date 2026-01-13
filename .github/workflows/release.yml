@@ -115,9 +115,9 @@ jobs:
           # Configure git for release-it
           git fetch --prune --prune-tags origin
 
-          # Use release-it to calculate version from git commits and update CHANGELOG
-          # The --no-git.skipPush ensures tag is pushed, --no-git.skipCommit ensures commit is made
-          bun run release-it --ci ${{ inputs.version_bump }} --github.release
+          # Use release-it to calculate version and update CHANGELOG.md
+          # Git operations (commit, tag, push) are disabled in CI config - handled manually below
+          bun run release-it --config .release-it.ci.jsonc --ci ${{ inputs.version_bump }}
 
           # Extract the version that release-it calculated
           VERSION=$(jq -r '.version' package.json)
