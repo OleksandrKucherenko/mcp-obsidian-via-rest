@@ -67,12 +67,23 @@ jobs:
           CURRENT_VERSION=$(jq -r '.version' package.json)
           echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
 
-          if [ "${{ inputs.version_bump }}" == "major" ]; then
-            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$1++; $2=0; $3=0} 1' | sed 's/ /./g')
-          elif [ "${{ inputs.version_bump }}" == "minor" ]; then
-            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$2++; $3=0} 1' | sed 's/ /./g')
-          else
-            NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$3++} 1' | sed 's/ /./g')
+          # Use release-it to calculate the next version
+          NEXT_VERSION=$(bun run release-it ${{ inputs.version_bump }} --ci --no-increment --no-git --no-github --dry-run 2>/dev/null | grep -oP '(?<=The new version is )\d+\.\d+\.\d+' || echo "")
+
+          # Fallback to npm version if release-it fails
+          if [ -z "$NEXT_VERSION" ]; then
+            NEXT_VERSION=$(npm version ${{ inputs.version_bump }} --no-git-tag-version --silent 2>/dev/null | sed 's/^v//')
+          fi
+
+          # Final fallback: manual calculation
+          if [ -z "$NEXT_VERSION" ]; then
+            if [ "${{ inputs.version_bump }}" == "major" ]; then
+              NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$1++; $2=0; $3=0} 1' | sed 's/ /./g')
+            elif [ "${{ inputs.version_bump }}" == "minor" ]; then
+              NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$2++; $3=0} 1' | sed 's/ /./g')
+            else
+              NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$3++} 1' | sed 's/ /./g')
+            fi
           fi
 
           echo "next_version=${NEXT_VERSION}" >> $GITHUB_OUTPUT
