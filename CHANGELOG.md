@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.5.1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.5.0...v0.5.1) (2026-01-13)
+
+
+### Bug Fixes
+
+* **ci:** optimize Docker workflows with cache and rename workflows for clarity ([9a41288](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/9a41288))
+* **ci:** fix lint and formatting issues across codebase ([bf5f9c0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/bf5f9c0))
+
+
+### Documentation
+
+* add CLAUDE.md with project guidance for AI assistants ([c04c5b5](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/c04c5b5))
+* add manual testing and E2E verification guides ([8cf7b8a](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/8cf7b8a))
+* add direnv setup documentation for WSL2 development ([ec31ea3](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/ec31ea3))
+* add pre-release checklist runbook ([1943f3e](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/1943f3e))
+
+
+### Build
+
+* **deps:** update dependencies to latest compatible versions ([5aef4e5](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/5aef4e5))
+
+
 ## [0.5.0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.4.2...v0.5.0) (2026-01-12)
 
 
