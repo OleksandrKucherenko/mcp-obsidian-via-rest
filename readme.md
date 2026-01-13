@@ -1,8 +1,12 @@
 # mcp-obsidian
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker Images](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest)  
 
-[![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
+[![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml) [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml)
+
+[![Docker (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml) [![Docker (Docker Hub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml)
+
+[![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
 
 ---
 
@@ -12,7 +16,7 @@
   - [Configure MCP](#configure-mcp)
     - [Multi-URL Configuration (Recommended)](#multi-url-configuration-recommended)
     - [HTTP Transport Configuration](#http-transport-configuration)
-    - [Authentication (Optional)](#authentication-optional)
+      - [Decoupled Configuration with Authentication](#decoupled-configuration-with-authentication)
     - [Stdio Transport Configuration](#stdio-transport-configuration)
     - [Legacy Single-URL Configuration](#legacy-single-url-configuration)
     - [Health Endpoint](#health-endpoint)
@@ -46,8 +50,6 @@
         "-p", "3000:3000",
         "-e", "API_KEY",
         "-e", "API_URLS",
-        "-e", "MCP_TRANSPORTS",
-        "-e", "MCP_HTTP_PORT",
         "-e", "DEBUG", // for logs
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
@@ -55,8 +57,6 @@
         "API_KEY": "<secret_key>",
         // JSON array - automatically tests and selects fastest URL
         "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
-        "MCP_TRANSPORTS": "stdio,http",  // Enable both transports
-        "MCP_HTTP_PORT": "3000",
         "DEBUG": "mcp:*"
       }
     }
@@ -103,51 +103,46 @@ The MCP server supports HTTP transport for remote access with automatic URL fail
         "-p", "3000:3000",
         "-e", "API_KEY",
         "-e", "API_URLS",
-        "-e", "MCP_TRANSPORTS=http",
-        "-e", "MCP_HTTP_PORT=3000",
-        "-e", "DEBUG",
+        "-e", "MCP_HTTP_PATH",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
         "API_KEY": "<secret_key>",
         "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\",\"https://host.docker.internal:27124\"]",
-        "MCP_TRANSPORTS": "http",                // enable HTTP transport
-        "MCP_HTTP_PORT": "3000",                 // HTTP port (default: 3000)
-        "MCP_HTTP_HOST": "0.0.0.0",              // bind address (default: 0.0.0.0)
-        "MCP_HTTP_PATH": "/mcp",                 // endpoint path (default: /mcp)
-        "DEBUG": "mcp:*"                         // default: disabled logs
+        "MCP_HTTP_PATH": "/mcp" // endpoint path (default is: /mcp)
       }
     }
   }
 }
 ```
 
-### Authentication (Optional)
+#### Decoupled Configuration with Authentication
 
-To secure the HTTP endpoint with Bearer token authentication:
+```bash
+# Automatically determine WSL gateway IP
+export WSL_GATEWAY_IP=$(ip route show | grep -i default | awk '{ print $3}')
+
+# Configure with multiple fallback URLs
+API_URLS='["https://127.0.0.1:27124", "https://'$WSL_GATEWAY_IP':27124", "https://host.docker.internal:27124"]'
+
+# run MCP server on docker separately from IDE
+docker run --name mcp-obsidian-http --rm \
+  -p 3000:3000 \
+  -e API_KEY="<secret_key>" \
+  -e API_URLS="${API_URLS}" \
+  -e MCP_HTTP_TOKEN=<your-secret-token-here> \
+  ghcr.io/oleksandrkucherenko/obsidian-mcp:latest
+```
 
 ```jsonc
 {
   "mcpServers": {
-    "obsidian-http-auth": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--name", "mcp-obsidian-http",
-        "--rm",
-        "-p", "3000:3000",
-        "-e", "API_KEY",
-        "-e", "API_URLS",
-        "-e", "MCP_TRANSPORTS=http",
-        "-e", "MCP_HTTP_TOKEN=your-secret-token-here",
-        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
-      ],
-      "env": {
-        "API_KEY": "<secret_key>",
-        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\"]",
-        "MCP_TRANSPORTS": "http",
-        "MCP_HTTP_TOKEN": "your-secret-token-here"  // required for auth
-      }
+    "obsidian": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-secret-token-here>"
+      }      
     }
   }
 }
@@ -181,7 +176,7 @@ For local development with stdio transport (default):
       "env": {
         "API_KEY": "<secret_key>",
         "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\"]",
-        "DEBUG": "mcp:*"                   // default: disabled logs
+        "DEBUG": "mcp:*" // default: disabled logs
       }
     }
   }

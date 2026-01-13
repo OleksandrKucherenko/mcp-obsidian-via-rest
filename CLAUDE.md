@@ -295,8 +295,8 @@ When developing on WSL2 with Obsidian running on Windows host:
 - `API_RETRY_INTERVAL` - Interval in milliseconds for reconnection attempts (default: "30000")
 
 **Transport Configuration:**
-- `MCP_TRANSPORTS` - Comma-separated list of transports to enable (default: "stdio", options: "stdio,http")
-  - `stdio` - Standard input/output transport (default, for local MCP clients)
+- `MCP_TRANSPORTS` - Comma-separated list of transports to enable (default: "stdio,http", options: "stdio,http")
+  - `stdio` - Standard input/output transport (for local MCP clients)
   - `http` - HTTP transport with built-in SSE streaming support (for remote access)
 - `MCP_HTTP_PORT` - HTTP transport port (default: "3000")
 - `MCP_HTTP_HOST` - HTTP bind address (default: "0.0.0.0")

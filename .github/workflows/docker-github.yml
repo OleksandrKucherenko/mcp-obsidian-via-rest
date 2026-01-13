@@ -1,4 +1,4 @@
-name: Publish Docker Images (GitHub)
+name: Docker (GitHub)
 
 on:
   push:

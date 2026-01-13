@@ -1,4 +1,4 @@
-name: Publish NPM Package (npmjs.org)
+name: NPM (npmjs.org)
 
 on:
   push:

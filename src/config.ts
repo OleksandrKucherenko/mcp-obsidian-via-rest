@@ -122,14 +122,14 @@ export const parseUrls = (urlsEnv?: string): string[] => {
 export const parseTransports = (transportsEnv?: string): Set<string> => {
   // Handle undefined, null, empty string, and string "undefined"
   if (!transportsEnv || transportsEnv === "undefined" || transportsEnv === "null") {
-    return new Set(["stdio"]) // Default to stdio for backward compatibility
+    return new Set(["stdio", "http"]) // Default to both transports
   }
 
   const enabled = transportsEnv
     .split(",")
     .map((t) => t.trim().toLowerCase())
     .filter(Boolean)
-  return new Set(enabled.length > 0 ? enabled : ["stdio"])
+  return new Set(enabled.length > 0 ? enabled : ["stdio", "http"])
 }
 
 /**

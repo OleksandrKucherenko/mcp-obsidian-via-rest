@@ -1,5 +1,5 @@
 # Publish Docker Images to Docker Hub
-name: Publish Docker Images (Docker Hub)
+name: Docker (Docker Hub)
 
 on:
   workflow_dispatch:

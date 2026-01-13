@@ -1,4 +1,4 @@
-name: Cleanup And Maintenance
+name: Maintenance
 
 on:
   # Weekly schedule for version cleanup

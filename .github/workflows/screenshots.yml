@@ -1,4 +1,4 @@
-name: Screenshots and Website Deployment
+name: Website
 
 on:
   release:
