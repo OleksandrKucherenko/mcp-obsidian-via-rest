@@ -20,11 +20,57 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 
 ## 2. Choose release version
 
+### Standard: Automatic version calculation
+
 - [ ] Confirm SemVer intent matches the change set:
   - Breaking changes or incompatible API/config → MAJOR
   - Backward-compatible new features → MINOR
   - Bug fixes only → PATCH
 - [ ] Decide the version bump type: `major`, `minor`, or `patch`
+
+**Note:** release-it automatically calculates the version based on:
+1. Latest git tag (e.g., v0.5.1)
+2. Conventional commits since that tag (feat → minor, fix → patch, BREAKING → major)
+
+### Forced version (override automatic calculation)
+
+Use this when you want to release a specific version that differs from release-it's calculation.
+
+**When to use forced version:**
+- You want a patch release but commits include `feat:` (release-it would suggest minor)
+- You want to skip a version number (e.g., jump from 0.5.1 to 0.5.3)
+- You're releasing hotfix from a different branch
+- CHANGELOG should reflect manual versioning
+
+**How to force a specific version:**
+
+```bash
+# 1. First, see what release-it would calculate automatically
+bun run release:dry --ci --no-git --no-github
+
+# 2. To force a specific version (e.g., 0.5.2 instead of calculated 0.6.0):
+bun run release-it 0.5.2 --ci --no-git
+
+# 3. Review the generated CHANGELOG and package.json
+git diff CHANGELOG.md package.json
+
+# 4. Commit and push
+git add CHANGELOG.md package.json
+git commit -m "chore(release): v0.5.2"
+git push
+
+# 5. Create and push tag
+git tag v0.5.2
+git push origin v0.5.2
+
+# 6. Create GitHub Release
+gh release create v0.5.2 --notes "Release v0.5.2"
+```
+
+**Important considerations:**
+- CHANGELOG will still compare from the latest git tag (v0.5.1) to your forced version (v0.5.2)
+- The CHANGELOG entry header will show `[0.5.2]` but comparison URL will be `v0.5.1...v0.5.2`
+- If your forced version doesn't match commit types, consider updating CHANGELOG manually to explain why
 
 ## 3. Test locally (optional but recommended)
 
