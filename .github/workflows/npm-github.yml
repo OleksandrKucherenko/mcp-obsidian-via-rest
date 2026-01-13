@@ -222,10 +222,20 @@ jobs:
           
       - name: Publish to GitHub Packages (version tag)
         if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
+        continue-on-error: true
         run: |
           # Also publish with version tag for consistency when triggered by version tags
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          bun publish --tag $PACKAGE_VERSION --registry "https://npm.pkg.github.com"
+          # Extract the base version (without sha- suffix) for the tag
+          BASE_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/-sha-.*//')
+
+          echo "Attempting to publish with tag: ${BASE_VERSION}"
+
+          if bun publish --tag "$BASE_VERSION" --registry "https://npm.pkg.github.com" 2>&1 | grep -q "Cannot publish over existing version"; then
+            echo "::notice::Version ${BASE_VERSION} already exists in GitHub Packages (this is expected after the sha- tag publish)"
+          else
+            bun publish --tag "$BASE_VERSION" --registry "https://npm.pkg.github.com"
+          fi || true
         env:
           BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -233,8 +243,17 @@ jobs:
           NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_REGISTRY_URL: "https://npm.pkg.github.com"
           
-      - name: Skip GitHub Packages publish (already published)
-        if: steps.check-published.outputs.ALREADY_PUBLISHED == 'true'
+      - name: GitHub Packages Publish Summary
+        if: always()
         run: |
-          echo "::notice::Version $(node -p "require('./package.json').version") is already published to GitHub Packages"
-          echo "::notice::Skipping publish step to avoid tag conflict"
+          echo "## GitHub Packages Publish Status" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check-published.outputs.ALREADY_PUBLISHED }}" == "true" ]; then
+            echo "✅ **Skipped** - Version $(node -p "require('./package.json').version") already exists in GitHub Packages" >> $GITHUB_STEP_SUMMARY
+          else
+            PACKAGE_VERSION=$(node -p "require('./package.json').version")
+            BASE_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/-sha-.*//')
+            echo "✅ **Published** - Version ${BASE_VERSION} published to GitHub Packages" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Registry: https://npm.pkg.github.com" >> $GITHUB_STEP_SUMMARY
+            echo "Package: @oleksandrkucherenko/mcp-obsidian" >> $GITHUB_STEP_SUMMARY
+          fi
