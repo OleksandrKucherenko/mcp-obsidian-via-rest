@@ -1,19 +1,30 @@
+import { existsSync, readFileSync } from "node:fs"
+import path from "node:path"
 import { debug } from "debug"
 import { config } from "dotenv"
 import { expand } from "dotenv-expand"
 import findConfig from "find-config"
 import JSON5 from "json5"
-import { existsSync, readFileSync } from "node:fs"
-import path from "node:path"
 import { z } from "zod/v4"
 import type { ObsidianConfig } from "./client/types"
+import type { AppConfig, ObsidianAPI as ObsidianAPIConfig, Transport } from "./config.types"
 
 declare namespace NodeJS {
   interface ProcessEnv {
     API_KEY: string
     API_HOST: string
     API_PORT: string
+    API_URLS: string
+    MCP_TRANSPORTS: string
+    MCP_HTTP_PORT: string
+    MCP_HTTP_HOST: string
+    MCP_HTTP_PATH: string
+    MCP_HTTP_TOKEN: string
+    API_TEST_TIMEOUT: string
+    API_RETRY_INTERVAL: string
     NODE_ENV: string
+    DEBUG: string
+    TESTCONTAINERS_RYUK_DISABLED: string
   }
 }
 
@@ -36,6 +47,7 @@ export const schemaEnv = z.object({
   API_KEY: z.string(),
   API_HOST: z.string(),
   API_PORT: z.string(),
+  API_URLS: z.string().optional(),
 })
 
 /** Get list of environment files for loading. */
@@ -77,14 +89,98 @@ export const composeBaseURL = (host: string, port: number): string => {
   return baseURL
 }
 
-export const loadConfiguration = (configFilePath?: string): ObsidianConfig => {
+/**
+ * Parse URLs from API_URLS environment variable.
+ * Supports JSON array format: `["url1", "url2"]`
+ * Fallback to semicolon-separated: `url1;url2`
+ */
+export const parseUrls = (urlsEnv?: string): string[] => {
+  if (!urlsEnv) {
+    return []
+  }
+
+  // Try JSON array format first
+  if (urlsEnv.trim().startsWith("[")) {
+    try {
+      return JSON5.parse(urlsEnv) as string[]
+    } catch {
+      // If JSON parsing fails, fall through to semicolon parsing
+    }
+  }
+
+  // Fallback to semicolon-separated format
+  return urlsEnv
+    .split(";")
+    .map((url) => url.trim())
+    .filter(Boolean)
+}
+
+/**
+ * Parse transport configuration from MCP_TRANSPORTS environment variable.
+ * Format: comma-separated list of transport names (e.g., "stdio,http")
+ */
+export const parseTransports = (transportsEnv?: string): Set<string> => {
+  // Handle undefined, null, empty string, and string "undefined"
+  if (!transportsEnv || transportsEnv === "undefined" || transportsEnv === "null") {
+    return new Set(["stdio", "http"]) // Default to both transports
+  }
+
+  const enabled = transportsEnv
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean)
+  return new Set(enabled.length > 0 ? enabled : ["stdio", "http"])
+}
+
+/**
+ * Create transport configuration based on enabled transports.
+ *
+ * Note: HTTP transport includes built-in SSE streaming support via
+ * WebStandardStreamableHTTPServerTransport. No separate SSE transport needed.
+ */
+export const createTransportConfig = (
+  enabledTransports: Set<string>,
+  env: Record<string, string | undefined>,
+): Transport.Config => {
+  const hasTransport = (name: string) => enabledTransports.has(name)
+
+  // Helper to create auth config from token env var
+  const createAuthConfig = (token?: string) => {
+    if (!token || token.trim().length === 0) {
+      return undefined
+    }
+    return {
+      enabled: true,
+      token: token.trim(),
+    }
+  }
+
+  return {
+    stdio: {
+      enabled: hasTransport("stdio"),
+    },
+    http: {
+      enabled: hasTransport("http"),
+      port: Number.parseInt(env.MCP_HTTP_PORT ?? "3000", 10),
+      host: env.MCP_HTTP_HOST ?? "0.0.0.0",
+      path: env.MCP_HTTP_PATH ?? "/mcp",
+      auth: createAuthConfig(env.MCP_HTTP_TOKEN),
+    },
+  }
+}
+
+/**
+ * Load application configuration with support for multi-URL and transport configuration.
+ * @returns Complete application configuration
+ */
+export const loadAppConfig = (configFilePath?: string): AppConfig => {
   loadEnvironment()
 
-  // load config first
+  // Load config file first
   const configFile = configFilePath && existsSync(configFilePath) ? configFilePath : DEFAULTS
   log(`Loading config: %o`, configFile)
 
-  // load default config or fallback to hardcoded configuration
+  // Load default config or fallback to hardcoded configuration
   const configContent = existsSync(configFile) ? readFileSync(configFile, "utf-8") : JSON_CONFIG
   const config = schema.parse(JSON5.parse(configContent))
   log("Default config: %o", config)
@@ -93,27 +189,107 @@ export const loadConfiguration = (configFilePath?: string): ObsidianConfig => {
     API_KEY: process.env.API_KEY ?? config.apiKey,
     API_HOST: process.env.API_HOST ?? config.host,
     API_PORT: process.env.API_PORT ?? `${config.port}`,
+    API_URLS: process.env.API_URLS,
   }
 
-  const { parsed: resolved } = expand({ parsed })
+  // Guard against undefined values for dotenv-expand
+  const safeParsed = Object.fromEntries(
+    Object.entries(parsed)
+      .filter(([_, v]) => v !== undefined)
+      .map(([k, v]) => [k, v ?? ""]) as [string, string][],
+  )
+
+  const { parsed: resolved } = expand({ parsed: safeParsed })
   const configEnv = schemaEnv.parse(resolved)
 
   log(`Expands config: %o`, configEnv)
 
-  // try to validate the apiKey from config, for matching pattern /^[a-zA-Z0-9]{32,}$/
-  // default key size from Obsidian Local REST API plugin is 64 characters
+  // Validate API key (minimum 32 characters)
   if (!/^[a-zA-Z0-9]{32,}$/.test(configEnv.API_KEY)) {
     log("Invalid API key, expected at least 32 characters")
   }
 
   const apiKey = configEnv.API_KEY
-  const host = configEnv.API_HOST
-  const port = Number.parseInt(configEnv.API_PORT, 10)
-  const baseURL = composeBaseURL(host, port)
+  const apiUrls = parseUrls(configEnv.API_URLS)
+  const apiHost = configEnv.API_HOST
+  const apiPort = Number.parseInt(configEnv.API_PORT, 10)
 
-  log("Runtime config: %o", { apiKey, host, port, baseURL })
+  // Determine URLs: use API_URLS if provided, otherwise construct from API_HOST + API_PORT
+  let urls: string[]
+  let baseURL: string
+  let host: string
+  let port: number
 
-  return { apiKey, host, port, baseURL }
+  if (apiUrls.length > 0) {
+    // Use API_URLS
+    urls = apiUrls
+    if (urls[0] === undefined) {
+      throw new Error("URLs array cannot be empty")
+    }
+    baseURL = urls[0] // Use first URL as primary
+    // Extract host and port from first URL for backward compatibility
+    const url = new URL(baseURL)
+    host = `${url.protocol}//${url.hostname}`
+    port = Number.parseInt(url.port, 10) || (url.protocol === "https:" ? 443 : 80)
+  } else {
+    // Use legacy API_HOST + API_PORT format
+    host = apiHost
+    port = apiPort
+    baseURL = composeBaseURL(host, port)
+    urls = [baseURL]
+  }
+
+  // Transport configuration
+  const enabledTransports = parseTransports(process.env.MCP_TRANSPORTS)
+  const transports = createTransportConfig(enabledTransports, process.env)
+
+  // Self-healing configuration
+  const testTimeout = Number.parseInt(process.env.API_TEST_TIMEOUT ?? "2000", 10)
+  const retryInterval = Number.parseInt(process.env.API_RETRY_INTERVAL ?? "30000", 10)
+
+  const obsidianConfig: ObsidianAPIConfig.Config = {
+    urls,
+    apiKey,
+    host,
+    port,
+    baseURL,
+    testTimeout,
+    retryInterval,
+  }
+
+  const appConfig: AppConfig = {
+    obsidian: obsidianConfig,
+    transports,
+  }
+
+  log("Runtime config: %o", {
+    apiKey: `${apiKey.substring(0, 8)}...`,
+    urls,
+    transports: {
+      stdio: transports.stdio.enabled,
+      http: transports.http.enabled,
+    },
+    testTimeout,
+    retryInterval,
+  })
+
+  return appConfig
+}
+
+/**
+ * Load legacy Obsidian configuration for backward compatibility.
+ * @returns Obsidian configuration
+ */
+export const loadConfiguration = (configFilePath?: string): ObsidianConfig => {
+  const appConfig = loadAppConfig(configFilePath)
+  const { obsidian } = appConfig
+
+  return {
+    apiKey: obsidian.apiKey,
+    host: obsidian.host,
+    port: obsidian.port,
+    baseURL: obsidian.baseURL,
+  }
 }
 
 export const diagnostics = async () => {

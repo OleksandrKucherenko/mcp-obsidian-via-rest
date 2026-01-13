@@ -1,8 +1,8 @@
+import https from "node:https"
 import axios, { type AxiosInstance } from "axios"
 import { addLogger } from "axios-debug-log"
-import axiosRetry, { type IAxiosRetryReturn } from "axios-retry"
+import axiosRetry from "axios-retry"
 import { debug } from "debug"
-import https from "node:https"
 
 import type { Note, NoteJson, ObsidianConfig, ServerStatus } from "./types.ts"
 
@@ -316,21 +316,21 @@ export class ObsidianAPI {
   // #region Not Implemented
 
   /** Execute a command - not implemented, reserved for future versions */
-  public async executeCommand(command: string): Promise<unknown> {
+  public async executeCommand(_command: string): Promise<unknown> {
     // POST /commands/ endpoint
     // Not implemented, reserved for future versions
     throw new Error("Not implemented")
   }
 
   /** Get periodic note - not implemented, reserved for future versions */
-  public async getPeriodicNote(period: string): Promise<Note> {
+  public async getPeriodicNote(_period: string): Promise<Note> {
     // GET /periodic/{period}/ endpoint
     // Not implemented, reserved for future versions
     throw new Error("Not implemented")
   }
 
   /** Create or append to periodic note - not implemented, reserved for future versions */
-  public async appendToPeriodicNote(period: string, content: string): Promise<void> {
+  public async appendToPeriodicNote(_period: string, _content: string): Promise<void> {
     // POST /periodic/{period}/ endpoint
     // Not implemented, reserved for future versions
     throw new Error("Not implemented")
@@ -338,11 +338,11 @@ export class ObsidianAPI {
 
   /** Patch a periodic note - not implemented, reserved for future versions */
   public async patchPeriodicNote(
-    period: string,
-    operation: string,
-    targetType: string,
-    target: string,
-    content: string,
+    _period: string,
+    _operation: string,
+    _targetType: string,
+    _target: string,
+    _content: string,
   ): Promise<void> {
     // PATCH /periodic/{period}/ endpoint
     // Not implemented, reserved for future versions
@@ -350,14 +350,14 @@ export class ObsidianAPI {
   }
 
   /** Delete a periodic note - not implemented, reserved for future versions */
-  public async deletePeriodicNote(period: string): Promise<void> {
+  public async deletePeriodicNote(_period: string): Promise<void> {
     // DELETE /periodic/{period}/ endpoint
     // Not implemented, reserved for future versions
     throw new Error("Not implemented")
   }
 
   /** Delete a note - not implemented, reserved for future versions */
-  public async deleteNote(path: string): Promise<void> {
+  public async deleteNote(_path: string): Promise<void> {
     // DELETE /vault/{filename} endpoint
     // Not implemented, reserved for future versions
     throw new Error("Not implemented")

@@ -1,7 +1,7 @@
-import debug from "debug"
-import yaml from "js-yaml"
 import fs from "node:fs/promises"
 import path from "node:path"
+import debug from "debug"
+import yaml from "js-yaml"
 
 const log = debug("mcp:e2e")
 

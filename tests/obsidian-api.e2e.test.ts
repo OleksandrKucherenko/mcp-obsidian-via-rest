@@ -1,24 +1,15 @@
-import axios from "axios"
 import { afterEach, beforeAll, describe, expect, it, mock } from "bun:test"
-import { debug } from "debug"
 import { execSync } from "node:child_process"
 import https from "node:https"
+import axios from "axios"
+import { debug } from "debug"
 import { dedent as de } from "ts-dedent"
 
 import { ObsidianAPI } from "../src/client/obsidian-api.ts"
 import type { ObsidianConfig } from "../src/client/types.ts"
 
 // ref: https://github.com/sindresorhus/is-wsl/blob/main/index.js
-const isWSL = () => process.platform === "linux" && process.env.WSL_DISTRO_NAME
-
-// declare process.env variables
-namespace NodeJS {
-  interface ProcessEnv {
-    WSL_DISTRO_NAME?: string
-    WSL_GATEWAY_IP?: string
-    API_KEY?: string
-  }
-}
+const _isWSL = () => process.platform === "linux" && process.env.WSL_DISTRO_NAME
 
 const extractGatewayIp = () => {
   return process.platform === "darwin"
@@ -26,25 +17,39 @@ const extractGatewayIp = () => {
     : execSync("ip route show | grep -i default | awk '{ print $3}'").toString().trim()
 }
 
-const locahostConfig: ObsidianConfig = {
-  apiKey: process.env.API_KEY ?? "<secret>",
-  port: 27124,
-  host: "https://127.0.0.1",
-  baseURL: "https://127.0.0.1:27124",
+const API_KEY = process.env.API_KEY ?? "<secret>"
+const API_PORT = Number(process.env.API_PORT ?? 27124)
+
+const buildConfigFromHost = (host: string, port: number): ObsidianConfig => {
+  const normalizedHost = host.endsWith("/") ? host.slice(0, -1) : host
+  return {
+    apiKey: API_KEY,
+    port,
+    host: normalizedHost,
+    baseURL: `${normalizedHost}:${port}`,
+  }
 }
 
-const dockerConfig: ObsidianConfig = {
-  apiKey: process.env.API_KEY ?? "<secret>",
-  port: 27124,
-  host: "https://host.docker.internal",
-  baseURL: "https://host.docker.internal:27124",
+const buildConfigFromUrl = (rawUrl: string): ObsidianConfig | null => {
+  try {
+    const url = new URL(rawUrl)
+    const port = url.port ? Number(url.port) : url.protocol === "https:" ? 443 : 80
+    const host = `${url.protocol}//${url.hostname}`
+    return buildConfigFromHost(host, port)
+  } catch {
+    return null
+  }
 }
 
-const wslConfig: ObsidianConfig = {
-  apiKey: process.env.API_KEY ?? "<secret>",
-  port: 27124,
-  host: `https://${process.env.WSL_GATEWAY_IP ?? extractGatewayIp()}`,
-  baseURL: `https://${process.env.WSL_GATEWAY_IP ?? extractGatewayIp()}:27124`,
+const parseApiUrls = (): string[] => {
+  const raw = process.env.API_URLS
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((entry) => typeof entry === "string") : []
+  } catch {
+    return []
+  }
 }
 
 mock.module("axios", async () => {
@@ -79,24 +84,55 @@ async function isHostAvailable(url: string): Promise<boolean> {
 }
 
 describe("ObsidianAPI - E2E Tests", async () => {
-  const config: ObsidianConfig = /*isWSL() ? wslConfig :*/ locahostConfig
+  const candidates: ObsidianConfig[] = []
+  const apiUrls = parseApiUrls()
+  if (apiUrls.length > 0) {
+    for (const url of apiUrls) {
+      const config = buildConfigFromUrl(url)
+      if (config) candidates.push(config)
+    }
+  } else {
+    if (process.env.API_HOST) {
+      candidates.push(buildConfigFromHost(process.env.API_HOST, API_PORT))
+    }
 
-  const hostAvailable = await isHostAvailable(`${config.host}:${config.port}`)
+    candidates.push(buildConfigFromHost("https://127.0.0.1", API_PORT))
+
+    if (_isWSL() || process.env.WSL_GATEWAY_IP) {
+      const gateway = process.env.WSL_GATEWAY_IP ?? extractGatewayIp()
+      candidates.push(buildConfigFromHost(`https://${gateway}`, API_PORT))
+    }
+  }
+
+  const uniqueCandidates = candidates.filter(
+    (config, index, list) => list.findIndex((item) => item.baseURL === config.baseURL) === index,
+  )
+
+  let config: ObsidianConfig | undefined
+  for (const candidate of uniqueCandidates) {
+    // eslint-disable-next-line no-await-in-loop
+    if (await isHostAvailable(candidate.baseURL)) {
+      config = candidate
+      break
+    }
+  }
+
+  const hostAvailable = !!config
   /** We'll conditionally skip the entire describe block if host is not available */
   const describeIf = hostAvailable ? describe : describe.skip
 
   let api: ObsidianAPI
 
   beforeAll(async () => {
-    debug("mcp:e2e:config")("config: %o", config)
-
     if (!hostAvailable) {
+      const attempted = uniqueCandidates.map((candidate) => candidate.baseURL).join(", ")
       console.error(
-        `\n⛔ ERROR: Obsidian REST API server is not available at ${config.host}:${config.port}\nPlease make sure the server is running before executing E2E tests.\n`,
+        `\n⛔ ERROR: Obsidian REST API server is not available at ${attempted || "the expected URLs"}\nPlease make sure the server is running before executing E2E tests.\n`,
       )
     } else {
+      debug("mcp:e2e:config")("config: %o", config)
       // Initialize API only if host is available
-      api = new ObsidianAPI(config)
+      if (config) api = new ObsidianAPI(config)
     }
   })
 

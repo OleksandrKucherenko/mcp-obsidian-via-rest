@@ -1,7 +1,6 @@
-import debug from "debug"
 import { exec as cpExec } from "node:child_process"
-import path from "node:path"
 import { promisify } from "node:util"
+import debug from "debug"
 import type { StartedDockerComposeEnvironment } from "testcontainers"
 
 import type { ContainerStdio } from "./container.stdio"
@@ -31,7 +30,7 @@ declare namespace NodeJS {
 
 // Get cleanup configuration from environment variables
 const getCleanupConfig = (): CleanupConfig => {
-  const isCI = process.env.CI === "true" || process.env.CI === "1" || !!process.env.CI
+  const _isCI = process.env.CI === "true" || process.env.CI === "1" || !!process.env.CI
 
   return {
     cleanupOnFailure: process.env.CLEANUP_ON_FAILURE !== "false", // Default: true
@@ -207,7 +206,13 @@ export const performFullDockerCleanup = async ({ environment, forceCleanup, test
   log("Performing comprehensive Docker cleanup...")
 
   const { removeNetworks, removeVolumes, removeImages } = cleanupConfig
-  await environment.down({ removeVolumes })
+
+  // Use testcontainers down() if environment is available
+  if (environment) {
+    await environment.down({ removeVolumes })
+  } else {
+    log("No environment to shutdown, using manual cleanup")
+  }
 
   // Final container cleanup - more comprehensive pattern matching
   await cleanupContainer()
