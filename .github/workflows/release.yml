@@ -67,15 +67,10 @@ jobs:
           CURRENT_VERSION=$(jq -r '.version' package.json)
           echo "current_version=${CURRENT_VERSION}" >> $GITHUB_OUTPUT
 
-          # Use release-it to calculate the next version
-          NEXT_VERSION=$(bun run release-it ${{ inputs.version_bump }} --ci --no-increment --no-git --no-github --dry-run 2>/dev/null | grep -oP '(?<=The new version is )\d+\.\d+\.\d+' || echo "")
+          # Use npm version with --dry-run to calculate the next version
+          NEXT_VERSION=$(npm version ${{ inputs.version_bump }} --dry-run --silent 2>/dev/null | sed 's/^v//')
 
-          # Fallback to npm version if release-it fails
-          if [ -z "$NEXT_VERSION" ]; then
-            NEXT_VERSION=$(npm version ${{ inputs.version_bump }} --no-git-tag-version --silent 2>/dev/null | sed 's/^v//')
-          fi
-
-          # Final fallback: manual calculation
+          # Fallback to manual calculation if npm version fails
           if [ -z "$NEXT_VERSION" ]; then
             if [ "${{ inputs.version_bump }}" == "major" ]; then
               NEXT_VERSION=$(echo $CURRENT_VERSION | awk -F. '{$1++; $2=0; $3=0} 1' | sed 's/ /./g')
