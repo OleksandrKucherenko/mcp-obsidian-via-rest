@@ -118,7 +118,7 @@ bun run src/index.ts
 ./docker-compose up --build -d
 
 # run script for getting a visual feedback on Obsidian inside the docker container
-./dockerize/ci_screenshot_obsidian_gui.sh
+./dockerize/ci.screenshot_obsidian.sh
 
 # Screenshot will be saved in the 'reports/screenshots' directory, relative to project root
 
