@@ -185,7 +185,7 @@ opencode run -m "opencode/big-pickle" \
 
 ## Configuration 4: Quick Test Script
 
-Use the provided `quick-test.sh` script for automated testing:
+Use the provided `test.mcp_quick.sh` script for automated testing:
 
 ```bash
 # Setup environment
@@ -194,10 +194,10 @@ export API_HOST="https://172.26.32.1"
 export API_PORT="27124"
 
 # Run quick test (basic checks)
-./quick-test.sh
+./test.mcp_quick.sh
 
 # Run with search query
-./quick-test.sh "JavaScript"
+./test.mcp_quick.sh "JavaScript"
 ```
 
 The script tests:
@@ -248,12 +248,12 @@ docker run -e API_HOST="https://host.docker.internal" ...
 }
 ```
 
-### Issue: Search timeout in quick-test.sh
+### Issue: Search timeout in test.mcp_quick.sh
 
 **Solution:** Increase timeout or skip search test:
 ```bash
 # The script will continue even if search times out
-./quick-test.sh
+./test.mcp_quick.sh
 ```
 
 ## Additional Resources

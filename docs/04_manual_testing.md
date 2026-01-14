@@ -834,10 +834,10 @@ export API_HOST="https://localhost"
 export API_PORT="27124"
 
 # Run quick test (basic checks only)
-./tests/manual/opencode/quick-test.sh
+./tests/manual/opencode/test.mcp_quick.sh
 
 # Run quick test with search query
-./tests/manual/opencode/quick-test.sh "TypeScript"
+./tests/manual/opencode/test.mcp_quick.sh "TypeScript"
 ```
 
 The script tests:
@@ -1235,7 +1235,7 @@ Use the provided configuration examples script to see all tested configurations:
 
 ```bash
 # View all configuration examples
-./tests/manual/opencode/config-examples.sh
+./tests/manual/opencode/demo.config.sh
 ```
 
 This script displays ready-to-use commands for:
@@ -1275,4 +1275,4 @@ obsidian-ping              # Test Obsidian API connection
 - [Project Documentation](./readme.md)
 - [Implementation Plan](./plans/multi-transport-implementation-plan.md)
 - **[E2E Verification Guide](./05_e2e_verification.md)** - Complete end-to-end testing with verified configurations
-- **[Helper Scripts](../tests/manual/opencode/)** - `quick-test.sh` and `config-examples.sh` for automated testing
+- **[Helper Scripts](../tests/manual/opencode/)** - `test.mcp_quick.sh` and `demo.config.sh` for automated testing
