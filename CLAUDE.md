@@ -426,3 +426,33 @@ docker run --rm -p 3000:3000 \
 ```bash
 bun run src/index.ts --config ./configs/config.wsl2.jsonc
 ```
+
+### Diagnostic Scripts
+
+The project includes diagnostic scripts in the `scripts/` directory for troubleshooting connectivity and environment issues:
+
+**WSL2 Network Diagnostics:**
+```bash
+./scripts/diag-wsl2.sh
+```
+Comprehensive WSL2 network diagnostics showing:
+- WSL2 and Windows host IP addresses
+- Network interfaces and Docker networks
+- DNS configuration (both WSL and Windows)
+- Listening ports on both WSL and Windows sides
+
+**Verify API Access from Docker:**
+```bash
+./scripts/diag-verify-api-access.sh [port]
+```
+Tests Obsidian API connectivity from inside a Docker container using both direct IP and `host.docker.internal`. Default port: 27124
+
+**macOS Docker/Colima Diagnostics:**
+```bash
+./scripts/diag-macos.sh
+```
+Diagnoses Docker/Colima issues on macOS Apple Silicon:
+- Colima status and Docker environment
+- Architecture compatibility (ARM64 vs x86_64 emulation)
+- FUSE capability tests
+- Container build verification

@@ -2,21 +2,29 @@
 
 Sequential checklist for preparing a release. Follow top to bottom without branching.
 
+## 0. Pre-conditions
+
+- [ ] **CRITICAL:** Verify npm token is valid (must be active and not expired):
+  - [ ] Confirm npm access: `npm whoami`
+  - [ ] Store token in `.secrets/npm_registry_publish_token`
+- [ ] **CRTITCAL:** Verify Docker Hub access: `docker login -u oleksandrkucherenko`
+  - [ ] [PAT creation](https://app.docker.com/accounts/oleksandrkucherenko/settings/personal-access-tokens)
+  - [ ] Store token in `.secrets/docker_hub_pat`
+- [ ] **CRITICAL:** Verify CI secrets are configured: `gh secret list -R OleksandrKucherenko/mcp-obsidian-via-rest`
+  - Required: `NPM_PUBLISH_TOKEN` (for npmjs.org)
+  - Required: `DOCKER_HUB_USERNAME` and `DOCKER_HUB_TOKEN` (for Docker Hub)
+- [ ] **CRITICAL:** Verify GitHub CLI is authenticated: `gh auth status`
+  - [ ] store toke in `.secrets/github_token` `GITHUB_TOKEN` (required for local run only, CI got token automatically in Github Actions)
+- [ ] **CRITICAL:** Verify CI is working: `gh run list --limit 3 -R OleksandrKucherenko/mcp-obsidian-via-rest` (last runs should be green)
+
+
 ## 1. Pre-flight verification
 
 - [ ] Sync to latest main: `git fetch --prune --tags` and `git pull`
 - [ ] Confirm clean working tree: `git status`
 - [ ] Confirm toolchain availability: `bun --version`, `node --version`, `docker --version`
 - [ ] Confirm GitHub access: `gh auth status` and `gh release list --limit 1`
-- [ ] Confirm npm access: `npm whoami`
-- [ ] **CRITICAL:** Verify npm token is valid (token in `.secrets/npm_registry_publish_token` must be active and not expired)
 - [ ] Review `.keep-versions` to ensure the new major/minor version will be preserved by cleanup jobs
-- [ ] **CRITICAL:** Verify CI workflows exist: `ls .github/workflows/*.yml`
-- [ ] **CRITICAL:** Verify CI secrets are configured: `gh secret list -R OleksandrKucherenko/mcp-obsidian-via-rest`
-  - Required: `NPM_PUBLISH_TOKEN` (for npmjs.org)
-  - Required: `GHCR_PAT` or `GITHUB_TOKEN` (auto-provided by GitHub Actions for GHCR Docker images, but required for local run)
-  - Required: `DOCKER_HUB_ACCESS_TOKEN` and `DOCKER_HUB_USERNAME` (for Docker Hub)
-- [ ] **CRITICAL:** Verify CI is working: `gh run list --limit 3 -R OleksandrKucherenko/mcp-obsidian-via-rest` (last runs should be green)
 
 ## 2. Choose release version
 
@@ -29,6 +37,7 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 - [ ] Decide the version bump type: `major`, `minor`, or `patch`
 
 **Note:** release-it automatically calculates the version based on:
+
 1. Latest git tag (e.g., v0.5.1)
 2. Conventional commits since that tag (feat → minor, fix → patch, BREAKING → major)
 
@@ -37,6 +46,7 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 Use this when you want to release a specific version that differs from release-it's calculation.
 
 **When to use forced version:**
+
 - You want a patch release but commits include `feat:` (release-it would suggest minor)
 - You want to skip a version number (e.g., jump from 0.5.1 to 0.5.3)
 - You're releasing hotfix from a different branch
@@ -68,6 +78,7 @@ gh release create v0.5.2 --notes "Release v0.5.2"
 ```
 
 **Important considerations:**
+
 - CHANGELOG will still compare from the latest git tag (v0.5.1) to your forced version (v0.5.2)
 - The CHANGELOG entry header will show `[0.5.2]` but comparison URL will be `v0.5.1...v0.5.2`
 - If your forced version doesn't match commit types, consider updating CHANGELOG manually to explain why
@@ -82,14 +93,15 @@ gh release create v0.5.2 --notes "Release v0.5.2"
 
 ## 4. Create automated release
 
-- [ ] Navigate to: https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/release.yml
+- [ ] Navigate to: [release.yaml](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/release.yml)
 - [ ] Click "Run workflow"
 - [ ] Select version bump type (major/minor/patch)
 - [ ] (Optional) Enable dry-run mode to test without creating actual release
 - [ ] Click "Run workflow"
-- [ ] Monitor the workflow at: https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions
+- [ ] Monitor the workflow at: [Github Actions](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions)
 
 **The automated workflow will:**
+
 1. Run all pre-flight checks (typecheck, lint, tests)
 2. Generate CHANGELOG with release-it
 3. Bump version in package.json
@@ -110,6 +122,7 @@ If the automated workflow fails, follow these manual steps:
 #### Manual: Create release
 
 - [ ] Run the release command locally:
+
   ```bash
   # For patch release
   bun run release-it patch --ci --no-git
@@ -117,18 +130,24 @@ If the automated workflow fails, follow these manual steps:
   # Or for specific version
   bun run release-it X.Y.Z --ci --no-git
   ```
+
 - [ ] Review and commit changes:
+
   ```bash
   git add CHANGELOG.md package.json
   git commit -m "chore(release): vX.Y.Z"
   git push
   ```
+
 - [ ] Create and push git tag:
+
   ```bash
   git tag vX.Y.Z
   git push origin vX.Y.Z
   ```
+
 - [ ] Create GitHub Release:
+
   ```bash
   gh release create vX.Y.Z --notes "Release notes..."
   ```
@@ -140,7 +159,7 @@ After publishing the GitHub Release, the following workflows trigger automatical
 ### npmjs.org workflow (PRIMARY - critical)
 
 - Workflow: `.github/workflows/npmjs-npm-publish.yml`
-- [ ] Monitor workflow at: <https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions>
+- [ ] Monitor workflow at: [Github Actions](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions)
 - [ ] Approve the "Publish to npmjs" manual job when prompted
 - [ ] Verify workflow completes successfully
 
@@ -157,7 +176,7 @@ After publishing the GitHub Release, the following workflows trigger automatical
 ### Docker Hub workflow (PRIMARY - critical)
 
 - Workflow: `.github/workflows/docker-hub.yml`
-- [ ] Navigate to: https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml
+- [ ] Navigate to: [Docker Hub Workflow](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml)
 - [ ] Click "Run workflow"
 - [ ] Enter version tag (optional, or leave blank for latest)
 - [ ] Click "Run workflow"
