@@ -4,27 +4,104 @@ Sequential checklist for preparing a release. Follow top to bottom without branc
 
 ## 0. Pre-conditions
 
-- [ ] **CRITICAL:** Verify npm token is valid (must be active and not expired):
-  - [ ] Confirm npm access: `npm whoami`
-  - [ ] Store token in `.secrets/npm_registry_publish_token`
-- [ ] **CRTITCAL:** Verify Docker Hub access: `docker login -u oleksandrkucherenko`
-  - [ ] [PAT creation](https://app.docker.com/accounts/oleksandrkucherenko/settings/personal-access-tokens)
-  - [ ] Store token in `.secrets/docker_hub_pat`
-- [ ] **CRITICAL:** Verify CI secrets are configured: `gh secret list -R OleksandrKucherenko/mcp-obsidian-via-rest`
-  - Required: `NPM_PUBLISH_TOKEN` (for npmjs.org)
-  - Required: `DOCKER_HUB_USERNAME` and `DOCKER_HUB_TOKEN` (for Docker Hub)
-- [ ] **CRITICAL:** Verify GitHub CLI is authenticated: `gh auth status`
-  - [ ] store toke in `.secrets/github_token` `GITHUB_TOKEN` (required for local run only, CI got token automatically in Github Actions)
-- [ ] **CRITICAL:** Verify CI is working: `gh run list --limit 3 -R OleksandrKucherenko/mcp-obsidian-via-rest` (last runs should be green)
+### Quick verification (recommended)
 
+- [ ] **Run comprehensive verification script:**
+
+  ```bash
+  ./scripts/release.verify_preconditions.sh
+  ```
+
+  This checks all requirements below. If it passes, you're ready to proceed to section [`1. Pre-flight verification`](#1-pre-flight-verification).
+
+### Individual checks (if needed)
+
+**Toolchain:**
+
+- [ ] `bun --version && node --version && docker --version && gh --version`
+
+**npm Authentication:**
+
+- [ ] `npm whoami`
+- [ ] `test -f .secrets/npm_registry_publish_token && echo "✓ Token file exists"`
+
+**Docker Hub Authentication:**
+
+- [ ] `./scripts/docker.whoami.sh`
+- [ ] `test -f .secrets/docker_hub_pat && echo "✓ Token file exists"`
+
+**GitHub CLI Authentication:**
+
+- [ ] `gh auth status`
+- [ ] `test -f .secrets/github_token && echo "✓ Token file exists"`
+
+**CI Secrets (GitHub Repository):**
+
+- [ ] `gh secret list -R OleksandrKucherenko/mcp-obsidian-via-rest | grep -E "NPM_PUBLISH_TOKEN|DOCKER_HUB_USERNAME|DOCKER_HUB_TOKEN"`
+- [ ] `gh api repos/OleksandrKucherenko/mcp-obsidian-via-rest/actions/secrets | jq -r '.secrets[] | select(.name | test("NPM_PUBLISH_TOKEN|DOCKER_HUB")) | "\(.name): \(.updated_at)"'`
+
+  > **Note:** GitHub API cannot read secret values (by design). The script shows when secrets were last updated. If timestamps look old or you've rotated tokens, refresh secrets using commands in "Fix missing credentials" section.
+
+**CI Status:**
+
+- [ ] `gh run list --limit 3 -R OleksandrKucherenko/mcp-obsidian-via-rest --json conclusion,name --jq '.[] | "\(.name): \(.conclusion)"'`
+
+**Obsidian API Key (for E2E tests):**
+
+- [ ] `test -n "$API_KEY" && echo "✓ API_KEY loaded (${#API_KEY} chars)"`
+
+**GitHub Packages Token:**
+
+- [ ] `test -n "$NPMRC_GITHUB_AUTH_TOKEN" && echo "✓ Token loaded"`
+
+### Fix missing credentials
+
+If any checks fail, use these commands to set up missing credentials:
+
+**npm token:**
+
+```bash
+# Create at: https://www.npmjs.com/settings/[username]/tokens (Automation, Publish)
+echo "npm_xxxx..." > .secrets/npm_registry_publish_token && direnv reload
+```
+
+**Docker Hub token:**
+
+```bash
+# Create at: https://app.docker.com/settings/personal-access-tokens (Read, Write, Delete)
+echo "dckr_pat_xxxx..." > .secrets/docker_hub_pat && direnv reload
+echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin
+```
+
+**GitHub token:**
+
+```bash
+# Store current GitHub CLI token
+gh auth token > .secrets/github_token && direnv reload
+```
+
+**CI secrets:**
+
+```bash
+# Set all required CI secrets (uses direnv-loaded environment variables)
+gh secret set NPM_PUBLISH_TOKEN -b"$NPMRC_DEFAULT_AUTH_TOKEN" -R OleksandrKucherenko/mcp-obsidian-via-rest
+gh secret set DOCKER_HUB_USERNAME -b"$DOCKER_HUB_USERNAME" -R OleksandrKucherenko/mcp-obsidian-via-rest
+gh secret set DOCKER_HUB_TOKEN -b"$DOCKER_HUB_TOKEN" -R OleksandrKucherenko/mcp-obsidian-via-rest
+```
+
+**GitHub packages token:**
+
+```bash
+# Create classic token at: https://github.com/settings/tokens (read:packages scope)
+echo "ghp_xxxx..." > .secrets/github_read_packages_token && direnv reload
+```
 
 ## 1. Pre-flight verification
 
-- [ ] Sync to latest main: `git fetch --prune --tags` and `git pull`
+- [ ] Sync to latest main: `git fetch --all --prune --tags` (and `git pull` if needed)
+- [ ] Verify current branch is rebased to latest origin/main: `git log --graph --oneline --decorate --all | head -20`
 - [ ] Confirm clean working tree: `git status`
-- [ ] Confirm toolchain availability: `bun --version`, `node --version`, `docker --version`
-- [ ] Confirm GitHub access: `gh auth status` and `gh release list --limit 1`
-- [ ] Review `.keep-versions` to ensure the new major/minor version will be preserved by cleanup jobs
+- [ ] Confirm GitHub access: `gh release list --limit 1`
 
 ## 2. Choose release version
 
