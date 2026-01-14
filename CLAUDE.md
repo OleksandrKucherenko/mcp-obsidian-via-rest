@@ -433,7 +433,7 @@ The project includes diagnostic scripts in the `scripts/` directory for troubles
 
 **WSL2 Network Diagnostics:**
 ```bash
-./scripts/diag-wsl2.sh
+./scripts/diag.wsl2_networking.sh
 ```
 Comprehensive WSL2 network diagnostics showing:
 - WSL2 and Windows host IP addresses
@@ -443,13 +443,13 @@ Comprehensive WSL2 network diagnostics showing:
 
 **Verify API Access from Docker:**
 ```bash
-./scripts/diag-verify-api-access.sh [port]
+./scripts/diag.docker_api.sh [port]
 ```
 Tests Obsidian API connectivity from inside a Docker container using both direct IP and `host.docker.internal`. Default port: 27124
 
 **macOS Docker/Colima Diagnostics:**
 ```bash
-./scripts/diag-macos.sh
+./scripts/diag.docker_colima.sh
 ```
 Diagnoses Docker/Colima issues on macOS Apple Silicon:
 - Colima status and Docker environment
