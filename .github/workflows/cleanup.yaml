@@ -18,6 +18,14 @@ on:
         description: 'Run cleanup-old-screenshots job'
         type: boolean
         default: true
+      run_branch_cleanup:
+        description: 'Run cleanup-old-release-branches job'
+        type: boolean
+        default: true
+      branch_cleanup_days:
+        description: 'Days threshold for release branch cleanup'
+        type: number
+        default: 7
       screenshots_keep_count:
         description: 'Number of recent screenshot builds to keep'
         type: number
@@ -178,3 +186,35 @@ jobs:
           fi
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Cleanup job to delete old release branches (runs weekly)
+  cleanup-old-release-branches:
+    if: |
+      ${{
+        ( github.event_name == 'schedule' ) ||
+        ( github.event.inputs.run_branch_cleanup == true )
+      }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Cleanup old release branches
+        run: |
+          DAYS="${{ github.event.inputs.branch_cleanup_days || 7 }}"
+          node ./assets/ci_cleanup_release_branches.js --days $DAYS
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Execute cleanup script
+        if: hashFiles('cleanup-release-branches-*.sh') != ''
+        run: |
+          LATEST_SCRIPT=$(ls -t cleanup-release-branches-*.sh | head -n1)
+          ./$LATEST_SCRIPT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

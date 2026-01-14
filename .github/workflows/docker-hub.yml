@@ -8,6 +8,9 @@ on:
         description: 'Version tag (optional)'
         required: false
         type: string
+  push:
+    tags:
+      - "v*"
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
