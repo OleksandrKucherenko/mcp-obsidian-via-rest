@@ -9,7 +9,7 @@ on:
         options: [major, minor, patch]
         default: patch
       custom_version:
-        description: 'Custom version (e.g., 0.6.0) - overrides version_bump'
+        description: 'Custom version (e.g., 0.6.0, 0.7.0-beta.1) - overrides version_bump'
         type: string
         required: false
       prerelease:
