@@ -1,5 +1,5 @@
 # Publish Docker Images to Docker Hub
-name: Docker (Docker Hub)
+name: Docker (docker.io)
 
 on:
   workflow_dispatch:
@@ -42,6 +42,36 @@ jobs:
         run: |
           echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
+      - name: Determine if this is the latest stable release
+        id: is_latest
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          
+          # Check if this is a pre-release (contains -, like 0.6.0-rc.0)
+          if [[ "$VERSION" =~ - ]]; then
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            # Extract prerelease identifier (alpha, beta, rc, etc.)
+            if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
+              echo "prerelease_tag=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            fi
+            echo "::notice::Pre-release detected: $VERSION - will NOT tag as latest"
+          else
+            # Get all stable tags, sort by semver, pick the highest
+            LATEST_STABLE=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            LATEST_STABLE_VERSION="${LATEST_STABLE#v}"
+            
+            # Compare versions
+            if [ "$VERSION" = "$LATEST_STABLE_VERSION" ]; then
+              echo "is_latest=true" >> $GITHUB_OUTPUT
+              echo "::notice::This is the latest stable release: $VERSION"
+            else
+              echo "is_latest=false" >> $GITHUB_OUTPUT
+              echo "::notice::Older stable release: $VERSION (latest is $LATEST_STABLE_VERSION)"
+            fi
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract metadata (tags, labels) for Docker (VNC Obsidian)
         id: metaVnc
         uses: docker/metadata-action@v5
@@ -53,7 +83,9 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,format=short
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ steps.is_latest.outputs.is_latest == 'true' }}
+            type=raw,value=next,enable=${{ steps.is_latest.outputs.is_prerelease == 'true' }}
+            type=raw,value=${{ steps.is_latest.outputs.prerelease_tag }},enable=${{ steps.is_latest.outputs.is_prerelease == 'true' && steps.is_latest.outputs.prerelease_tag != '' }}
 
       - name: Build and push Docker image (VNC Obsidian)
         uses: docker/build-push-action@v6
@@ -93,6 +125,32 @@ jobs:
         run: |
           echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
+      - name: Determine if this is the latest stable release
+        id: is_latest
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          
+          # Check if this is a pre-release (contains -, like 0.6.0-rc.0)
+          if [[ "$VERSION" =~ - ]]; then
+            echo "is_latest=false" >> $GITHUB_OUTPUT
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+            if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
+              echo "prerelease_tag=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            fi
+            echo "::notice::Pre-release detected: $VERSION - will NOT tag as latest"
+          else
+            LATEST_STABLE=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            LATEST_STABLE_VERSION="${LATEST_STABLE#v}"
+            if [ "$VERSION" = "$LATEST_STABLE_VERSION" ]; then
+              echo "is_latest=true" >> $GITHUB_OUTPUT
+              echo "::notice::This is the latest stable release: $VERSION"
+            else
+              echo "is_latest=false" >> $GITHUB_OUTPUT
+              echo "::notice::Older stable release: $VERSION (latest is $LATEST_STABLE_VERSION)"
+            fi
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Extract metadata (tags, labels) for Docker (MCP Obsidian)
         id: metaMcp
         uses: docker/metadata-action@v5
@@ -104,7 +162,9 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=semver,pattern={{major}}
             type=sha,format=short
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ steps.is_latest.outputs.is_latest == 'true' }}
+            type=raw,value=next,enable=${{ steps.is_latest.outputs.is_prerelease == 'true' }}
+            type=raw,value=${{ steps.is_latest.outputs.prerelease_tag }},enable=${{ steps.is_latest.outputs.is_prerelease == 'true' && steps.is_latest.outputs.prerelease_tag != '' }}
 
       - name: Build and push Docker image (MCP Obsidian)
         uses: docker/build-push-action@v6

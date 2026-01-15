@@ -48,6 +48,52 @@ main (v0.5.1)
         (Tag v0.5.2 remains permanent)
 ```
 
+### Workflow Sequence Diagram
+
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GHA as GitHub Actions
+    participant Release as release.yml
+    participant NPM as npm-npmjs.yml
+    participant GHCR as docker-github.yml
+    participant Hub as docker-hub.yml
+    
+    Dev->>GHA: Run release workflow<br/>(version_bump: minor)
+    
+    rect rgb(240, 248, 255)
+        Note over Release: Job 1: pre-flight
+        Release->>Release: Typecheck, lint, test, build
+        Release->>Release: Calculate version (dry-run)
+    end
+    
+    rect rgb(240, 255, 240)
+        Note over Release: Job 2: create-release
+        Release->>Release: Create branch release/v0.6.0
+        Release->>Release: Run release-it
+        Release-->>GHA: Push tag v0.6.0
+    end
+    
+    Note over GHA: Tag push triggers deployments
+    
+    par Parallel Deployments
+        GHA->>NPM: on: push: tags: [v*]
+        NPM->>NPM: Publish to npmjs.org
+        
+        GHA->>GHCR: on: push: tags: [v*]
+        GHCR->>GHCR: Build & push to ghcr.io
+        
+        GHA->>Hub: on: push: tags: [v*]
+        Hub->>Hub: Build & push to Docker Hub
+    end
+    
+    rect rgb(255, 250, 240)
+        Note over Dev: Optional: Sync main
+        Dev->>Dev: bun run release:sync
+        Dev->>Dev: git push
+    end
+```
+
 ## Quick Start
 
 ### 1. Create Release
@@ -59,6 +105,8 @@ main (v0.5.1)
 # (Optional) Enable "Dry run" for testing
 # Click "Run workflow"
 ```
+
+![Manual Triggering](docs/release-workflow-manual-run.jpg)
 
 Or use GH command line tool:
 

@@ -4,10 +4,19 @@ on:
   workflow_dispatch:
     inputs:
       version_bump:
-        description: 'Version bump type'
+        description: 'Version bump type (ignored if custom_version is set)'
         type: choice
         options: [major, minor, patch]
         default: patch
+      custom_version:
+        description: 'Custom version (e.g., 0.6.0) - overrides version_bump'
+        type: string
+        required: false
+      prerelease:
+        description: 'Pre-release identifier (alpha, beta, rc) - creates pre-release'
+        type: choice
+        options: ['', alpha, beta, rc]
+        default: ''
       dry_run:
         description: 'Dry run mode (no actual release)'
         type: boolean
@@ -66,12 +75,32 @@ jobs:
         id: version
         run: |
           BUMP="${{ inputs.version_bump }}"
-          VERSION=$(bun run release-it --config .release-it.release-branch.jsonc $BUMP --dry-run --ci --release-version 2>&1 | grep -E '^\d+\.\d+\.\d+$')
+          CUSTOM_VERSION="${{ inputs.custom_version }}"
+          PRERELEASE="${{ inputs.prerelease }}"
+          
+          if [ -n "$CUSTOM_VERSION" ]; then
+            # Custom version specified - use as-is
+            VERSION="$CUSTOM_VERSION"
+            echo "::notice::Using custom version: ${VERSION}"
+          else
+            # Build release-it arguments
+            VERSION_ARGS="$BUMP"
+            if [ -n "$PRERELEASE" ]; then
+              VERSION_ARGS="$BUMP --preRelease=$PRERELEASE"
+              echo "::notice::Pre-release mode: $PRERELEASE"
+            fi
+            
+            # Calculate version using release-it
+            VERSION=$(bun run release-it --config .release-it.ci.jsonc $VERSION_ARGS --dry-run --ci --release-version 2>&1 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+')
+          fi
+          
           if [ -z "$VERSION" ]; then
-            echo "Failed to calculate version"
+            echo "::error::Failed to calculate version"
             exit 1
           fi
+          
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
           echo "::notice::Calculated version: ${VERSION}"
 
   create-release:
@@ -108,13 +137,27 @@ jobs:
       - name: Run release-it
         run: |
           BUMP="${{ inputs.version_bump }}"
+          CUSTOM_VERSION="${{ inputs.custom_version }}"
+          PRERELEASE="${{ inputs.prerelease }}"
           DRY_RUN="${{ inputs.dry_run }}"
-
+          
+          # Build version arguments
+          if [ -n "$CUSTOM_VERSION" ]; then
+            VERSION_ARG="$CUSTOM_VERSION"
+            echo "Using custom version: $VERSION_ARG"
+          elif [ -n "$PRERELEASE" ]; then
+            VERSION_ARG="$BUMP --preRelease=$PRERELEASE"
+            echo "Using pre-release: $BUMP with $PRERELEASE"
+          else
+            VERSION_ARG="$BUMP"
+          fi
+          
           if [ "$DRY_RUN" == "true" ]; then
             echo "=== DRY RUN MODE ==="
             echo "Calculated version: ${{ needs.pre-flight.outputs.version }}"
+            echo "Pre-release: ${PRERELEASE:-none}"
             echo "Running release-it in dry-run mode..."
-            bun run release-it --config .release-it.release-branch.jsonc $BUMP --dry-run --ci
+            bun run release-it --config .release-it.ci.jsonc $VERSION_ARG --dry-run --ci
             echo ""
             echo "=== DRY RUN COMPLETE ==="
             echo "No changes made to repository"
@@ -122,8 +165,9 @@ jobs:
             echo "=== CREATING RELEASE ==="
             echo "Version: ${{ needs.pre-flight.outputs.version }}"
             echo "Bump type: $BUMP"
+            echo "Pre-release: ${PRERELEASE:-none}"
             echo ""
-            bun run release-it --config .release-it.release-branch.jsonc $BUMP --ci
+            bun run release-it --config .release-it.ci.jsonc $VERSION_ARG --ci
             echo ""
             echo "=== RELEASE COMPLETE ==="
           fi
@@ -157,12 +201,35 @@ jobs:
         if: inputs.dry_run == 'true'
         run: |
           VERSION="${{ needs.pre-flight.outputs.version }}"
-          echo "## Dry Run Results" >> $GITHUB_STEP_SUMMARY
+          PRERELEASE="${{ inputs.prerelease }}"
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || echo "0")
+          
+          echo "## 🔍 Dry Run Results" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Calculated Version" >> $GITHUB_STEP_SUMMARY
-          echo "**${VERSION}**" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Current version | \`${LATEST_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Next version** | \`v${VERSION}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commits since release | ${COMMIT_COUNT} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bump type | ${{ inputs.version_bump }} |" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PRERELEASE" ]; then
+            echo "| Pre-release | \`${PRERELEASE}\` |" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Recent Commits" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          git log ${LATEST_TAG}..HEAD --oneline --no-decorate 2>/dev/null | head -10 >> $GITHUB_STEP_SUMMARY || echo "No commits found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "To create actual release:" >> $GITHUB_STEP_SUMMARY
           echo "1. Re-run this workflow without 'Dry run' enabled" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PRERELEASE" ]; then
+            echo "   \`gh workflow run release.yml -f version_bump=${{ inputs.version_bump }} -f prerelease=${PRERELEASE}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "   \`gh workflow run release.yml -f version_bump=${{ inputs.version_bump }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "2. Monitor workflows triggered by tag creation" >> $GITHUB_STEP_SUMMARY

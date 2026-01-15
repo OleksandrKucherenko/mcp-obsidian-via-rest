@@ -1,0 +1,40 @@
+{
+  //
+  // Unified release-it configuration for CI/CD workflows
+  // Can be used for both branch (main) and tag-based releases
+  //
+  // Usage:
+  // - For branch builds: release-it --config .release-it.ci.jsonc --ci
+  // - For tag builds: release-it --config .release-it.ci.jsonc --ci --no-increment --git.getLatestTagFromAllRefs=false
+  //
+  // This configuration prioritizes being non-destructive in CI environments
+  // by avoiding git commits, tags, and pushes.
+  //
+  "$schema": "https://unpkg.com/release-it@19/schema/release-it.json",
+  "git": {
+    /* Disable git operations in CI for safety */
+    "commit": false, // Do not create a version commit
+    "tag": false, // Do not create a new tag
+    "push": false, // Do not push changes to remote
+    /* Working directory requirements */
+    "requireCleanWorkingDir": false, // Allow dirty working directory in CI
+    "requireUpstream": false, // Don't require upstream tracking
+    /* Tag detection settings - primarily for branch-based builds */
+    "getLatestTagFromAllRefs": true, // Look at all refs to find latest tag
+    "tagMatch": "v[0-9]*\\.[0-9]*\\.[0-9]*" // Only match semantic version tags
+  },
+  "github": {
+    "release": false // Do not create GitHub releases automatically
+  },
+  "npm": {
+    "publish": false // Do not publish to npm registry
+  },
+  "plugins": {
+    "@release-it/conventional-changelog": {
+      "preset": "angular", // Use Angular conventional commit style
+      "infile": "CHANGELOG.md", // Output file for changelog
+      "strictSemVer": true, // Enforce strict SemVer rules
+      "ignoreRecommendedBump": false // Use recommended version bump based on commit types
+    }
+  }
+}
