@@ -56,7 +56,7 @@ const checkGitHubAuthentication = () => {
       info("✓ GitHub CLI authenticated")
       return true
     }
-  } catch (error) {
+  } catch (_error) {
     critical("GitHub CLI authentication failed")
     critical("Run: gh auth login")
     process.exit(1)
@@ -68,7 +68,7 @@ const fetchRemoteBranches = () => {
     info("Fetching remote branches...")
     execSync("git fetch --prune --prune-tags origin")
     info("✓ Remote branches fetched")
-  } catch (error) {
+  } catch (_error) {
     warning("Failed to fetch remote branches")
   }
 }
@@ -79,7 +79,7 @@ const getReleaseBranches = () => {
       .split("\n")
       .map((line) => line.trim())
       .filter((line) => line.startsWith("origin/") && line.includes(CONFIG.BRANCH_PREFIX))
-  } catch (error) {
+  } catch (_error) {
     critical("Failed to list branches")
     process.exit(1)
   }
@@ -105,7 +105,7 @@ const getBranchTagAge = (branchName) => {
     const ageDays = Math.floor((now - tagDate.getTime()) / CONFIG.MS_PER_DAY)
 
     return { hasTag: true, ageDays, tagName }
-  } catch (error) {
+  } catch (_error) {
     return { hasTag: false, ageDays: Infinity, tagName: null }
   }
 }
