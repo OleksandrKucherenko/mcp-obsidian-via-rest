@@ -149,9 +149,8 @@ jobs:
             # PR build: use SHA hash as semver build metadata
             # Format: 0.6.0+sha.abc1234
             SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
-            PR_NUM=${{ github.event.pull_request.number }}
-            PACKAGE_VERSION="${BASE_VERSION}+pr${PR_NUM}.sha.${SHORT_SHA}"
-            NPM_TAG="pr-${PR_NUM}"
+            PACKAGE_VERSION="${BASE_VERSION}+sha.${SHORT_SHA}"
+            NPM_TAG="sha-${SHORT_SHA}"
             echo "::notice::PR build - Version: ${PACKAGE_VERSION}, Tag: ${NPM_TAG}"
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             # Tag build: use tag version
@@ -255,7 +254,7 @@ jobs:
             npm install @oleksandrkucherenko/mcp-obsidian@${tag} --registry=https://npm.pkg.github.com
             \`\`\`
 
-            > :bulb: This is a staging build from PR #${{ github.event.pull_request.number }}
+            > :bulb: This is a staging build (commit: ${{ github.event.pull_request.head.sha }})
             `;
 
             github.rest.issues.createComment({
