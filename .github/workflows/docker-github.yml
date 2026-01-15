@@ -122,7 +122,8 @@ jobs:
           context: ./dockerize
           file: ./dockerize/Dockerfile
           provenance: false
-          push: true
+          # Don't push for forked PRs (no packages:write permission)
+          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaVnc.outputs.tags }}
           labels: ${{ steps.metaVnc.outputs.labels }}
@@ -130,7 +131,8 @@ jobs:
           cache-to: type=gha,mode=max,scope=obsidian-vnc
 
       - name: Comment on PR with Docker image info
-        if: github.event_name == 'pull_request'
+        # Only comment for same-repo PRs (forked PRs can't push images)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |
@@ -269,7 +271,8 @@ jobs:
         with:
           context: .
           file: Dockerfile
-          push: true
+          # Don't push for forked PRs (no packages:write permission)
+          push: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
           provenance: false
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaMcp.outputs.tags }}
@@ -278,7 +281,8 @@ jobs:
           cache-to: type=gha,mode=max,scope=obsidian-mcp
 
       - name: Comment on PR with Docker image info
-        if: github.event_name == 'pull_request'
+        # Only comment for same-repo PRs (forked PRs can't push images)
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |

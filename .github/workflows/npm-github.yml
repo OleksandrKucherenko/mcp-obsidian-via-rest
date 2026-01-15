@@ -218,7 +218,8 @@ jobs:
           bun run publish:prepare
 
       - name: Publish to GitHub Packages
-        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true'
+        # Skip for forked PRs (no secrets/packages:write permission)
+        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         run: |
           PACKAGE_VERSION="${{ steps.version.outputs.PACKAGE_VERSION }}"
           NPM_TAG="${{ steps.version.outputs.NPM_TAG }}"
@@ -233,7 +234,8 @@ jobs:
           NPM_REGISTRY_URL: "https://npm.pkg.github.com"
 
       - name: Comment on PR with package info
-        if: github.event_name == 'pull_request' && steps.check-published.outputs.ALREADY_PUBLISHED != 'true'
+        # Only comment for same-repo PRs (forked PRs can't publish)
+        if: github.event_name == 'pull_request' && steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v7
         with:
           script: |
