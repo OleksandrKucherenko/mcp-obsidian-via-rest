@@ -1,6 +1,6 @@
 name: Release
 
-run-name: "${{ inputs.dry_run && 'Dry-run' || 'Release' }}: ${{ inputs.custom_version || format('{0} → {1}', inputs.version_bump, inputs.prerelease) }}"
+run-name: "${{ inputs.dry_run && 'Dry-run' || 'Release' }}: ${{ inputs.custom_version || (inputs.version_bump == 'auto' && inputs.prerelease == '<stable>' && 'auto (conventional)' || format('{0} → {1}', inputs.version_bump, inputs.prerelease)) }}"
 
 on:
   workflow_dispatch:
@@ -10,10 +10,10 @@ on:
         type: boolean
         default: false
       version_bump:
-        description: 'Version bump type (ignored if custom_version is set)'
+        description: 'Version bump type: auto = conventional commits, or major/minor/patch (ignored if custom_version is set)'
         type: choice
-        options: [major, minor, patch]
-        default: patch
+        options: [auto, major, minor, patch]
+        default: auto
       prerelease:
         description: 'Pre-release identifier (alpha, beta, rc) - creates pre-release'
         type: choice
@@ -91,12 +91,21 @@ jobs:
             echo "::notice::Using custom version: ${VERSION}"
           else
             # Build release-it arguments
-            VERSION_ARGS="$BUMP"
+            if [ "$BUMP" == "auto" ]; then
+              # Auto mode: let release-it determine version from conventional commits
+              VERSION_ARGS=""
+              echo "::notice::Auto mode: determining version from conventional commits"
+            else
+              # Manual bump mode
+              VERSION_ARGS="$BUMP"
+              echo "::notice::Manual bump: $BUMP"
+            fi
+
             if [ -n "$PRERELEASE" ]; then
-              VERSION_ARGS="$BUMP --preRelease=$PRERELEASE"
+              VERSION_ARGS="$VERSION_ARGS --preRelease=$PRERELEASE"
               echo "::notice::Pre-release mode: $PRERELEASE"
             fi
-            
+
             # Calculate version using release-it
             VERSION=$(bun run release-it --config .release-it.ci.jsonc $VERSION_ARGS --dry-run --ci --release-version 2>&1 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+')
           fi
@@ -157,11 +166,21 @@ jobs:
           if [ -n "$CUSTOM_VERSION" ]; then
             VERSION_ARG="$CUSTOM_VERSION"
             echo "Using custom version: $VERSION_ARG"
-          elif [ -n "$PRERELEASE" ]; then
-            VERSION_ARG="$BUMP --preRelease=$PRERELEASE"
-            echo "Using pre-release: $BUMP with $PRERELEASE"
           else
-            VERSION_ARG="$BUMP"
+            if [ "$BUMP" == "auto" ]; then
+              # Auto mode: let release-it determine version from conventional commits
+              VERSION_ARG=""
+              echo "Auto mode: determining version from conventional commits"
+            else
+              # Manual bump mode
+              VERSION_ARG="$BUMP"
+              echo "Manual bump: $BUMP"
+            fi
+
+            if [ -n "$PRERELEASE" ]; then
+              VERSION_ARG="$VERSION_ARG --preRelease=$PRERELEASE"
+              echo "Pre-release mode: $PRERELEASE"
+            fi
           fi
           
           if [ "$DRY_RUN" == "true" ]; then
