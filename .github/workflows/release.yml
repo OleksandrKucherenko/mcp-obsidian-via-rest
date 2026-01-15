@@ -3,24 +3,24 @@ name: Release
 on:
   workflow_dispatch:
     inputs:
+      dry_run:
+        description: 'Dry run mode (no actual release)'
+        type: boolean
+        default: false
       version_bump:
         description: 'Version bump type (ignored if custom_version is set)'
         type: choice
         options: [major, minor, patch]
         default: patch
-      custom_version:
-        description: 'Custom version (e.g., 0.6.0, 0.7.0-beta.1) - overrides version_bump'
-        type: string
-        required: false
       prerelease:
         description: 'Pre-release identifier (alpha, beta, rc) - creates pre-release'
         type: choice
         options: ['<stable>', alpha, beta, rc]
         default: '<stable>'
-      dry_run:
-        description: 'Dry run mode (no actual release)'
-        type: boolean
-        default: false
+      custom_version:
+        description: 'Custom version (e.g., 0.6.0, 0.7.0-beta.1) - overrides version_bump'
+        type: string
+        required: false
 
 permissions:
   contents: write
