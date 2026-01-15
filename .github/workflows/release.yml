@@ -15,8 +15,8 @@ on:
       prerelease:
         description: 'Pre-release identifier (alpha, beta, rc) - creates pre-release'
         type: choice
-        options: ['', alpha, beta, rc]
-        default: ''
+        options: ['<stable>', alpha, beta, rc]
+        default: '<stable>'
       dry_run:
         description: 'Dry run mode (no actual release)'
         type: boolean
@@ -77,7 +77,12 @@ jobs:
           BUMP="${{ inputs.version_bump }}"
           CUSTOM_VERSION="${{ inputs.custom_version }}"
           PRERELEASE="${{ inputs.prerelease }}"
-          
+
+          # Treat <stable> as empty (stable release)
+          if [ "$PRERELEASE" == "<stable>" ]; then
+            PRERELEASE=""
+          fi
+
           if [ -n "$CUSTOM_VERSION" ]; then
             # Custom version specified - use as-is
             VERSION="$CUSTOM_VERSION"
@@ -140,7 +145,12 @@ jobs:
           CUSTOM_VERSION="${{ inputs.custom_version }}"
           PRERELEASE="${{ inputs.prerelease }}"
           DRY_RUN="${{ inputs.dry_run }}"
-          
+
+          # Treat <stable> as empty (stable release)
+          if [ "$PRERELEASE" == "<stable>" ]; then
+            PRERELEASE=""
+          fi
+
           # Build version arguments
           if [ -n "$CUSTOM_VERSION" ]; then
             VERSION_ARG="$CUSTOM_VERSION"
@@ -202,6 +212,12 @@ jobs:
         run: |
           VERSION="${{ needs.pre-flight.outputs.version }}"
           PRERELEASE="${{ inputs.prerelease }}"
+
+          # Treat <stable> as empty (stable release)
+          if [ "$PRERELEASE" == "<stable>" ]; then
+            PRERELEASE=""
+          fi
+
           LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
           COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || echo "0")
           
