@@ -1,0 +1,70 @@
+name: 'Determine Docker Tags'
+description: 'Determines Docker tags based on event type (PR, tag, or manual)'
+
+outputs:
+  primary_tag:
+    description: 'Primary Docker tag (sha-xxx for PR, version for tag)'
+    value: ${{ steps.tags.outputs.PRIMARY_TAG }}
+  is_pr:
+    description: 'Whether this is a PR build'
+    value: ${{ steps.tags.outputs.IS_PR }}
+  is_latest:
+    description: 'Whether this should be tagged as latest'
+    value: ${{ steps.tags.outputs.IS_LATEST }}
+  is_prerelease:
+    description: 'Whether this is a pre-release'
+    value: ${{ steps.tags.outputs.IS_PRERELEASE }}
+  prerelease_tag:
+    description: 'Pre-release identifier (alpha, beta, rc)'
+    value: ${{ steps.tags.outputs.PRERELEASE_TAG }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Determine Docker tags
+      id: tags
+      shell: bash
+      run: |
+        if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          # PR build: use SHA hash for tagging
+          SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "IS_PR=true" >> $GITHUB_OUTPUT
+          echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+          echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+          echo "::notice::PR build - Tag: sha-${SHORT_SHA}"
+        elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+          VERSION="${GITHUB_REF#refs/tags/v}"
+          echo "PRIMARY_TAG=${VERSION}" >> $GITHUB_OUTPUT
+          echo "IS_PR=false" >> $GITHUB_OUTPUT
+
+          # Check if this is a pre-release
+          if [[ "$VERSION" =~ - ]]; then
+            echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+            if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
+              echo "PRERELEASE_TAG=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+            fi
+            echo "::notice::Pre-release detected: $VERSION"
+          else
+            # Check if this is the latest stable release
+            LATEST_STABLE=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+            LATEST_STABLE_VERSION="${LATEST_STABLE#v}"
+            if [ "$VERSION" = "$LATEST_STABLE_VERSION" ]; then
+              echo "IS_LATEST=true" >> $GITHUB_OUTPUT
+              echo "::notice::Latest stable release: $VERSION"
+            else
+              echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+              echo "::notice::Older stable release: $VERSION (latest is $LATEST_STABLE_VERSION)"
+            fi
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+          fi
+        else
+          # Manual/other: use SHA hash
+          SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+          echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "IS_PR=false" >> $GITHUB_OUTPUT
+          echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+          echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+          echo "::notice::Dev build - Tag: sha-${SHORT_SHA}"
+        fi

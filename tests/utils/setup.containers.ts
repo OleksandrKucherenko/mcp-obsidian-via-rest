@@ -41,8 +41,8 @@ const ensureDockerImages = async ({
   composeFile,
 }: Pick<SetupContainersArgs, "composeFilePath" | "composeFile">) => {
   logConsoleNotice(
-    "Docker is building the test containers. " + 
-    "This can take a few minutes on first run (set DEBUG=mcp:* for build logs)...",
+    "Docker is building the test containers. " +
+      "This can take a few minutes on first run (set DEBUG=mcp:* for build logs)...",
   )
 
   const shouldNotify = !isDebuggingEnabled()
