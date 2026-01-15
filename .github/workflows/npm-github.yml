@@ -1,4 +1,4 @@
-name: NPM (GitHub)
+name: NPM (ghcr.io)
 
 on:
   release:
@@ -177,7 +177,7 @@ jobs:
         continue-on-error: true
         run: |
           # Check release-it for next version based on commits between last tag and HEAD.
-          bun run release-it --config .release-it.ci.jsonc --dry-run --ci --no-increment 
+          bun run release-it --config .release-it.readonly.jsonc --dry-run --ci --no-increment 
           
           # Extract version from package.json
           export PACKAGE_VERSION=$(node -p "require('./package.json').version")

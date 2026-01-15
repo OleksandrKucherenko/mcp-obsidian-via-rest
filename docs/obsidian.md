@@ -25,7 +25,7 @@
 ./docker-compose up --build -d
 
 # run script for getting a visual feedback on Obsidian inside the docker container
-./dockerize/ci_screenshot_obsidian_gui.sh
+./dockerize/ci.screenshot_obsidian.sh
 
 # Screenshot will be saved in the 'reports/screenshots' directory, relative to project root
 
@@ -108,7 +108,7 @@ http --verify=no https://localhost:50000
 tvnviewer -host=localhost -port=50001 -password=testpassword -encoding=zrle
 
 # Capture screenshots (used another container name!)
-SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh
+SCR_CONTAINER_NAME="obsidian" ./dockerize/ci.screenshot_obsidian.sh
 
 # Stop the containers
 docker compose -f docker-compose.test.yaml down
@@ -118,7 +118,7 @@ docker compose -f docker-compose.test.yaml down
 
 To facilitate verification of the Obsidian GUI in the CI/CD pipeline, we utilize the screenshot approach.
 
-Automation script `./dockerize/ci_screenshot_obsidian_gui.sh` is used to capture screenshots of the Obsidian GUI during the CI/CD pipeline. After that, screenshots are published as artifacts and as `gh-pages` for quick verification (link also published as workflow annotation message).
+Automation script `./dockerize/ci.screenshot_obsidian.sh` is used to capture screenshots of the Obsidian GUI during the CI/CD pipeline. After that, screenshots are published as artifacts and as `gh-pages` for quick verification (link also published as workflow annotation message).
 
 Why do we need this? Obsidian Application has a trust verification UI When the user opens the vault for the first time, it asks to confirm trust in the vault and all its plugins. 
 

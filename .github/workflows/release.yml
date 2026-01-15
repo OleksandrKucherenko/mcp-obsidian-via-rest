@@ -1,26 +1,24 @@
-# Automated Release Workflow
-# This workflow creates a release by:
-# 1. Running all tests
-# 2. Bumping version and updating CHANGELOG
-# 3. Committing to main branch
-# 4. Creating and pushing git tag
-# 5. Creating GitHub Release (triggers deployment workflows)
 name: Release
 
 on:
   workflow_dispatch:
     inputs:
       version_bump:
-        description: 'Version bump type'
-        required: true
+        description: 'Version bump type (ignored if custom_version is set)'
         type: choice
-        options:
-          - patch
-          - minor
-          - major
-        default: 'patch'
+        options: [major, minor, patch]
+        default: patch
+      custom_version:
+        description: 'Custom version (e.g., 0.6.0) - overrides version_bump'
+        type: string
+        required: false
+      prerelease:
+        description: 'Pre-release identifier (alpha, beta, rc) - creates pre-release'
+        type: choice
+        options: ['', alpha, beta, rc]
+        default: ''
       dry_run:
-        description: 'Dry run mode (skip actual release)'
+        description: 'Dry run mode (no actual release)'
         type: boolean
         default: false
 
@@ -30,7 +28,6 @@ permissions:
   id-token: write
 
 jobs:
-  # Pre-flight checks and testing
   pre-flight:
     runs-on: ubuntu-latest
     outputs:
@@ -59,7 +56,10 @@ jobs:
         run: bun run checks:lint
 
       - name: Unit tests
-        run: bun test ./src
+        run: bun test
+
+      - name: Build package
+        run: bun run build
 
       - name: Set release flag
         id: checks
@@ -71,20 +71,41 @@ jobs:
             echo "should_release=true" >> $GITHUB_OUTPUT
           fi
 
-      - name: Pre-flight summary
+      - name: Calculate version (dry run)
+        id: version
         run: |
-          echo "## Pre-flight Checks" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Typecheck: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Lint: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "✅ Unit tests: Passed" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Release Configuration" >> $GITHUB_STEP_SUMMARY
-          echo "- Bump type: **${{ inputs.version_bump }}**" >> $GITHUB_STEP_SUMMARY
+          BUMP="${{ inputs.version_bump }}"
+          CUSTOM_VERSION="${{ inputs.custom_version }}"
+          PRERELEASE="${{ inputs.prerelease }}"
+          
+          if [ -n "$CUSTOM_VERSION" ]; then
+            # Custom version specified - use as-is
+            VERSION="$CUSTOM_VERSION"
+            echo "::notice::Using custom version: ${VERSION}"
+          else
+            # Build release-it arguments
+            VERSION_ARGS="$BUMP"
+            if [ -n "$PRERELEASE" ]; then
+              VERSION_ARGS="$BUMP --preRelease=$PRERELEASE"
+              echo "::notice::Pre-release mode: $PRERELEASE"
+            fi
+            
+            # Calculate version using release-it
+            VERSION=$(bun run release-it --config .release-it.ci.jsonc $VERSION_ARGS --dry-run --ci --release-version 2>&1 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+')
+          fi
+          
+          if [ -z "$VERSION" ]; then
+            echo "::error::Failed to calculate version"
+            exit 1
+          fi
+          
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "prerelease=${PRERELEASE}" >> $GITHUB_OUTPUT
+          echo "::notice::Calculated version: ${VERSION}"
 
-  # Create release commit and tag
   create-release:
     needs: pre-flight
-    if: needs.pre-flight.outputs.should_release == 'true'
+    if: needs.pre-flight.outputs.should_release == 'true' || inputs.dry_run == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -107,83 +128,108 @@ jobs:
       - name: Install dependencies
         run: bun install
 
-      - name: Generate CHANGELOG with release-it
-        id: release
+      - name: Create and checkout release branch
         run: |
-          echo "Running release-it with ${{ inputs.version_bump }} bump..."
+          VERSION="${{ needs.pre-flight.outputs.version }}"
+          echo "Creating release branch: release/v${VERSION}"
+          git checkout -b release/v${VERSION}
 
-          # Configure git for release-it
-          git fetch --prune --prune-tags origin
-
-          # Use release-it to calculate version and update CHANGELOG.md
-          # Git operations (commit, tag, push) are disabled in CI config - handled manually below
-          bun run release-it --config .release-it.ci.jsonc --ci ${{ inputs.version_bump }}
-
-          # Extract the version that release-it calculated
-          VERSION=$(jq -r '.version' package.json)
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "Release version: ${VERSION}"
-
-      - name: Build package
-        run: bun run build
-
-      - name: Commit release changes
+      - name: Run release-it
         run: |
-          # Commit the changes (release-it updates package.json and CHANGELOG.md)
-          git add package.json CHANGELOG.md
-          git commit -m "chore(release): v${{ steps.release.outputs.version }}"
-
-      - name: Merge release commit to main
-        run: |
-          # Check current branch
-          CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
-          echo "Current branch: ${CURRENT_BRANCH}"
-
-          # If not on main, create a PR to main
-          if [ "${CURRENT_BRANCH}" != "main" ]; then
-            echo "Creating PR to merge release commit to main..."
-
-            # Push current branch
-            git push origin ${CURRENT_BRANCH}
-
-            # Create PR
-            gh pr create \
-              --base main \
-              --head ${CURRENT_BRANCH} \
-              --title "chore(release): v${{ steps.release.outputs.version }}" \
-              --body "Automated release PR for version ${{ steps.release.outputs.version }}" \
-              --label "release"
-
-            echo "::notice::PR created. Please merge it to proceed with the release."
-            exit 0
+          BUMP="${{ inputs.version_bump }}"
+          CUSTOM_VERSION="${{ inputs.custom_version }}"
+          PRERELEASE="${{ inputs.prerelease }}"
+          DRY_RUN="${{ inputs.dry_run }}"
+          
+          # Build version arguments
+          if [ -n "$CUSTOM_VERSION" ]; then
+            VERSION_ARG="$CUSTOM_VERSION"
+            echo "Using custom version: $VERSION_ARG"
+          elif [ -n "$PRERELEASE" ]; then
+            VERSION_ARG="$BUMP --preRelease=$PRERELEASE"
+            echo "Using pre-release: $BUMP with $PRERELEASE"
+          else
+            VERSION_ARG="$BUMP"
           fi
-
-          # Push commit to main
-          git push origin main
-
-      - name: Create and push tag
-        run: |
-          VERSION="${{ steps.release.outputs.version }}"
-
-          # Create annotated tag
-          git tag -a "v${VERSION}" -m "Release v${VERSION}"
-
-          # Push tag
-          git push origin "v${VERSION}"
+          
+          if [ "$DRY_RUN" == "true" ]; then
+            echo "=== DRY RUN MODE ==="
+            echo "Calculated version: ${{ needs.pre-flight.outputs.version }}"
+            echo "Pre-release: ${PRERELEASE:-none}"
+            echo "Running release-it in dry-run mode..."
+            bun run release-it --config .release-it.ci.jsonc $VERSION_ARG --dry-run --ci
+            echo ""
+            echo "=== DRY RUN COMPLETE ==="
+            echo "No changes made to repository"
+          else
+            echo "=== CREATING RELEASE ==="
+            echo "Version: ${{ needs.pre-flight.outputs.version }}"
+            echo "Bump type: $BUMP"
+            echo "Pre-release: ${PRERELEASE:-none}"
+            echo ""
+            bun run release-it --config .release-it.ci.jsonc $VERSION_ARG --ci
+            echo ""
+            echo "=== RELEASE COMPLETE ==="
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release summary
+        if: inputs.dry_run == 'false'
         run: |
+          VERSION="${{ needs.pre-flight.outputs.version }}"
           echo "## Release Created" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Details" >> $GITHUB_STEP_SUMMARY
-          echo "- **Version:** v${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag:** v${{ steps.release.outputs.version }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Bump:** ${{ inputs.version_bump }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Release Branch:** release/v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Git Tag:** v${VERSION}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Artifacts" >> $GITHUB_STEP_SUMMARY
+          echo "- [GitHub Release](https://github.com/${{ github.repository }}/releases/tag/v${VERSION})" >> $GITHUB_STEP_SUMMARY
+          echo "- [npm Package](https://www.npmjs.com/package/@oleksandrkucherenko/mcp-obsidian/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
           echo "The following workflows are now triggered:" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ NPM (npmjs.org)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Docker (GitHub/GHCR)" >> $GITHUB_STEP_SUMMARY
-          echo "- ℹ️ NPM (GitHub Packages)" >> $GITHUB_STEP_SUMMARY
+          echo "- ⚠️  Docker (Docker Hub) - **Manual trigger required**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Monitor workflows at: https://github.com/${{ github.repository }}/actions" >> $GITHUB_STEP_SUMMARY
+
+      - name: Dry run summary
+        if: inputs.dry_run == 'true'
+        run: |
+          VERSION="${{ needs.pre-flight.outputs.version }}"
+          PRERELEASE="${{ inputs.prerelease }}"
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || echo "0")
+          
+          echo "## 🔍 Dry Run Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Current version | \`${LATEST_TAG}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Next version** | \`v${VERSION}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commits since release | ${COMMIT_COUNT} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Bump type | ${{ inputs.version_bump }} |" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PRERELEASE" ]; then
+            echo "| Pre-release | \`${PRERELEASE}\` |" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Recent Commits" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          git log ${LATEST_TAG}..HEAD --oneline --no-decorate 2>/dev/null | head -10 >> $GITHUB_STEP_SUMMARY || echo "No commits found" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
+          echo "To create actual release:" >> $GITHUB_STEP_SUMMARY
+          echo "1. Re-run this workflow without 'Dry run' enabled" >> $GITHUB_STEP_SUMMARY
+          if [ -n "$PRERELEASE" ]; then
+            echo "   \`gh workflow run release.yml -f version_bump=${{ inputs.version_bump }} -f prerelease=${PRERELEASE}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "   \`gh workflow run release.yml -f version_bump=${{ inputs.version_bump }}\`" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "2. Monitor workflows triggered by tag creation" >> $GITHUB_STEP_SUMMARY

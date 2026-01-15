@@ -4,7 +4,7 @@ This directory contains helper scripts for manual testing and verification of MC
 
 ## Scripts
 
-### `quick-test.sh`
+### `test.mcp_quick.sh`
 
 Automated test script that verifies MCP server is working correctly with your Obsidian instance.
 
@@ -16,10 +16,10 @@ export API_HOST="https://localhost"  # or WSL2 gateway IP
 export API_PORT="27124"
 
 # Run quick test (basic checks only)
-./quick-test.sh
+./test.mcp_quick.sh
 
 # Run with search query
-./quick-test.sh "TypeScript"
+./test.mcp_quick.sh "TypeScript"
 ```
 
 **Tests performed:**
@@ -28,13 +28,13 @@ export API_PORT="27124"
 3. ⚠️ Search functionality (optional, may timeout on slow networks)
 4. ✅ HTTP transport health check
 
-### `config-examples.sh`
+### `demo.config.sh`
 
 Displays ready-to-use configuration examples for different scenarios.
 
 **Usage:**
 ```bash
-./config-examples.sh
+./demo.config.sh
 ```
 
 **Examples included:**
@@ -48,13 +48,13 @@ Displays ready-to-use configuration examples for different scenarios.
 
 ```bash
 # 1. View configuration examples
-./config-examples.sh
+./demo.config.sh
 
 # 2. Run automated tests
-./quick-test.sh
+./test.mcp_quick.sh
 
 # 3. Test specific search query
-./quick-test.sh "Docker"
+./test.mcp_quick.sh "Docker"
 ```
 
 ## Requirements

@@ -6,13 +6,13 @@ This project uses [DIRENV](https://direnv.net/) to automatically load environmen
 
 The following environment variables are automatically loaded from `.envrc` by DIRENV:
 
-| Variable | Source | Default | Description |
-|----------|--------|---------|-------------|
-| `API_KEY` | `.secrets/obsidian_local_rest_api_key` | - | Obsidian Local REST API key |
-| `API_HOST` | Calculated from `WSL_GATEWAY_IP` | `https://localhost` | Obsidian REST API host |
-| `API_PORT` | `.envrc` | `27124` | Obsidian REST API port |
-| `WSL_GATEWAY_IP` | `ip route show` | - | WSL2 gateway IP (for Windows host) |
-| `API_URLS` | Constructed from above | - | Multi-URL configuration for automatic failover |
+| Variable         | Source                                 | Default             | Description                                    |
+| ---------------- | -------------------------------------- | ------------------- | ---------------------------------------------- |
+| `API_KEY`        | `.secrets/obsidian_local_rest_api_key` | -                   | Obsidian Local REST API key                    |
+| `API_HOST`       | Calculated from `WSL_GATEWAY_IP`       | `https://localhost` | Obsidian REST API host                         |
+| `API_PORT`       | `.envrc`                               | `27124`             | Obsidian REST API port                         |
+| `WSL_GATEWAY_IP` | `ip route show`                        | -                   | WSL2 gateway IP (for Windows host)             |
+| `API_URLS`       | Constructed from above                 | -                   | Multi-URL configuration for automatic failover |
 
 ## How It Works
 
@@ -181,6 +181,7 @@ echo $API_KEY  # Should show your API key
 ## Additional Resources
 
 - [DIRENV Documentation](https://direnv.net/)
-- [Manual Testing Guide](./docs/04_manual_testing.md)
-- [E2E Verification Guide](./docs/05_e2e_verification.md)
-- [OpenCode MCP Configurations](./opencode.README.md)
+- [Manual Testing Guide](./04_manual_testing.md)
+- [E2E Verification Guide](./05_e2e_verification.md)
+- [OpenCode MCP Configurations](../opencode.README.md)
+

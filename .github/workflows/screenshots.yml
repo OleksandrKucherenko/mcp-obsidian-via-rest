@@ -73,7 +73,7 @@ jobs:
 
       - name: Collect Screenshots
         run: |
-          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci_screenshot_obsidian_gui.sh || true
+          SCR_CONTAINER_NAME="obsidian" ./dockerize/ci.screenshot_obsidian.sh || true
         continue-on-error: true
 
       - name: Collect Docker Compose Logs
@@ -113,7 +113,7 @@ jobs:
           GITHUB_SHA: ${{ github.sha }}
         run: |
           VERSION="${{ steps.version.outputs.version }}" \
-          ./scripts/build-website.sh
+          ./scripts/web.build.sh
 
       - name: Upload screenshots as artifact
         uses: actions/upload-artifact@v4

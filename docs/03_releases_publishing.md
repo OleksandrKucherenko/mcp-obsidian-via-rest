@@ -2,34 +2,37 @@
 
 This guide helps you verify the release workflow logic locally before pushing tags and triggering actual publishing.
 
+> **📌 Note:** For the recommended automated release workflow, see [Release Runbook](./07_pre_release.md). This document is for manual verification and testing.
+
+## New Release Workflow (Recommended)
+
+The project now supports an automated release workflow via GitHub Actions:
+
+```bash
+# Standard release with version bump
+gh workflow run release.yml -f version_bump=minor
+
+# Pre-release (alpha, beta, rc)
+gh workflow run release.yml -f version_bump=minor -f prerelease=rc
+
+# Custom version override
+gh workflow run release.yml -f custom_version=0.6.0
+
+# Dry-run to verify without making changes
+gh workflow run release.yml -f version_bump=minor -f dry_run=true
+```
+
+See [Release Runbook](./07_pre_release.md) for complete details.
+
+---
+
 <!-- TOC -->
 
 - [Manual Release Workflow Verification](#manual-release-workflow-verification)
+  - [New Release Workflow (Recommended)](#new-release-workflow-recommended)
   - [Prerequisites](#prerequisites)
   - [Scenario 1: Publish New Major/Minor Version](#scenario-1-publish-new-majorminor-version)
-    - [Step 1: Dry Run with release-it](#step-1-dry-run-with-release-it)
-    - [Step 2: Verify Generated Files](#step-2-verify-generated-files)
-    - [Step 3: Manual Version Update Test](#step-3-manual-version-update-test)
-  - [Scenario 2: Publish Patch/Hotfix Version](#scenario-2-publish-patchhotfix-version)
-    - [Step 1: Create Hotfix Scenario](#step-1-create-hotfix-scenario)
-    - [Step 2: Test Patch Version Release](#step-2-test-patch-version-release)
-    - [Step 3: Verify Patch Logic](#step-3-verify-patch-logic)
-    - [Step 4: Cleanup](#step-4-cleanup)
-  - [Scenario 3: Publish Release Candidate RC](#scenario-3-publish-release-candidate-rc)
-    - [Step 1: Test RC Version](#step-1-test-rc-version)
-    - [Step 2: Simulate Workflow RC Detection](#step-2-simulate-workflow-rc-detection)
-    - [Step 3: Test Multiple RC Formats](#step-3-test-multiple-rc-formats)
-  - [Complete Workflow Simulation](#complete-workflow-simulation)
-    - [Full Test Script](#full-test-script)
-    - [Run the Test Script](#run-the-test-script)
-  - [Manual Verification Checklist](#manual-verification-checklist)
-    - [✅ Pre-Push Checklist](#-pre-push-checklist)
-    - [✅ Version-Specific Checks](#-version-specific-checks)
-  - [Troubleshooting](#troubleshooting)
-    - [Common Issues:](#common-issues)
-  - [Next Steps](#next-steps)
 
-<!-- /TOC -->
 
 ## Prerequisites
 
