@@ -1,4 +1,5 @@
-# Publish Docker Images to Docker Hub
+# Publish Docker Images to Docker Hub (Production Environment)
+# Only triggers on version tags - production releases only
 name: Docker (docker.io)
 
 on:

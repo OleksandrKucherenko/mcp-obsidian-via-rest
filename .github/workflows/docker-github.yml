@@ -1,17 +1,12 @@
+# Publish Docker Images to GitHub Container Registry (Staging Environment)
+# Triggers on PRs (with SHA-versioned images) and version tags
 name: Docker (ghcr.io)
 
 on:
-  push:
+  pull_request:
     branches: [main]
+  push:
     tags: ["v*"]
-    paths:
-      - 'src/*'
-      - 'dockerize/*'
-      - '.github/*'
-      - '.github/workflows/*'
-      - '.dockerignore'
-      - 'Dockerfile'
-      - 'package.json'
   workflow_dispatch:
     inputs:
       version:
@@ -24,12 +19,17 @@ concurrency: ${{ github.workflow }}-${{ github.ref }}
 jobs:
   build-vnc:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -51,81 +51,134 @@ jobs:
           echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
           echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Determine if this is the latest stable release
-        id: is_latest
-        if: github.ref_type == 'tag'
+      - name: Determine Docker tags
+        id: docker_tags
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          
-          if [[ "$VERSION" =~ - ]]; then
-            echo "is_latest=false" >> $GITHUB_OUTPUT
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-            if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
-              echo "prerelease_tag=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            fi
-            echo "::notice::Pre-release detected: $VERSION - will NOT tag as latest"
-          else
-            LATEST_STABLE=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
-            LATEST_STABLE_VERSION="${LATEST_STABLE#v}"
-            if [ "$VERSION" = "$LATEST_STABLE_VERSION" ]; then
-              echo "is_latest=true" >> $GITHUB_OUTPUT
-              echo "::notice::This is the latest stable release: $VERSION"
-            else
-              echo "is_latest=false" >> $GITHUB_OUTPUT
-              echo "::notice::Older stable release: $VERSION (latest is $LATEST_STABLE_VERSION)"
-            fi
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-          fi
+          BASE_VERSION=$(jq -r '.version' package.json)
 
-      - name: Set default tag flags for branch builds
-        id: branch_flags
-        if: github.ref_type != 'tag'
-        run: |
-          echo "is_latest=true" >> $GITHUB_OUTPUT
-          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR build: use SHA hash for tagging
+            SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+            PR_NUM=${{ github.event.pull_request.number }}
+            echo "PRIMARY_TAG=pr-${PR_NUM}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "IS_PR=true" >> $GITHUB_OUTPUT
+            echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "::notice::PR build - Tag: pr-${PR_NUM}-${SHORT_SHA}"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "PRIMARY_TAG=${VERSION}" >> $GITHUB_OUTPUT
+            echo "IS_PR=false" >> $GITHUB_OUTPUT
+
+            # Check if this is a pre-release
+            if [[ "$VERSION" =~ - ]]; then
+              echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+              echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+              if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
+                echo "PRERELEASE_TAG=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+              fi
+              echo "::notice::Pre-release detected: $VERSION"
+            else
+              # Check if this is the latest stable release
+              LATEST_STABLE=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+              LATEST_STABLE_VERSION="${LATEST_STABLE#v}"
+              if [ "$VERSION" = "$LATEST_STABLE_VERSION" ]; then
+                echo "IS_LATEST=true" >> $GITHUB_OUTPUT
+                echo "::notice::Latest stable release: $VERSION"
+              else
+                echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+                echo "::notice::Older stable release: $VERSION (latest is $LATEST_STABLE_VERSION)"
+              fi
+              echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Manual/other: use SHA hash
+            SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+            echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "IS_PR=false" >> $GITHUB_OUTPUT
+            echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "::notice::Dev build - Tag: sha-${SHORT_SHA}"
+          fi
 
       - name: Extract metadata (tags, labels) for Docker (VNC Obsidian)
         id: metaVnc
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc
-          flavor: latest=false   # 👈 Prevents implicit "latest" addition
+          flavor: latest=false
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=${{ steps.docker_tags.outputs.PRIMARY_TAG }}
+            type=semver,pattern={{version}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
+            type=semver,pattern={{major}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
             type=sha,format=short
-            type=raw,value=latest,enable=${{ steps.is_latest.outputs.is_latest == 'true' || steps.branch_flags.outputs.is_latest == 'true' }}
-            type=raw,value=next,enable=${{ steps.is_latest.outputs.is_prerelease == 'true' }}
-            type=raw,value=${{ steps.is_latest.outputs.prerelease_tag }},enable=${{ steps.is_latest.outputs.is_prerelease == 'true' && steps.is_latest.outputs.prerelease_tag != '' }}
-    
+            type=raw,value=latest,enable=${{ steps.docker_tags.outputs.IS_LATEST == 'true' }}
+            type=raw,value=next,enable=${{ steps.docker_tags.outputs.IS_PRERELEASE == 'true' }}
+            type=raw,value=${{ steps.docker_tags.outputs.PRERELEASE_TAG }},enable=${{ steps.docker_tags.outputs.IS_PRERELEASE == 'true' && steps.docker_tags.outputs.PRERELEASE_TAG != '' }}
+
       - name: Build and push Docker image (VNC Obsidian)
         uses: docker/build-push-action@v6
         with:
           context: ./dockerize
           file: ./dockerize/Dockerfile
-          provenance: false   # 👈 disables attestation-manifests
-          push: ${{ github.event_name != 'pull_request' }}
+          provenance: false
+          push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaVnc.outputs.tags }}
           labels: ${{ steps.metaVnc.outputs.labels }}
           cache-from: type=gha,scope=obsidian-vnc
           cache-to: type=gha,mode=max,scope=obsidian-vnc
 
+      - name: Comment on PR with Docker image info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.docker_tags.outputs.PRIMARY_TAG }}';
+            const owner = '${{ steps.repo_name.outputs.owner }}';
+
+            const body = `## :whale: Docker Image Published to GHCR (Staging) - VNC Obsidian
+
+            | Property | Value |
+            |----------|-------|
+            | **Tag** | \`${tag}\` |
+            | **Registry** | ghcr.io |
+            | **Image** | ghcr.io/${owner}/obsidian-vnc |
+
+            ### Pull
+            \`\`\`bash
+            docker pull ghcr.io/${owner}/obsidian-vnc:${tag}
+            \`\`\`
+
+            > :bulb: This is a staging build from PR #${{ github.event.pull_request.number }}
+            `;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
       - name: Verify Manifest
+        if: github.event_name != 'pull_request'
         run: |
-          docker manifest inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc:latest
-          docker buildx imagetools inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc:latest
-  
+          docker manifest inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-vnc:${{ steps.docker_tags.outputs.PRIMARY_TAG }} || true
+
   build-mcp:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -147,69 +200,117 @@ jobs:
           echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
           echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
-      - name: Determine if this is the latest stable release
-        id: is_latest
-        if: github.ref_type == 'tag'
+      - name: Determine Docker tags
+        id: docker_tags
         run: |
-          VERSION="${GITHUB_REF#refs/tags/v}"
-          
-          if [[ "$VERSION" =~ - ]]; then
-            echo "is_latest=false" >> $GITHUB_OUTPUT
-            echo "is_prerelease=true" >> $GITHUB_OUTPUT
-            if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
-              echo "prerelease_tag=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
-            fi
-            echo "::notice::Pre-release detected: $VERSION - will NOT tag as latest"
-          else
-            LATEST_STABLE=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
-            LATEST_STABLE_VERSION="${LATEST_STABLE#v}"
-            if [ "$VERSION" = "$LATEST_STABLE_VERSION" ]; then
-              echo "is_latest=true" >> $GITHUB_OUTPUT
-              echo "::notice::This is the latest stable release: $VERSION"
-            else
-              echo "is_latest=false" >> $GITHUB_OUTPUT
-              echo "::notice::Older stable release: $VERSION (latest is $LATEST_STABLE_VERSION)"
-            fi
-            echo "is_prerelease=false" >> $GITHUB_OUTPUT
-          fi
+          BASE_VERSION=$(jq -r '.version' package.json)
 
-      - name: Set default tag flags for branch builds
-        id: branch_flags
-        if: github.ref_type != 'tag'
-        run: |
-          echo "is_latest=true" >> $GITHUB_OUTPUT
-          echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR build: use SHA hash for tagging
+            SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+            PR_NUM=${{ github.event.pull_request.number }}
+            echo "PRIMARY_TAG=pr-${PR_NUM}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "IS_PR=true" >> $GITHUB_OUTPUT
+            echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "::notice::PR build - Tag: pr-${PR_NUM}-${SHORT_SHA}"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+            echo "PRIMARY_TAG=${VERSION}" >> $GITHUB_OUTPUT
+            echo "IS_PR=false" >> $GITHUB_OUTPUT
+
+            # Check if this is a pre-release
+            if [[ "$VERSION" =~ - ]]; then
+              echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+              echo "IS_PRERELEASE=true" >> $GITHUB_OUTPUT
+              if [[ "$VERSION" =~ -([a-zA-Z]+) ]]; then
+                echo "PRERELEASE_TAG=${BASH_REMATCH[1]}" >> $GITHUB_OUTPUT
+              fi
+              echo "::notice::Pre-release detected: $VERSION"
+            else
+              # Check if this is the latest stable release
+              LATEST_STABLE=$(git tag --list 'v*' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1)
+              LATEST_STABLE_VERSION="${LATEST_STABLE#v}"
+              if [ "$VERSION" = "$LATEST_STABLE_VERSION" ]; then
+                echo "IS_LATEST=true" >> $GITHUB_OUTPUT
+                echo "::notice::Latest stable release: $VERSION"
+              else
+                echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+                echo "::notice::Older stable release: $VERSION (latest is $LATEST_STABLE_VERSION)"
+              fi
+              echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Manual/other: use SHA hash
+            SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+            echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "IS_PR=false" >> $GITHUB_OUTPUT
+            echo "IS_LATEST=false" >> $GITHUB_OUTPUT
+            echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
+            echo "::notice::Dev build - Tag: sha-${SHORT_SHA}"
+          fi
 
       - name: Extract metadata (tags, labels) for Docker (MCP Obsidian)
         id: metaMcp
         uses: docker/metadata-action@v5
         with:
           images: ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp
-          flavor: latest=false   # 👈 Prevents implicit "latest" addition
+          flavor: latest=false
           tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=semver,pattern={{major}}
+            type=raw,value=${{ steps.docker_tags.outputs.PRIMARY_TAG }}
+            type=semver,pattern={{version}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
+            type=semver,pattern={{major}}.{{minor}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
+            type=semver,pattern={{major}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
             type=sha,format=short
-            type=raw,value=latest,enable=${{ steps.is_latest.outputs.is_latest == 'true' || steps.branch_flags.outputs.is_latest == 'true' }}
-            type=raw,value=next,enable=${{ steps.is_latest.outputs.is_prerelease == 'true' }}
-            type=raw,value=${{ steps.is_latest.outputs.prerelease_tag }},enable=${{ steps.is_latest.outputs.is_prerelease == 'true' && steps.is_latest.outputs.prerelease_tag != '' }}
+            type=raw,value=latest,enable=${{ steps.docker_tags.outputs.IS_LATEST == 'true' }}
+            type=raw,value=next,enable=${{ steps.docker_tags.outputs.IS_PRERELEASE == 'true' }}
+            type=raw,value=${{ steps.docker_tags.outputs.PRERELEASE_TAG }},enable=${{ steps.docker_tags.outputs.IS_PRERELEASE == 'true' && steps.docker_tags.outputs.PRERELEASE_TAG != '' }}
 
       - name: Build and push Docker image (MCP Obsidian)
         uses: docker/build-push-action@v6
         with:
           context: .
           file: Dockerfile
-          push: ${{ github.event_name != 'pull_request' }}
-          provenance: false   # 👈 disables attestation-manifests
+          push: true
+          provenance: false
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaMcp.outputs.tags }}
           labels: ${{ steps.metaMcp.outputs.labels }}
           cache-from: type=gha,scope=obsidian-mcp
           cache-to: type=gha,mode=max,scope=obsidian-mcp
 
+      - name: Comment on PR with Docker image info
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = '${{ steps.docker_tags.outputs.PRIMARY_TAG }}';
+            const owner = '${{ steps.repo_name.outputs.owner }}';
+
+            const body = `## :whale: Docker Image Published to GHCR (Staging) - MCP Obsidian
+
+            | Property | Value |
+            |----------|-------|
+            | **Tag** | \`${tag}\` |
+            | **Registry** | ghcr.io |
+            | **Image** | ghcr.io/${owner}/obsidian-mcp |
+
+            ### Pull
+            \`\`\`bash
+            docker pull ghcr.io/${owner}/obsidian-mcp:${tag}
+            \`\`\`
+
+            > :bulb: This is a staging build from PR #${{ github.event.pull_request.number }}
+            `;
+
+            github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
       - name: Verify Manifest
+        if: github.event_name != 'pull_request'
         run: |
-          docker manifest inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp:latest
-          docker buildx imagetools inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp:latest
+          docker manifest inspect ghcr.io/${{ steps.repo_name.outputs.owner }}/obsidian-mcp:${{ steps.docker_tags.outputs.PRIMARY_TAG }} || true
