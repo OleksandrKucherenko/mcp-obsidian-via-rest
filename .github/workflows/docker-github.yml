@@ -59,12 +59,11 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             # PR build: use SHA hash for tagging
             SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
-            PR_NUM=${{ github.event.pull_request.number }}
-            echo "PRIMARY_TAG=pr-${PR_NUM}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
             echo "IS_PR=true" >> $GITHUB_OUTPUT
             echo "IS_LATEST=false" >> $GITHUB_OUTPUT
             echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-            echo "::notice::PR build - Tag: pr-${PR_NUM}-${SHORT_SHA}"
+            echo "::notice::PR build - Tag: sha-${SHORT_SHA}"
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
             echo "PRIMARY_TAG=${VERSION}" >> $GITHUB_OUTPUT
@@ -151,7 +150,7 @@ jobs:
             docker pull ghcr.io/${owner}/obsidian-vnc:${tag}
             \`\`\`
 
-            > :bulb: This is a staging build from PR #${{ github.event.pull_request.number }}
+            > :bulb: This is a staging build (commit: ${{ github.event.pull_request.head.sha }})
             `;
 
             github.rest.issues.createComment({
@@ -208,12 +207,11 @@ jobs:
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             # PR build: use SHA hash for tagging
             SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
-            PR_NUM=${{ github.event.pull_request.number }}
-            echo "PRIMARY_TAG=pr-${PR_NUM}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+            echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
             echo "IS_PR=true" >> $GITHUB_OUTPUT
             echo "IS_LATEST=false" >> $GITHUB_OUTPUT
             echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-            echo "::notice::PR build - Tag: pr-${PR_NUM}-${SHORT_SHA}"
+            echo "::notice::PR build - Tag: sha-${SHORT_SHA}"
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             VERSION="${GITHUB_REF#refs/tags/v}"
             echo "PRIMARY_TAG=${VERSION}" >> $GITHUB_OUTPUT
@@ -300,7 +298,7 @@ jobs:
             docker pull ghcr.io/${owner}/obsidian-mcp:${tag}
             \`\`\`
 
-            > :bulb: This is a staging build from PR #${{ github.event.pull_request.number }}
+            > :bulb: This is a staging build (commit: ${{ github.event.pull_request.head.sha }})
             `;
 
             github.rest.issues.createComment({
