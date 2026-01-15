@@ -146,10 +146,11 @@ jobs:
           BASE_VERSION=$(jq -r '.version' package.json)
 
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            # PR build: use SHA hash as semver build metadata
-            # Format: 0.6.0+sha.abc1234
+            # PR build: use SHA hash as semver pre-release (not build metadata)
+            # Note: npm strips build metadata (+), but preserves pre-release (-)
+            # Format: 0.6.0-sha.abc1234
             SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
-            PACKAGE_VERSION="${BASE_VERSION}+sha.${SHORT_SHA}"
+            PACKAGE_VERSION="${BASE_VERSION}-sha.${SHORT_SHA}"
             NPM_TAG="sha-${SHORT_SHA}"
             echo "::notice::PR build - Version: ${PACKAGE_VERSION}, Tag: ${NPM_TAG}"
           elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
@@ -158,9 +159,9 @@ jobs:
             NPM_TAG="latest"
             echo "::notice::Tag build - Version: ${PACKAGE_VERSION}, Tag: ${NPM_TAG}"
           else
-            # Manual/other: use SHA hash
+            # Manual/other: use SHA hash as pre-release
             SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
-            PACKAGE_VERSION="${BASE_VERSION}+sha.${SHORT_SHA}"
+            PACKAGE_VERSION="${BASE_VERSION}-sha.${SHORT_SHA}"
             NPM_TAG="dev"
             echo "::notice::Dev build - Version: ${PACKAGE_VERSION}, Tag: ${NPM_TAG}"
           fi
