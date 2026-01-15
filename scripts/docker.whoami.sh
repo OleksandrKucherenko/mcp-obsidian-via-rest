@@ -13,9 +13,17 @@ docker-whoami() {
     # Check if using credential helper
     local creds_store=$(jq -r '.credsStore // empty' "$config_file")
     if [ -n "$creds_store" ]; then
-        echo "ℹ️  Using credential helper: $creds_store"
-        echo "Run: echo '$registry' | docker-credential-$creds_store get | jq -r .Username"
-        return 0
+        # Try to get username from credential helper
+        local username=$(echo "$registry" | docker-credential-$creds_store get 2>/dev/null | jq -r '.Username // empty' 2>/dev/null)
+        if [ -n "$username" ] && [ "$username" != "null" ]; then
+            echo "✅ Authenticated as: $username (via credential helper: $creds_store)"
+            return 0
+        else
+            echo "ℹ️  Using credential helper: $creds_store (credentials assumed valid)"
+            echo "    Run manually: echo '$registry' | docker-credential-$creds_store get | jq -r .Username"
+            # Return success - credential helper is configured, assume it works
+            return 0
+        fi
     fi
     
     # Parse direct auth

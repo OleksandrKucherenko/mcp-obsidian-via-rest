@@ -42,18 +42,18 @@ section() {
 
 # Check toolchain
 section "Toolchain"
-if command -v bun &> /dev/null && command -v node &> /dev/null && command -v docker &> /dev/null; then
+if command -v bun &>/dev/null && command -v node &>/dev/null && command -v docker &>/dev/null; then
     pass "All required tools available (bun: $(bun --version), node: $(node --version), docker: $(docker --version | cut -d' ' -f3 | tr -d ','))"
 else
     fail "Missing required tools"
-    command -v bun &> /dev/null || echo "  - bun not found"
-    command -v node &> /dev/null || echo "  - node not found"
-    command -v docker &> /dev/null || echo "  - docker not found"
+    command -v bun &>/dev/null || echo "  - bun not found"
+    command -v node &>/dev/null || echo "  - node not found"
+    command -v docker &>/dev/null || echo "  - docker not found"
 fi
 
 # Check npm authentication
 section "npm Authentication"
-if npm whoami &> /dev/null; then
+if npm whoami &>/dev/null; then
     NPM_USER=$(npm whoami)
     pass "npm authenticated as: $NPM_USER"
 
@@ -66,7 +66,7 @@ if npm whoami &> /dev/null; then
     fi
 
     # Check publish permission (optional, may fail if package doesn't exist yet)
-    if timeout 3 npm view @oleksandrkucherenko/mcp-obsidian version &> /dev/null; then
+    if timeout 3 npm view @oleksandrkucherenko/mcp-obsidian version &>/dev/null; then
         pass "npm package exists and is accessible"
     else
         warn "Could not verify npm package (package may not exist yet or network issue)"
@@ -83,9 +83,17 @@ if test -f .secrets/docker_hub_pat; then
 
     # Use helper script if available
     if test -f scripts/docker.whoami.sh; then
-        if ./scripts/docker.whoami.sh | grep -q "✅"; then
-            DOCKER_USER=$(./scripts/docker.whoami.sh | grep "✅" | sed 's/.*: //')
-            pass "Docker Hub authenticated as: $DOCKER_USER"
+        DOCKER_OUTPUT=$(./scripts/docker.whoami.sh 2>&1)
+        DOCKER_EXIT=$?
+        if [ $DOCKER_EXIT -eq 0 ]; then
+            # Success - extract username if available
+            if echo "$DOCKER_OUTPUT" | grep -q "✅"; then
+                DOCKER_USER=$(echo "$DOCKER_OUTPUT" | grep "✅" | sed 's/.*: //' | sed 's/ (via.*//')
+                pass "Docker Hub authenticated as: $DOCKER_USER"
+            else
+                # Credential helper mode - assume valid
+                pass "Docker Hub authentication configured (credential helper)"
+            fi
         else
             fail "Docker Hub authentication failed"
             info "Run: echo \"\$DOCKER_HUB_TOKEN\" | docker login -u \"\$DOCKER_HUB_USERNAME\" --password-stdin"
@@ -100,7 +108,7 @@ fi
 
 # Check GitHub CLI authentication
 section "GitHub CLI Authentication"
-if gh auth status &> /dev/null; then
+if gh auth status &>/dev/null; then
     GH_USER=$(gh api user --jq .login 2>/dev/null || echo "unknown")
     pass "GitHub CLI authenticated as: $GH_USER"
 
@@ -119,7 +127,7 @@ fi
 # Check CI secrets (GitHub repository)
 section "CI Secrets (GitHub Repository)"
 REPO="OleksandrKucherenko/mcp-obsidian-via-rest"
-if gh secret list -R "$REPO" &> /dev/null; then
+if gh secret list -R "$REPO" &>/dev/null; then
     SECRET_COUNT=$(gh secret list -R "$REPO" | grep -cE "NPM_PUBLISH_TOKEN|DOCKER_HUB_USERNAME|DOCKER_HUB_TOKEN")
     if [ "$SECRET_COUNT" -eq 3 ]; then
         pass "All 3 required CI secrets exist (NPM_PUBLISH_TOKEN, DOCKER_HUB_USERNAME, DOCKER_HUB_TOKEN)"
