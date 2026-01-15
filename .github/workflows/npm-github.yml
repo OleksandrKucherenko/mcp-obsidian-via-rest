@@ -1,10 +1,11 @@
-name: NPM (ghcr.io)
+# Publish NPM Package to GitHub Packages (Staging Environment)
+# Triggers on PRs (with SHA-versioned packages) and version tags
+name: NPM (npm.pkg.github.com)
 
 on:
-  release:
-    types: [created]
-  push:
+  pull_request:
     branches: [main]
+  push:
     tags: ['v*']
   workflow_dispatch:
     inputs:
@@ -15,7 +16,8 @@ on:
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
-jobs: 
+jobs:
+  # Run tests in parallel
   testing-e2e:
     runs-on: ubuntu-latest
     steps:
@@ -24,6 +26,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -62,6 +65,7 @@ jobs:
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -88,21 +92,23 @@ jobs:
         continue-on-error: true
         run: |
           bun run test:containers
-        
+
   build-and-publish:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
+      pull-requests: write
     needs:
       - testing-e2e
-      - testing-containers  
+      - testing-containers
     steps:
       - name: Checkout Code with full history
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
           fetch-tags: true
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
 
       - name: Set lowercase repository name
         id: repo_name
@@ -133,19 +139,48 @@ jobs:
         run: |
           # run unit tests
           bun run test
-          
+
+      - name: Determine package version
+        id: version
+        run: |
+          BASE_VERSION=$(jq -r '.version' package.json)
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            # PR build: use SHA hash as semver pre-release (not build metadata)
+            # Note: npm strips build metadata (+), but preserves pre-release (-)
+            # Format: 0.6.0-sha.abc1234
+            SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+            PACKAGE_VERSION="${BASE_VERSION}-sha.${SHORT_SHA}"
+            NPM_TAG="sha-${SHORT_SHA}"
+            echo "::notice::PR build - Version: ${PACKAGE_VERSION}, Tag: ${NPM_TAG}"
+          elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # Tag build: use tag version
+            PACKAGE_VERSION="${GITHUB_REF#refs/tags/v}"
+            NPM_TAG="latest"
+            echo "::notice::Tag build - Version: ${PACKAGE_VERSION}, Tag: ${NPM_TAG}"
+          else
+            # Manual/other: use SHA hash as pre-release
+            SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
+            PACKAGE_VERSION="${BASE_VERSION}-sha.${SHORT_SHA}"
+            NPM_TAG="dev"
+            echo "::notice::Dev build - Version: ${PACKAGE_VERSION}, Tag: ${NPM_TAG}"
+          fi
+
+          echo "PACKAGE_VERSION=${PACKAGE_VERSION}" >> $GITHUB_OUTPUT
+          echo "NPM_TAG=${NPM_TAG}" >> $GITHUB_OUTPUT
+          echo "BASE_VERSION=${BASE_VERSION}" >> $GITHUB_OUTPUT
+
       - name: Check if version already published to GitHub Packages
         id: check-published
         run: |
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          PACKAGE_VERSION="${{ steps.version.outputs.PACKAGE_VERSION }}"
           PACKAGE_SCOPE="@oleksandrkucherenko"
           PACKAGE_NAME="mcp-obsidian"
           FULL_NAME="${PACKAGE_SCOPE}/${PACKAGE_NAME}"
-          
+
           echo "Checking if ${FULL_NAME}@${PACKAGE_VERSION} is already published to GitHub Packages..."
-          
+
           # Check if package version exists in GitHub Packages registry
-          # Note: This uses npm view which will work with GitHub Packages registry
           if npm view "${FULL_NAME}@${PACKAGE_VERSION}" --registry "https://npm.pkg.github.com" > /dev/null 2>&1; then
             echo "::notice::Version ${PACKAGE_VERSION} is already published to GitHub Packages"
             echo "ALREADY_PUBLISHED=true" >> $GITHUB_OUTPUT
@@ -153,107 +188,87 @@ jobs:
             echo "::notice::Version ${PACKAGE_VERSION} is not yet published to GitHub Packages"
             echo "ALREADY_PUBLISHED=false" >> $GITHUB_OUTPUT
           fi
-          
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Verify that Package is ready for GitHub Packages
         run: |
           # Ensure package.json has correct repository field
           if ! grep -q '"repository"' package.json; then
             sed -i 's/^\(  "name": ".*"\)/\1,\n  "repository": "https:\/\/github.com\/${{ github.repository }}"/g' package.json
           fi
-          
+
           # Make sure package name is scoped
           if ! grep -q '"name": "@' package.json; then
             PACKAGE_NAME=$(node -p "require('./package.json').name")
             sed -i "s/\"name\": \"$PACKAGE_NAME\"/\"name\": \"@${{ github.repository_owner }}\/$(echo $PACKAGE_NAME | sed 's/@.*\///')\"/g" package.json
           fi
-          
-      - name: Backup package.json before modification
-        run: |
-          cp package.json package.json.orig
-          echo "Backed up package.json"
-          
-      - name: Extract Release Type (semantic commit)
-        id: release-type
-        continue-on-error: true
-        run: |
-          # Check release-it for next version based on commits between last tag and HEAD.
-          bun run release-it --config .release-it.readonly.jsonc --dry-run --ci --no-increment 
-          
-          # Extract version from package.json
-          export PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          export SHA=${GITHUB_SHA::7}
-          export TAG="sha-${SHA}"
-          export UNIQUE_VERSION="${PACKAGE_VERSION}-${TAG}"
 
-          # Update package.json
-          jq ".version = \"$UNIQUE_VERSION\"" package.json > package.tmp.json
+      - name: Update package.json version
+        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true'
+        run: |
+          PACKAGE_VERSION="${{ steps.version.outputs.PACKAGE_VERSION }}"
+          jq ".version = \"$PACKAGE_VERSION\"" package.json > package.tmp.json
           mv package.tmp.json package.json
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      
+          echo "Updated package.json version to ${PACKAGE_VERSION}"
+
       - name: Build Package
         if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true'
         run: |
           # prepare TGZ file for publishing
           bun run publish:prepare
-          
+
       - name: Publish to GitHub Packages
-        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
+        # Skip for forked PRs (no secrets/packages:write permission)
+        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
         run: |
-          # Also publish with version tag for consistency when triggered by version tags
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          bun publish --tag $PACKAGE_VERSION --registry "https://npm.pkg.github.com"
-        env:
-          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # used in .npmrc, .envrc and .bunfig.toml
-          NPMRC_GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_REGISTRY_URL: "https://npm.pkg.github.com"
-          
-      - name: Restore package.json version (if skipped publish)
-        if: steps.check-published.outputs.ALREADY_PUBLISHED == 'true'
-        run: |
-          # Restore original version from package.json.orig if it exists
-          if [ -f package.json.orig ]; then
-            mv package.json.orig package.json
-            echo "Restored package.json to original version"
-          fi
-          
-      - name: Publish to GitHub Packages (version tag)
-        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && github.event_name == 'release' && startsWith(github.ref, 'refs/tags/v')
-        continue-on-error: true
-        run: |
-          # Also publish with version tag for consistency when triggered by version tags
-          PACKAGE_VERSION=$(node -p "require('./package.json').version")
-          # Extract the base version (without sha- suffix) for the tag
-          BASE_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/-sha-.*//')
+          PACKAGE_VERSION="${{ steps.version.outputs.PACKAGE_VERSION }}"
+          NPM_TAG="${{ steps.version.outputs.NPM_TAG }}"
 
-          echo "Attempting to publish with tag: ${BASE_VERSION}"
-
-          if bun publish --tag "$BASE_VERSION" --registry "https://npm.pkg.github.com" 2>&1 | grep -q "Cannot publish over existing version"; then
-            echo "::notice::Version ${BASE_VERSION} already exists in GitHub Packages (this is expected after the sha- tag publish)"
-          else
-            bun publish --tag "$BASE_VERSION" --registry "https://npm.pkg.github.com"
-          fi || true
+          echo "Publishing ${PACKAGE_VERSION} with tag: ${NPM_TAG}"
+          npm publish --tag "${NPM_TAG}" --registry "https://npm.pkg.github.com" --access public
         env:
-          BUN_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_CONFIG_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPMRC_GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_REGISTRY_URL: "https://npm.pkg.github.com"
-          
+
+      - name: Comment on PR with package info
+        # Only comment for same-repo PRs (forked PRs can't publish)
+        if: github.event_name == 'pull_request' && steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && github.event.pull_request.head.repo.full_name == github.repository
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: npm-github
+          message: |
+            ## 📦 NPM Package Published to GitHub Packages (Staging)
+
+            | Property | Value |
+            |----------|-------|
+            | **Version** | `${{ steps.version.outputs.PACKAGE_VERSION }}` |
+            | **Tag** | `${{ steps.version.outputs.NPM_TAG }}` |
+            | **Registry** | npm.pkg.github.com |
+
+            ### Install
+            ```bash
+            npm install @oleksandrkucherenko/mcp-obsidian@${{ steps.version.outputs.NPM_TAG }} --registry=https://npm.pkg.github.com
+            ```
+
+            > 💡 This is a staging build (commit: `${{ github.event.pull_request.head.sha }}`)
+
       - name: GitHub Packages Publish Summary
         if: always()
         run: |
           echo "## GitHub Packages Publish Status" >> $GITHUB_STEP_SUMMARY
           if [ "${{ steps.check-published.outputs.ALREADY_PUBLISHED }}" == "true" ]; then
-            echo "✅ **Skipped** - Version $(node -p "require('./package.json').version") already exists in GitHub Packages" >> $GITHUB_STEP_SUMMARY
+            echo ":white_check_mark: **Skipped** - Version ${{ steps.version.outputs.PACKAGE_VERSION }} already exists in GitHub Packages" >> $GITHUB_STEP_SUMMARY
           else
-            PACKAGE_VERSION=$(node -p "require('./package.json').version")
-            BASE_VERSION=$(echo "$PACKAGE_VERSION" | sed 's/-sha-.*//')
-            echo "✅ **Published** - Version ${BASE_VERSION} published to GitHub Packages" >> $GITHUB_STEP_SUMMARY
+            echo ":white_check_mark: **Published** - Version ${{ steps.version.outputs.PACKAGE_VERSION }} published to GitHub Packages" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
-            echo "Registry: https://npm.pkg.github.com" >> $GITHUB_STEP_SUMMARY
-            echo "Package: @oleksandrkucherenko/mcp-obsidian" >> $GITHUB_STEP_SUMMARY
+            echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Registry | https://npm.pkg.github.com |" >> $GITHUB_STEP_SUMMARY
+            echo "| Package | @oleksandrkucherenko/mcp-obsidian |" >> $GITHUB_STEP_SUMMARY
+            echo "| Version | ${{ steps.version.outputs.PACKAGE_VERSION }} |" >> $GITHUB_STEP_SUMMARY
+            echo "| Tag | ${{ steps.version.outputs.NPM_TAG }} |" >> $GITHUB_STEP_SUMMARY
           fi

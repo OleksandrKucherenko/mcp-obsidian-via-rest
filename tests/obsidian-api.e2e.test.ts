@@ -237,27 +237,31 @@ describe("ObsidianAPI - E2E Tests", async () => {
       debug("e2e")("Skipping cleanup of test note")
     })
 
-    it("should write content to a test note and read it back", async () => {
-      const folder = "Z - MCP Unit Testing"
-      const testNotePath = "write note.md"
-      const notePath = `${folder}/${testNotePath}`
-      const testContent = de`
-        # Test Note
-        
-        This is a test note created by the E2E tests on ${new Date().toISOString()}
+    it(
+      "should write content to a test note and read it back",
+      async () => {
+        const folder = "Z - MCP Unit Testing"
+        const testNotePath = "write note.md"
+        const notePath = `${folder}/${testNotePath}`
+        const testContent = de`
+          # Test Note
 
-        Tags: #api #unittests
-      `
+          This is a test note created by the E2E tests on ${new Date().toISOString()}
 
-      // Write the test note
-      await api.writeNote(notePath, testContent)
+          Tags: #api #unittests
+        `
 
-      // Read it back
-      const note = await api.readNote(notePath)
-      // console.log("Note:", note)
+        // Write the test note
+        await api.writeNote(notePath, testContent)
 
-      expect(note.path).toBe(notePath)
-      expect(note.content).toBe(testContent)
-    })
+        // Read it back
+        const note = await api.readNote(notePath)
+        // console.log("Note:", note)
+
+        expect(note.path).toBe(notePath)
+        expect(note.content).toBe(testContent)
+      },
+      { timeout: 30000 }, // Write operations have 5s timeout with 5 retries
+    )
   })
 })

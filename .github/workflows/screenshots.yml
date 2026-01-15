@@ -124,13 +124,139 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Comment with screenshot preview (PR only)
+      - name: Upload screenshots to branch (PR only)
         if: github.event_name == 'pull_request'
+        id: upload_screenshots
+        continue-on-error: true
+        run: |
+          # Check if we have screenshots
+          if [ ! -d "reports/screenshots" ] || [ -z "$(ls -A reports/screenshots 2>/dev/null)" ]; then
+            echo "No screenshots to upload"
+            echo "has_screenshots=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "has_screenshots=true" >> $GITHUB_OUTPUT
+
+          # Setup git for pushing to screenshots branch
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+          PR_DIR="pr-${PR_NUMBER}"
+          SCREENSHOTS_BRANCH="screenshots"
+
+          # Save screenshots to temp location
+          TEMP_SCREENSHOTS=$(mktemp -d)
+          cp -r reports/screenshots/* "$TEMP_SCREENSHOTS/"
+
+          # Fetch or create screenshots branch
+          git fetch origin "${SCREENSHOTS_BRANCH}:${SCREENSHOTS_BRANCH}" 2>/dev/null || true
+
+          # Stash any changes and switch to screenshots branch
+          git stash --include-untracked 2>/dev/null || true
+
+          if git show-ref --verify --quiet "refs/heads/${SCREENSHOTS_BRANCH}"; then
+            git checkout "${SCREENSHOTS_BRANCH}"
+          else
+            git checkout --orphan "${SCREENSHOTS_BRANCH}"
+            git rm -rf . 2>/dev/null || true
+            echo "# Screenshots Branch" > README.md
+            echo "This branch contains screenshots from CI runs for PR previews." >> README.md
+            git add README.md
+            git commit -m "Initialize screenshots branch"
+          fi
+
+          # Create/update PR directory
+          rm -rf "${PR_DIR}" 2>/dev/null || true
+          mkdir -p "${PR_DIR}"
+          cp -r "$TEMP_SCREENSHOTS"/* "${PR_DIR}/"
+
+          # Generate image list for comment
+          IMAGE_LIST=""
+          shopt -s nullglob  # Prevent literal glob patterns when no matches
+          for img in "${PR_DIR}"/*.png "${PR_DIR}"/*.jpg; do
+            if [ -f "$img" ]; then
+              filename=$(basename "$img")
+              IMAGE_LIST="${IMAGE_LIST}${filename}\n"
+            fi
+          done
+          shopt -u nullglob  # Reset nullglob
+          echo -e "$IMAGE_LIST" > "${PR_DIR}/images.txt"
+
+          # Commit and push
+          git add "${PR_DIR}"
+          git commit -m "Screenshots for PR #${PR_NUMBER} (run ${{ github.run_id }})" || echo "No changes to commit"
+          git push origin "${SCREENSHOTS_BRANCH}"
+
+          # Output image URLs for comment
+          REPO="${{ github.repository }}"
+          echo "screenshots_url=https://raw.githubusercontent.com/${REPO}/${SCREENSHOTS_BRANCH}/${PR_DIR}" >> $GITHUB_OUTPUT
+          echo "pr_dir=${PR_DIR}" >> $GITHUB_OUTPUT
+
+          # Return to original branch
+          git checkout - 2>/dev/null || true
+          git stash pop 2>/dev/null || true
+
+      - name: Generate screenshot markdown
+        if: github.event_name == 'pull_request' && steps.upload_screenshots.outputs.has_screenshots == 'true'
+        id: screenshot_markdown
+        run: |
+          SCREENSHOTS_URL="${{ steps.upload_screenshots.outputs.screenshots_url }}"
+          PR_DIR="${{ steps.upload_screenshots.outputs.pr_dir }}"
+          REPO="${{ github.repository }}"
+          SCREENSHOTS_BRANCH="screenshots"
+
+          # Build markdown with images
+          MARKDOWN="## 🖼️ Obsidian Screenshots\n\n"
+          MARKDOWN+="Screenshots from CI run [\`${{ github.run_id }}\`](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})\n\n"
+
+          # Fetch the images list from the screenshots branch
+          git fetch origin "${SCREENSHOTS_BRANCH}:${SCREENSHOTS_BRANCH}" 2>/dev/null || true
+
+          # Get list of images
+          IMAGES=$(git show "${SCREENSHOTS_BRANCH}:${PR_DIR}/images.txt" 2>/dev/null || echo "")
+
+          if [ -n "$IMAGES" ]; then
+            MARKDOWN+="<details>\n<summary>Click to expand screenshots</summary>\n\n"
+            while IFS= read -r img; do
+              if [ -n "$img" ]; then
+                MARKDOWN+="### ${img}\n"
+                MARKDOWN+="![${img}](${SCREENSHOTS_URL}/${img})\n\n"
+              fi
+            done <<< "$IMAGES"
+            MARKDOWN+="</details>\n"
+          else
+            MARKDOWN+="_No screenshots captured_\n"
+          fi
+
+          MARKDOWN+="\n> 📸 Commit: \`${{ github.event.pull_request.head.sha }}\`"
+
+          # Output markdown (escape for GitHub Actions)
+          echo "markdown<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$MARKDOWN" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Comment with screenshot preview (PR only)
+        if: github.event_name == 'pull_request' && steps.upload_screenshots.outputs.has_screenshots == 'true'
         uses: marocchino/sticky-pull-request-comment@v2
         continue-on-error: true
         with:
+          header: screenshots
+          message: ${{ steps.screenshot_markdown.outputs.markdown }}
+
+      - name: Comment with no screenshots (PR only)
+        if: github.event_name == 'pull_request' && steps.upload_screenshots.outputs.has_screenshots != 'true'
+        uses: marocchino/sticky-pull-request-comment@v2
+        continue-on-error: true
+        with:
+          header: screenshots
           message: |
-            🖼️ Screenshot artifacts are available in the workflow run (check Artifacts section)
+            ## 🖼️ Obsidian Screenshots
+
+            _No screenshots were captured in this run._
+
+            > 📸 Commit: `${{ github.event.pull_request.head.sha }}`
 
       - name: Add annotation with screenshot preview link
         if: github.event_name != 'pull_request'

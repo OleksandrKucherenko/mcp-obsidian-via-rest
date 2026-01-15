@@ -1,9 +1,9 @@
+# Publish NPM Package to npmjs.org (Production Environment)
+# Only triggers on version tags - production releases only
 name: NPM (npmjs.com)
 
 on:
   push:
-    branches:
-      - main
     tags:
       - 'v*'
   workflow_dispatch:
@@ -109,26 +109,12 @@ jobs:
             exit 1
           fi
 
-      - name: Generate Changelog with release-it (tag)
-        if: github.ref_type == 'tag'
+      - name: Generate Changelog with release-it
         run: |
           echo "Running release-it for tag ${{ github.ref_name }} with version ${{ steps.get-version.outputs.VERSION }}"
           git checkout -b release-${{ steps.get-version.outputs.VERSION }}
           # Using unified configuration with tag-specific options
           bun run release-it --config .release-it.readonly.jsonc --ci --verbose --no-increment --git.getLatestTagFromAllRefs=false
-
-          echo "Generated changelog:"
-          head -n 50 CHANGELOG.md || true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Generate Changelog with release-it (branch)
-        if: github.ref_type != 'tag'
-        run: |
-          echo "Running release-it for main branch to determine next version"
-          git checkout -b next-release-from-${{ steps.get-version.outputs.VERSION }}
-          # Using unified configuration for branch builds
-          bun run release-it --config .release-it.readonly.jsonc --ci --verbose
 
           echo "Generated changelog:"
           head -n 50 CHANGELOG.md || true

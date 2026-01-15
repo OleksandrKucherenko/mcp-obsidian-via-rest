@@ -11,6 +11,7 @@ export class ObsidianAPI {
   protected client: AxiosInstance
 
   private readonly timeout = 1000
+  private readonly writeTimeout = 5000 // Write operations need more time (disk I/O, plugins)
   private readonly retries = 5
   private readonly logger = debug("mcp:client")
 
@@ -117,6 +118,7 @@ export class ObsidianAPI {
         headers: {
           "Content-Type": "text/markdown",
         },
+        timeout: this.writeTimeout, // Write operations need more time
       })
     })
   }

@@ -22,6 +22,10 @@ on:
         description: 'Run cleanup-old-release-branches job'
         type: boolean
         default: true
+      run_pr_screenshots_cleanup:
+        description: 'Run cleanup-pr-screenshots job'
+        type: boolean
+        default: true
       branch_cleanup_days:
         description: 'Days threshold for release branch cleanup'
         type: number
@@ -216,5 +220,69 @@ jobs:
         run: |
           LATEST_SCRIPT=$(ls -t cleanup-release-branches-*.sh | head -n1)
           ./$LATEST_SCRIPT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Cleanup job to delete PR screenshot directories for closed PRs
+  cleanup-pr-screenshots:
+    if: |
+      ${{
+        ( github.event_name == 'schedule' ) ||
+        ( github.event.inputs.run_pr_screenshots_cleanup == true )
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - name: Checkout screenshots branch
+        uses: actions/checkout@v4
+        with:
+          ref: screenshots
+          fetch-depth: 1
+        continue-on-error: true
+
+      - name: Cleanup closed PR screenshots
+        if: success()
+        run: |
+          # Get list of open PRs
+          OPEN_PRS=$(gh pr list --state open --json number --jq '.[].number' | tr '\n' ' ')
+          echo "Open PRs: ${OPEN_PRS:-none}"
+
+          # Find all pr-* directories
+          CLEANED=0
+          for pr_dir in pr-*; do
+            if [ -d "$pr_dir" ]; then
+              PR_NUM="${pr_dir#pr-}"
+
+              # Check if PR is still open
+              if echo " $OPEN_PRS " | grep -q " $PR_NUM "; then
+                echo "Keeping $pr_dir (PR #$PR_NUM is open)"
+              else
+                echo "Removing $pr_dir (PR #$PR_NUM is closed/merged)"
+                rm -rf "$pr_dir"
+                CLEANED=$((CLEANED + 1))
+              fi
+            fi
+          done
+
+          echo "Cleaned up $CLEANED PR screenshot directories"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Commit and push cleanup
+        if: success()
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore: cleanup closed PR screenshots"
+            git push origin screenshots
+            echo "✓ Cleanup committed and pushed"
+          else
+            echo "No changes to commit"
+          fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
