@@ -1,5 +1,7 @@
 name: Release
 
+run-name: "${{ inputs.dry_run && 'Dry-run' || 'Release' }}: ${{ inputs.custom_version || format('{0} → {1}', inputs.version_bump, inputs.prerelease) }}"
+
 on:
   workflow_dispatch:
     inputs:
