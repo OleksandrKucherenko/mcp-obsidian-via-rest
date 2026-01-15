@@ -1,296 +1,497 @@
-# Pre-release checklist (CD runbook)
+# Release Runbook
 
-Sequential checklist for preparing a release. Follow top to bottom without branching.
+## Architecture Overview
 
-## 0. Pre-conditions
+**Key Principles:**
 
-### Quick verification (recommended)
+- Version tags go on **release branches** (not main/master)
+- Release branches are **never merged** to main/master
+- Release branches can be **deleted** (tags keep commits alive)
+- Main branch version is **arbitrary** (manually updated via helper)
+- CHANGELOG is **computed from git tags + conventional commits**
+- release-it handles most work (bump, CHANGELOG, commit, tag, push, GitHub Release)
 
-- [ ] **Run comprehensive verification script:**
+**Workflow Diagram:**
 
-  ```bash
-  ./scripts/release.verify_preconditions.sh
-  ```
-
-  This checks all requirements below. If it passes, you're ready to proceed to section [`1. Pre-flight verification`](#1-pre-flight-verification).
-
-### Individual checks (if needed)
-
-**Toolchain:**
-
-- [ ] `bun --version && node --version && docker --version && gh --version`
-
-**npm Authentication:**
-
-- [ ] `npm whoami`
-- [ ] `test -f .secrets/npm_registry_publish_token && echo "✓ Token file exists"`
-
-**Docker Hub Authentication:**
-
-- [ ] `./scripts/docker.whoami.sh`
-- [ ] `test -f .secrets/docker_hub_pat && echo "✓ Token file exists"`
-
-**GitHub CLI Authentication:**
-
-- [ ] `gh auth status`
-- [ ] `test -f .secrets/github_token && echo "✓ Token file exists"`
-
-**CI Secrets (GitHub Repository):**
-
-- [ ] `gh secret list -R OleksandrKucherenko/mcp-obsidian-via-rest | grep -E "NPM_PUBLISH_TOKEN|DOCKER_HUB_USERNAME|DOCKER_HUB_TOKEN"`
-- [ ] `gh api repos/OleksandrKucherenko/mcp-obsidian-via-rest/actions/secrets | jq -r '.secrets[] | select(.name | test("NPM_PUBLISH_TOKEN|DOCKER_HUB")) | "\(.name): \(.updated_at)"'`
-
-  > **Note:** GitHub API cannot read secret values (by design). The script shows when secrets were last updated. If timestamps look old or you've rotated tokens, refresh secrets using commands in "Fix missing credentials" section.
-
-**CI Status:**
-
-- [ ] `gh run list --limit 3 -R OleksandrKucherenko/mcp-obsidian-via-rest --json conclusion,name --jq '.[] | "\(.name): \(.conclusion)"'`
-
-**Obsidian API Key (for E2E tests):**
-
-- [ ] `test -n "$API_KEY" && echo "✓ API_KEY loaded (${#API_KEY} chars)"`
-
-**GitHub Packages Token:**
-
-- [ ] `test -n "$NPMRC_GITHUB_AUTH_TOKEN" && echo "✓ Token loaded"`
-
-### Fix missing credentials
-
-If any checks fail, use these commands to set up missing credentials:
-
-**npm token:**
-
-```bash
-# Create at: https://www.npmjs.com/settings/[username]/tokens (Automation, Publish)
-echo "npm_xxxx..." > .secrets/npm_registry_publish_token && direnv reload
+```text
+main (v0.5.1)
+  │
+  ├─→ Release Workflow (GitHub Actions)
+  │     (version_bump: patch)
+  │
+  ├─→ Job 1: pre-flight
+  │     - Typecheck, lint, tests, build
+  │     - Calculate version
+  │
+  ├─→ Job 2: create-release
+  │     - Create release branch: release/v0.5.2
+  │     - Run release-it (does everything)
+  │         - Bump version
+  │         - Generate CHANGELOG
+  │         - Commit
+  │         - Tag
+  │         - Push
+  │         - Create GitHub Release
+  │
+  ├─→ Deployments Trigger (automatic)
+  │     - npm-npmjs.yml (npmjs.org)
+  │     - docker-github.yml (GHCR)
+  │     - docker-hub.yml (Docker Hub - auto on tag)
+  │
+  ├─→ Manual Developer Action (optional)
+  │     bun run release:sync
+  │     ├─→ Updates package.json on main to v0.5.2
+  │     └─→ Cherry-picks CHANGELOG.md to main
+  │
+  └─→ Automated Cleanup (after 7 days)
+        Deletes release/v0.5.2 branch
+        (Tag v0.5.2 remains permanent)
 ```
 
-**Docker Hub token:**
+### Workflow Sequence Diagram
 
-```bash
-# Create at: https://app.docker.com/settings/personal-access-tokens (Read, Write, Delete)
-echo "dckr_pat_xxxx..." > .secrets/docker_hub_pat && direnv reload
-echo "$DOCKER_HUB_TOKEN" | docker login -u "$DOCKER_HUB_USERNAME" --password-stdin
+```mermaid
+sequenceDiagram
+    participant Dev as Developer
+    participant GHA as GitHub Actions
+    participant Release as release.yml
+    participant NPM as npm-npmjs.yml
+    participant GHCR as docker-github.yml
+    participant Hub as docker-hub.yml
+    
+    Dev->>GHA: Run release workflow<br/>(version_bump: minor)
+    
+    rect rgb(240, 248, 255)
+        Note over Release: Job 1: pre-flight
+        Release->>Release: Typecheck, lint, test, build
+        Release->>Release: Calculate version (dry-run)
+    end
+    
+    rect rgb(240, 255, 240)
+        Note over Release: Job 2: create-release
+        Release->>Release: Create branch release/v0.6.0
+        Release->>Release: Run release-it
+        Release-->>GHA: Push tag v0.6.0
+    end
+    
+    Note over GHA: Tag push triggers deployments
+    
+    par Parallel Deployments
+        GHA->>NPM: on: push: tags: [v*]
+        NPM->>NPM: Publish to npmjs.org
+        
+        GHA->>GHCR: on: push: tags: [v*]
+        GHCR->>GHCR: Build & push to ghcr.io
+        
+        GHA->>Hub: on: push: tags: [v*]
+        Hub->>Hub: Build & push to Docker Hub
+    end
+    
+    rect rgb(255, 250, 240)
+        Note over Dev: Optional: Sync main
+        Dev->>Dev: bun run release:sync
+        Dev->>Dev: git push
+    end
 ```
 
-**GitHub token:**
+## Quick Start
+
+### 1. Create Release
 
 ```bash
-# Store current GitHub CLI token
-gh auth token > .secrets/github_token && direnv reload
+# Navigate to GitHub Actions → Release workflow: https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/release.yml
+# Click "Run workflow"
+# Select version bump type (major/minor/patch)
+# (Optional) Enable "Dry run" for testing
+# Click "Run workflow"
 ```
 
-**CI secrets:**
+![Manual Triggering](docs/release-workflow-manual-run.jpg)
+
+Or use GH command line tool:
 
 ```bash
-# Set all required CI secrets (uses direnv-loaded environment variables)
-gh secret set NPM_PUBLISH_TOKEN -b"$NPMRC_DEFAULT_AUTH_TOKEN" -R OleksandrKucherenko/mcp-obsidian-via-rest
-gh secret set DOCKER_HUB_USERNAME -b"$DOCKER_HUB_USERNAME" -R OleksandrKucherenko/mcp-obsidian-via-rest
-gh secret set DOCKER_HUB_TOKEN -b"$DOCKER_HUB_TOKEN" -R OleksandrKucherenko/mcp-obsidian-via-rest
+# Standard release with version bump type
+gh workflow run release.yml -f version_bump=patch
+
+# Or for minor/major
+gh workflow run release.yml -f version_bump=minor
+gh workflow run release.yml -f version_bump=major
+
+# Dry run (testing without actual release)
+gh workflow run release.yml -f version_bump=patch -f dry_run=true
 ```
 
-**GitHub packages token:**
+### 2. Verify Release
 
 ```bash
-# Create classic token at: https://github.com/settings/tokens (read:packages scope)
-echo "ghp_xxxx..." > .secrets/github_read_packages_token && direnv reload
+# Check GitHub Release
+gh release list --limit 1
+
+# Verify npm (release registry)
+npm view @oleksandrkucherenko/mcp-obsidian --@oleksandrkucherenko:registry=https://registry.npmjs.org/
+
+# Verify Docker
+docker buildx imagetools inspect ghcr.io/oleksandrkucherenko/obsidian-mcp:latest
 ```
 
-## 1. Pre-flight verification
+### 3. Sync Main Version (Optional)
 
-- [ ] Sync to latest main: `git fetch --all --prune --tags` (and `git pull` if needed)
-- [ ] Verify current branch is rebased to latest origin/main: `git log --graph --oneline --decorate --all | head -20`
-- [ ] Confirm clean working tree: `git status`
-- [ ] Confirm GitHub access: `gh release list --limit 1`
+```bash
+bun run release:sync
+git push
+```
 
-## 2. Choose release version
+## Detailed Steps
 
-### Standard: Automatic version calculation
+### Step 0: Pre-flight Checks (Automated)
 
-- [ ] Confirm SemVer intent matches the change set:
-  - Breaking changes or incompatible API/config → MAJOR
-  - Backward-compatible new features → MINOR
-  - Bug fixes only → PATCH
-- [ ] Decide the version bump type: `major`, `minor`, or `patch`
+**Performed by release workflow:**
 
-**Note:** release-it automatically calculates the version based on:
+- Typecheck: `bun run checks:types`
+- Lint: `bun run checks:lint`
+- Unit tests: `bun test ./src`
+- Build: `bun run build`
+
+### Step 1: Choose Release Version
+
+**Standard**: Automatic version calculation
+
+release-it automatically calculates the version based on:
 
 1. Latest git tag (e.g., v0.5.1)
-2. Conventional commits since that tag (feat → minor, fix → patch, BREAKING → major)
+2. Conventional commits since that tag:
+   - `feat:` → minor
+   - `fix:` → patch
+   - `BREAKING CHANGE:` or `feat!:` → major
 
-### Forced version (override automatic calculation)
+**Decide** version bump type: `major`, `minor`, or `patch`
 
-Use this when you want to release a specific version that differs from release-it's calculation.
+### Step 2: Create Release
 
-**When to use forced version:**
+#### Option A: Quick Release (Trusted Changes)
 
-- You want a patch release but commits include `feat:` (release-it would suggest minor)
-- You want to skip a version number (e.g., jump from 0.5.1 to 0.5.3)
-- You're releasing hotfix from a different branch
-- CHANGELOG should reflect manual versioning
+**Best for:** Small bug fixes, hotfixes
 
-**How to force a specific version:**
+**Steps:**
+
+1. Commit changes to main branch
+2. Navigate to: `.github/workflows/release.yml`
+3. Click "Run workflow"
+4. Select version bump type
+5. Click "Run workflow"
+6. Monitor workflow execution
+7. Verify deployments
+
+#### Option B: Dry Run (Testing)
+
+**Best for:** Testing configuration before release
+
+**Steps:**
+
+1. Navigate to release workflow
+2. Click "Run workflow"
+3. Enable "Dry run mode"
+4. Click "Run workflow"
+5. Review calculated version and CHANGELOG
+6. Adjust version bump type if needed
+7. Re-run without dry run for actual release
+
+### Step 3: Monitor Deployments
+
+**npm (npmjs.org):**
+
+- Triggers automatically on tag creation
+- Monitor: `.github/workflows/npm-npmjs.yml`
+- Approve manual job when prompted
+- Verify: `npm view @oleksandrkucherenko/mcp-obsidian version`
+
+**Docker (GHCR):**
+
+- Triggers automatically on tag creation
+- Monitor: `.github/workflows/docker-github.yml`
+- Verify: `docker pull ghcr.io/oleksandrkucherenko/obsidian-mcp:0.5.2`
+
+**Docker (Docker Hub):**
+
+- Triggers automatically on tag creation (NEW)
+- Monitor: `.github/workflows/docker-hub.yml`
+- Verify: `docker pull oleksandrkucherenko/obsidian-mcp:0.5.2`
+
+### Step 4: Sync Main Version (Manual, Optional)
+
+After release, main branch still has the old version. To update it:
 
 ```bash
-# 1. First, see what release-it would calculate automatically
-bun run release:dry --ci --no-git --no-github
-
-# 2. To force a specific version (e.g., 0.5.2 instead of calculated 0.6.0):
-bun run release-it 0.5.2 --ci --no-git
-
-# 3. Review the generated CHANGELOG and package.json
-git diff CHANGELOG.md package.json
-
-# 4. Commit and push
-git add CHANGELOG.md package.json
-git commit -m "chore(release): v0.5.2"
-git push
-
-# 5. Create and push tag
-git tag v0.5.2
-git push origin v0.5.2
-
-# 6. Create GitHub Release
-gh release create v0.5.2 --notes "Release v0.5.2"
+bun run release:sync
 ```
 
-**Important considerations:**
+**What it does:**
 
-- CHANGELOG will still compare from the latest git tag (v0.5.1) to your forced version (v0.5.2)
-- The CHANGELOG entry header will show `[0.5.2]` but comparison URL will be `v0.5.1...v0.5.2`
-- If your forced version doesn't match commit types, consider updating CHANGELOG manually to explain why
+1. Finds latest git tag (e.g., v0.5.2)
+2. Fetches release branch for that version
+3. Updates package.json to 0.5.2
+4. Cherry-picks CHANGELOG.md from release branch
+5. Shows diff for review
+6. Interactive confirmation
+7. Commits: "chore: sync package.json and CHANGELOG to v0.5.2"
 
-## 3. Test locally (optional but recommended)
+**When to use:**
 
-- [ ] Install dependencies: `bun install`
-- [ ] Typecheck: `bun run checks:types`
-- [ ] Lint: `bun run checks:lint`
-- [ ] Unit tests: `bun test`
-- [ ] Build package: `bun run build`
+- When you want main to reflect latest release version
+- When you want CHANGELOG.md on main to include latest release notes
+- Before starting new feature development on main
 
-## 4. Create automated release
+**Why manual?**
 
-- [ ] Navigate to: [release.yaml](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/release.yml)
-- [ ] Click "Run workflow"
-- [ ] Select version bump type (major/minor/patch)
-- [ ] (Optional) Enable dry-run mode to test without creating actual release
-- [ ] Click "Run workflow"
-- [ ] Monitor the workflow at: [Github Actions](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions)
+- Developer control over timing
+- Prevents unnecessary commits/PRs
+- Main version is arbitrary - no strict requirement to sync
 
-**The automated workflow will:**
+**Push instructions:**
 
-1. Run all pre-flight checks (typecheck, lint, tests)
-2. Generate CHANGELOG with release-it
-3. Bump version in package.json
-4. Commit changes to main branch
-5. Create and push git tag (vX.Y.Z)
-6. Create GitHub Release
+```bash
+git push
+# or for protected branches
+gh pr create --title "chore: sync version to v0.5.2"
+```
 
-### Alternative: Manual release process
+### Step 5: Automated Cleanup
 
-If the automated workflow fails, follow these manual steps:
+Release branches are automatically deleted after 7 days by cleanup workflow.
 
-#### Manual: Update content
+**Cleanup Workflow:**
 
-- [ ] Update `CHANGELOG.md` with release notes
-- [ ] Update `readme.md` and `docs/` to reflect user-visible changes
-- [ ] Verify `package.json` metadata (name, version, bin, publishConfig) is correct
+- Runs weekly (scheduled every Sunday at 2 AM)
+- Can also be triggered manually
+- Deletes release branches older than 7 days
+- **Tags are NOT deleted** (commits remain accessible)
 
-#### Manual: Create release
+**Manual cleanup:**
 
-- [ ] Run the release command locally:
+```bash
+# Cleanup all release branches older than default (7 days)
+gh workflow run cleanup.yaml -f run_branch_cleanup=true
 
-  ```bash
-  # For patch release
-  bun run release-it patch --ci --no-git
+# Cleanup with custom threshold
+gh workflow run cleanup.yaml -f run_branch_cleanup=true -f branch_cleanup_days=3
+```
 
-  # Or for specific version
-  bun run release-it X.Y.Z --ci --no-git
-  ```
+## Common Scenarios
 
-- [ ] Review and commit changes:
+### Quick Patch Release
 
-  ```bash
-  git add CHANGELOG.md package.json
-  git commit -m "chore(release): vX.Y.Z"
-  git push
-  ```
+**When:** Small bug fix, hotfix
 
-- [ ] Create and push git tag:
+**Steps:**
 
-  ```bash
-  git tag vX.Y.Z
-  git push origin vX.Y.Z
-  ```
+1. Commit changes and merge to main
+2. Run release workflow with `version_bump: patch`
+3. Verify deployments
+4. Done! (Main version sync is optional)
 
-- [ ] Create GitHub Release:
+### Feature Release with Review
 
-  ```bash
-  gh release create vX.Y.Z --notes "Release notes..."
-  ```
+**When:** New feature, breaking changes, significant updates
 
-## 5. Monitor CI/CD workflows
+**Steps:**
 
-After publishing the GitHub Release, the following workflows trigger automatically:
+1. Create feature branch with changes
+2. Test thoroughly
+3. Merge feature branch to main
+4. Run release workflow with `version_bump: minor` (or major)
+5. Verify deployments
+6. Optionally sync main version
+7. Optionally run: `bun run release:sync`
 
-### npmjs.org workflow (PRIMARY - critical)
+### Hotfix from Older Release
 
-- Workflow: `.github/workflows/npmjs-npm-publish.yml`
-- [ ] Monitor workflow at: [Github Actions](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions)
-- [ ] Approve the "Publish to npmjs" manual job when prompted
-- [ ] Verify workflow completes successfully
+**When:** Urgent fix needed for v0.5.2, main has moved to v0.6.0
 
-### GitHub Packages workflow (INFORMATIONAL ONLY)
+**Steps:**
 
-- Workflow: `.github/workflows/npm-github.yml`
-- [ ] Monitor workflow (non-blocking if it fails with "Cannot publish over existing version")
+1. Checkout the old tag: `git checkout v0.5.2`
+2. Create hotfix branch from that tag: `git checkout -b hotfix/v0.5.3-critical-bug`
+3. Apply fix and commit with conventional commit: `git commit -m "fix: critical bug description"`
+4. Push hotfix branch: `git push -u origin hotfix/v0.5.3-critical-bug`
+5. Run release workflow **from the hotfix branch** (select branch in GitHub Actions UI)
+6. Verify deployments
+7. Cherry-pick fix to main if applicable: `git checkout main && git cherry-pick <commit-sha>`
 
-### Docker workflow (PRIMARY - critical)
+**Important Notes:**
 
-- Workflow: `.github/workflows/docker-github.yml`
-- [ ] Monitor workflow completes successfully
+- The release workflow can be triggered from **any branch** (select branch in GitHub Actions "Run workflow" dropdown)
+- Version is calculated from the latest tag globally, so hotfix v0.5.3 will be created correctly
+- After release, consider cherry-picking the fix to main to prevent regression in future releases
 
-### Docker Hub workflow (PRIMARY - critical)
+### Failed Release (Tag Already Exists - Before Publishing)
 
-- Workflow: `.github/workflows/docker-hub.yml`
-- [ ] Navigate to: [Docker Hub Workflow](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml)
-- [ ] Click "Run workflow"
-- [ ] Enter version tag (optional, or leave blank for latest)
-- [ ] Click "Run workflow"
-- [ ] Monitor workflow completes successfully
+**When:** Release workflow fails because tag already exists, but **nothing was published yet**
 
-## 8. Verify deployment
+**Steps:**
 
-- [ ] Verify npmjs version: `npm view @oleksandrkucherenko/mcp-obsidian version`
-- [ ] Verify GitHub Packages version: `npm view @oleksandrkucherenko/mcp-obsidian --registry https://npm.pkg.github.com`
-- [ ] Verify GHCR tags: `docker pull ghcr.io/oleksandrkucherenko/obsidian-mcp:<tag>`
-- [ ] Verify GHCR tags: `docker pull ghcr.io/oleksandrkucherenko/obsidian-vnc:<tag>`
+1. Delete existing tag locally: `git tag -d v0.5.2`
+2. Delete remote tag: `git push origin :refs/tags/v0.5.2`
+3. Delete release branch: `git push origin --delete release/v0.5.2`
+4. Delete GitHub Release if created: `gh release delete v0.5.2 --yes`
+5. Re-run release workflow
 
----
+### Partial Release Failure (Packages Already Published)
 
-## Expected release outputs
+**When:** Release workflow partially succeeded - npm package or Docker images were published, then something failed
 
-| Output | Location | Tags |
-| :--- | :--- | :--- |
-| Git tag | GitHub | `vX.Y.Z` |
-| GitHub Release | GitHub Releases | `Release vX.Y.Z` |
-| npm package | <https://www.npmjs.com/package/@oleksandrkucherenko/mcp-obsidian> | `X.Y.Z` |
-| GitHub Package | GitHub Packages | `X.Y.Z-sha-<short>` |
-| Docker image (GHCR) | `ghcr.io/oleksandrkucherenko/obsidian-mcp` | `latest`, `X.Y.Z`, `X.Y`, `X` |
-| Docker image (GHCR) | `ghcr.io/oleksandrkucherenko/obsidian-vnc` | `latest`, `X.Y.Z`, `X.Y`, `X` |
-| Docker image (Docker Hub) | `oleksandrkucherenko/obsidian-mcp` | `latest`, `X.Y.Z`, `X.Y`, `X` |
+**Critical npm Restrictions:**
 
----
+- npm does **NOT allow re-publishing** the same version (even after unpublish)
+- npm does **NOT allow deleting** packages (only deprecation)
+- There's a **24-hour cooldown** after unpublish before version can be reused
+- Once a version is published, that version number is **permanently consumed**
+
+**Recovery Steps:**
+
+1. **Assess what was published:**
+
+   ```bash
+   # Check npm
+   npm view @oleksandrkucherenko/mcp-obsidian versions --json | jq '.[-5:]'
+
+   # Check Docker (GHCR)
+   docker buildx imagetools inspect ghcr.io/oleksandrkucherenko/obsidian-mcp:0.5.2
+
+   # Check Docker Hub
+   docker buildx imagetools inspect oleksandrkucherenko/obsidian-mcp:0.5.2
+   ```
+
+2. **If npm package was published with broken version - deprecate it:**
+
+   ```bash
+   npm deprecate @oleksandrkucherenko/mcp-obsidian@0.5.2 "Broken release, use 0.5.3 instead"
+   ```
+
+3. **Clean up git artifacts:**
+
+   ```bash
+   git tag -d v0.5.2
+   git push origin :refs/tags/v0.5.2
+   git push origin --delete release/v0.5.2
+   gh release delete v0.5.2 --yes
+   ```
+
+4. **Create hotfix release with next patch version:**
+   - Fix the issue that caused the failure
+   - Run release workflow with `version_bump: patch` (creates v0.5.3)
+   - Update deprecation message to point to the new version
+
+**Important:** Always move forward with a new version. Never try to reuse a version that was published to npm.
 
 ## Troubleshooting
 
-### npmjs.org workflow fails with "Access token expired or revoked"
+### Release workflow fails during pre-flight checks
 
-1. Regenerate token at <https://www.npmjs.com/settings/oleksandrkucherenko/tokens/>
-2. Update local file: `echo "NEW_TOKEN_HERE" > .secrets/npm_registry_publish_token`
-3. Update GitHub secret: `gh secret set NPM_PUBLISH_TOKEN -b"$(cat .secrets/npm_registry_publish_token)" -R OleksandrKucherenko/mcp-obsidian-via-rest`
-4. Re-run failed workflow from <https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions>
+**Problem:** One or more checks failed
 
-### GitHub Packages workflow fails with "Cannot publish over existing version"
+**Solution:**
 
-This occurs when the `sha-<short>` tag was already used. This is **non-blocking** - npmjs.org and Docker workflows are the critical ones. The GitHub Packages workflow is informational only.
+1. Check workflow logs to see which check failed
+2. Fix the issue locally:
+   - Typecheck: `bun run checks:types`
+   - Lint: `bun run checks:lint`
+   - Tests: `bun test ./src`
+   - Build: `bun run build`
+3. Commit and push fixes to main
+4. Re-run release workflow
+
+### Release branch sync failed
+
+**Problem:** `bun run release:sync` fails to cherry-pick CHANGELOG
+
+**Causes:**
+
+- Release branch was deleted (cleanup ran before sync)
+- Conflicting changes in main's CHANGELOG
+
+**Solution:**
+
+```bash
+# Option 1: Wait until release happens, sync within 7 days
+# Option 2: Manually copy CHANGELOG entry from release
+git log --format=%B -1 release/v0.5.2
+# Paste into main's CHANGELOG
+git commit -m "docs: sync CHANGELOG for v0.5.2"
+```
+
+### Tag already exists
+
+**Problem:** Cannot create tag because it already exists
+
+**Solution:** See [Failed Release (Tag Already Exists - Before Publishing)](#failed-release-tag-already-exists---before-publishing) or [Partial Release Failure (Packages Already Published)](#partial-release-failure-packages-already-published) in Common Scenarios above, depending on whether packages were already published.
+
+### Deployment workflows fail
+
+**npm (npmjs.org) fails:**
+
+- Check `NPM_PUBLISH_TOKEN` secret in GitHub
+- Verify token hasn't expired: `https://www.npmjs.com/settings/[username]/tokens`
+- Update secret: `gh secret set NPM_PUBLISH_TOKEN`
+- Re-run failed workflow
+
+**Docker (Docker Hub) doesn't trigger:**
+
+- Verify `.github/workflows/docker-hub.yml` has `tags: ["v*"]` trigger
+- Check workflow logs for errors
+- Manually trigger: navigate to workflow → Run workflow → Enter version
+
+**Docker build fails:**
+
+- Check build logs for specific error
+- Verify Dockerfile is valid
+- Verify all required files are present
+- Re-run workflow after fixing
+
+### Main branch version out of sync
+
+**Problem:** main's package.json doesn't match latest release
+
+**Solution:**
+ 
+```bash
+# Sync to latest release version
+bun run release:sync
+git push
+```
+
+Or leave it as-is (main version is arbitrary and doesn't affect releases)
+
+## Expected Release Artifacts
+
+| Artifact                  | Location        | Notes                                                 |
+| ------------------------- | --------------- | ----------------------------------------------------- |
+| Release branch            | GitHub          | `release/v0.5.2` (deleted after 7 days)               |
+| Git tag                   | GitHub          | `v0.5.2` (permanent)                                  |
+| GitHub Release            | GitHub Releases | Created from tag by release-it                        |
+| npm package               | npmjs.org       | `@oleksandrkucherenko/mcp-obsidian@0.5.2`             |
+| npm package               | GitHub Packages | `@oleksandrkucherenko/mcp-obsidian@0.5.2-sha-<short>` |
+| Docker image (GHCR)       | ghcr.io         | Tags: `0.5.2`, `0.5`, `0`, `latest`                   |
+| Docker image (Docker Hub) | docker.io       | Tags: `0.5.2`, `0.5`, `0`, `latest`                   |
+
+## Reference
+
+**Workflow Files:**
+
+- `.github/workflows/release.yml` - Main release workflow (2 jobs)
+- `.github/workflows/cleanup.yaml` - Cleanup workflows (4 jobs)
+- `.github/workflows/npm-npmjs.yml` - npm publishing
+- `.github/workflows/docker-github.yml` - Docker builds (GHCR)
+- `.github/workflows/docker-hub.yml` - Docker builds (Docker Hub)
+
+**Scripts:**
+
+- `src/scripts/sync-version.ts` - Sync main version + CHANGELOG
+- `assets/ci_cleanup_release_branches.js` - Release branch cleanup
+- `assets/ci_cleanup_docker_images.js` - Docker image cleanup
+- `assets/ci_cleanup_npm_package.js` - NPM package deprecation
+
+**Configuration:**
+
+- `.release-it.release-branch.jsonc` - release-it config for CI
+- `.release-it.jsonc` - release-it config for local use
