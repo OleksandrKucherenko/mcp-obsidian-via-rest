@@ -16,7 +16,9 @@
   },
   // no direct publishing to NPM, only via workflows
   "npm": {
-    "publish": false
+    "publish": false,
+    // do not read package.json version field for the release version computation
+    "ignoreVersion": true
   },
   // compose CHANGELOG.md from conventional commits
   "plugins": {
@@ -31,7 +33,10 @@
   "hooks": {
     "before:init": [
       "git fetch --prune --prune-tags origin",
-      "npm pkg set version=$(git describe --tags --abbrev=0 | sed 's/^v//')"
+      // v1: read tag from current branch only
+      // "npm pkg set version=$(git describe --tags --abbrev=0 | sed 's/^v//')"
+      // v2: read tags from all refs, correspond `getLatestTagFromAllRefs: true`
+      "npm pkg set version=$(git tag -l --sort='v:refname' | tail -1 | sed 's/^v//')"
     ]
   }
 }

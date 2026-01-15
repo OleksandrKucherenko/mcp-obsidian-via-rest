@@ -4,8 +4,8 @@
   // Can be used for both branch (main) and tag-based releases
   //
   // Usage:
-  // - For branch builds: release-it --config .release-it.ci.jsonc --ci
-  // - For tag builds: release-it --config .release-it.ci.jsonc --ci --no-increment --git.getLatestTagFromAllRefs=false
+  // - For branch builds: release-it --config .release-it.readonly.jsonc --ci
+  // - For tag builds: release-it --config .release-it.readonly.jsonc --ci --no-increment --git.getLatestTagFromAllRefs=false
   //
   // This configuration prioritizes being non-destructive in CI environments
   // by avoiding git commits, tags, and pushes.
@@ -27,7 +27,8 @@
     "release": false // Do not create GitHub releases automatically
   },
   "npm": {
-    "publish": false // Do not publish to npm registry
+    "publish": false, // Do not publish to npm registry
+    "ignoreVersion": true // Ignore package.json version field
   },
   "plugins": {
     "@release-it/conventional-changelog": {

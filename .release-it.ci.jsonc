@@ -14,7 +14,8 @@
     "releaseName": "Release v${version}"
   },
   "npm": {
-    "publish": false
+    "publish": false,
+    "ignoreVersion": true
   },
   "hooks": {
     "before:init": ["git fetch --prune --prune-tags origin"]
