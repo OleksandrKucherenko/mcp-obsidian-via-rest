@@ -26,10 +26,7 @@
   "github": {
     "release": false // Do not create GitHub releases automatically
   },
-  "npm": {
-    "publish": false, // Do not publish to npm registry
-    "ignoreVersion": true // Ignore package.json version field
-  },
+  "npm": false, // Completely disable npm plugin - publishing is handled separately in CI workflow
   "plugins": {
     "@release-it/conventional-changelog": {
       "preset": "angular", // Use Angular conventional commit style
