@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
-import { execSync } from "child_process"
-import { readFileSync, writeFileSync } from "fs"
-import * as readline from "readline"
+import { execSync } from "node:child_process"
+import { readFileSync, writeFileSync } from "node:fs"
+import * as readline from "node:readline"
 
 function exec(cmd: string): string {
   return execSync(cmd, { encoding: "utf-8", cwd: process.cwd() }).trim()
@@ -14,7 +14,7 @@ function getLatestTag(): string {
       throw new Error(`Invalid tag format: ${tag}`)
     }
     return tag
-  } catch (error) {
+  } catch (_error) {
     console.error("Error: Could not find latest version tag")
     console.error("Make sure there are tags in the repository")
     process.exit(1)
@@ -38,7 +38,7 @@ function updatePackageJson(version: string): void {
   console.log(`Target version: ${version}\n`)
 
   pkg.version = version
-  writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n")
+  writeFileSync(pkgPath, `${JSON.stringify(pkg, null, 2)}\n`)
   console.log("✅ Updated package.json to version", version)
 }
 
