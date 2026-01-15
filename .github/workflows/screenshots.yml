@@ -174,12 +174,14 @@ jobs:
 
           # Generate image list for comment
           IMAGE_LIST=""
-          for img in "${PR_DIR}"/*.png "${PR_DIR}"/*.jpg 2>/dev/null; do
+          shopt -s nullglob  # Prevent literal glob patterns when no matches
+          for img in "${PR_DIR}"/*.png "${PR_DIR}"/*.jpg; do
             if [ -f "$img" ]; then
               filename=$(basename "$img")
               IMAGE_LIST="${IMAGE_LIST}${filename}\n"
             fi
           done
+          shopt -u nullglob  # Reset nullglob
           echo -e "$IMAGE_LIST" > "${PR_DIR}/images.txt"
 
           # Commit and push
