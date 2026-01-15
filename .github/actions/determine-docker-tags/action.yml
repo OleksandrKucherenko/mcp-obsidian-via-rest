@@ -5,6 +5,9 @@ outputs:
   primary_tag:
     description: 'Primary Docker tag (sha-xxx for PR, version for tag)'
     value: ${{ steps.tags.outputs.PRIMARY_TAG }}
+  version_sha_tag:
+    description: 'Version with SHA tag for PR/dev builds (e.g., 0.6.0-sha.abc1234)'
+    value: ${{ steps.tags.outputs.VERSION_SHA_TAG }}
   is_pr:
     description: 'Whether this is a PR build'
     value: ${{ steps.tags.outputs.IS_PR }}
@@ -25,14 +28,17 @@ runs:
       id: tags
       shell: bash
       run: |
+        BASE_VERSION=$(jq -r '.version' package.json)
+
         if [[ "${{ github.event_name }}" == "pull_request" ]]; then
           # PR build: use SHA hash for tagging
           SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
           echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "VERSION_SHA_TAG=${BASE_VERSION}-sha.${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "IS_PR=true" >> $GITHUB_OUTPUT
           echo "IS_LATEST=false" >> $GITHUB_OUTPUT
           echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-          echo "::notice::PR build - Tag: sha-${SHORT_SHA}"
+          echo "::notice::PR build - Tags: sha-${SHORT_SHA}, ${BASE_VERSION}-sha.${SHORT_SHA}"
         elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "PRIMARY_TAG=${VERSION}" >> $GITHUB_OUTPUT
@@ -63,8 +69,9 @@ runs:
           # Manual/other: use SHA hash
           SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
           echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "VERSION_SHA_TAG=${BASE_VERSION}-sha.${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "IS_PR=false" >> $GITHUB_OUTPUT
           echo "IS_LATEST=false" >> $GITHUB_OUTPUT
           echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-          echo "::notice::Dev build - Tag: sha-${SHORT_SHA}"
+          echo "::notice::Dev build - Tags: sha-${SHORT_SHA}, ${BASE_VERSION}-sha.${SHORT_SHA}"
         fi

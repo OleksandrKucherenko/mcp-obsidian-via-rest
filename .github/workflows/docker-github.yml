@@ -63,6 +63,7 @@ jobs:
           flavor: latest=false
           tags: |
             type=raw,value=${{ steps.docker_tags.outputs.PRIMARY_TAG }}
+            type=raw,value=${{ steps.docker_tags.outputs.VERSION_SHA_TAG }},enable=${{ steps.docker_tags.outputs.VERSION_SHA_TAG != '' }}
             type=semver,pattern={{version}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
             type=semver,pattern={{major}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
@@ -168,6 +169,7 @@ jobs:
           flavor: latest=false
           tags: |
             type=raw,value=${{ steps.docker_tags.outputs.PRIMARY_TAG }}
+            type=raw,value=${{ steps.docker_tags.outputs.VERSION_SHA_TAG }},enable=${{ steps.docker_tags.outputs.VERSION_SHA_TAG != '' }}
             type=semver,pattern={{version}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
             type=semver,pattern={{major}}.{{minor}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
             type=semver,pattern={{major}},enable=${{ steps.docker_tags.outputs.IS_PR != 'true' }}
