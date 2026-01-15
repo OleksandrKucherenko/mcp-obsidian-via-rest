@@ -196,17 +196,17 @@ bun run release-it --config .release-it.release-branch.jsonc $BUMP --ci
 
 ## Configuration Comparison
 
-| Setting | [`.release-it.jsonc`](.release-it.jsonc) | [`.release-it.ci.jsonc`](.release-it.ci.jsonc) | [`.release-it.release-branch.jsonc`](.release-it.release-branch.jsonc) |
-|---------|---------------------|----------------------|-----------------------------------|
-| **git.commit** | true (default) | false | true (default) |
-| **git.tag** | true (default) | false | true (default) |
-| **git.push** | true (default) | false | true |
-| **github.release** | true | false | true |
-| **npm.publish** | false | false | false |
-| **getLatestTagFromAllRefs** | true | true | true |
-| **requireCleanWorkingDir** | false | false | false |
-| **before:init hook** | fetch + **version sync** | none | fetch only |
-| **Version Calculation** | ⚠️ **INCONSISTENT** (hook resets version) | ✅ **CONSISTENT** (no hook) | ✅ **CONSISTENT** (no hook) |
+| Setting                     | [`.release-it.jsonc`](.release-it.jsonc) | [`.release-it.ci.jsonc`](.release-it.ci.jsonc) | [`.release-it.release-branch.jsonc`](.release-it.release-branch.jsonc) |
+| --------------------------- | ---------------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------- |
+| **git.commit**              | true (default)                           | false                                          | true (default)                                                         |
+| **git.tag**                 | true (default)                           | false                                          | true (default)                                                         |
+| **git.push**                | true (default)                           | false                                          | true                                                                   |
+| **github.release**          | true                                     | false                                          | true                                                                   |
+| **npm.publish**             | false                                    | false                                          | false                                                                  |
+| **getLatestTagFromAllRefs** | true                                     | true                                           | true                                                                   |
+| **requireCleanWorkingDir**  | false                                    | false                                          | false                                                                  |
+| **before:init hook**        | fetch + **version sync**                 | none                                           | fetch only                                                             |
+| **Version Calculation**     | ⚠️ **INCONSISTENT** (hook resets version) | ✅ **CONSISTENT** (no hook)                     | ✅ **CONSISTENT** (no hook)                                             |
 
 ---
 
@@ -390,7 +390,7 @@ Result: Local = 0.5.3, CI = 0.5.2 ❌ INCONSISTENT
 **Recommendation:**
 - Add inline comments to each configuration file explaining its purpose
 - Create a "Release Configuration Guide" document
-- Update [`pre-release.md`](pre-release.md) with configuration usage examples
+- Update [`07_pre_release.md`](07_pre_release.md) with configuration usage examples
 - Document the version consistency requirement explicitly
 
 ---
@@ -539,17 +539,17 @@ bun run release-it --ci
 
 ## Decision Matrix
 
-| Criteria | Option A (Single Config) | Option B (Three Files) |
-|----------|----------------------|------------------------|
-| **Maintainability** | Very High | Low |
-| **Clarity** | Very High | Medium |
-| **Breaking Changes** | Low | Low |
-| **Documentation Effort** | Low | Medium |
-| **CI Workflow Updates** | Medium | None |
-| **Developer Experience** | Very High | Medium |
-| **Version Consistency** | Very High | High (after fix) |
-| **Risk of Drift** | None | High |
-| **Files to Maintain** | 1 | 3 |
+| Criteria                 | Option A (Single Config) | Option B (Three Files) |
+| ------------------------ | ------------------------ | ---------------------- |
+| **Maintainability**      | Very High                | Low                    |
+| **Clarity**              | Very High                | Medium                 |
+| **Breaking Changes**     | Low                      | Low                    |
+| **Documentation Effort** | Low                      | Medium                 |
+| **CI Workflow Updates**  | Medium                   | None                   |
+| **Developer Experience** | Very High                | Medium                 |
+| **Version Consistency**  | Very High                | High (after fix)       |
+| **Risk of Drift**        | None                     | High                   |
+| **Files to Maintain**    | 1                        | 3                      |
 
 **Recommendation:** **Option A** - Single Configuration with CLI Overrides
 
@@ -562,7 +562,7 @@ This option directly addresses the core requirement (version consistency between
 1. **Review and approve** this review document
 2. **Choose an option** (A or B) for configuration consolidation
 3. **Implement changes** based on chosen option
-4. **Update documentation** ([`pre-release.md`](pre-release.md), [`docs/03_releases_publishing.md`](docs/03_releases_publishing.md), etc.)
+4. **Update documentation** ([`07_pre_release.md`](07_pre_release.md), [`03_releases_publishing.md`](03_releases_publishing.md), etc.)
 5. **Test version consistency** between local and CI/CD
 6. **Monitor for issues** after deployment
 
@@ -570,32 +570,32 @@ This option directly addresses the core requirement (version consistency between
 
 ## Appendix: Configuration File Locations
 
-| File | Purpose | Used By | Status |
-|------|---------|---------|--------|
-| [`.release-it.jsonc`](.release-it.jsonc) | Single source of truth for all scenarios | [`package.json`](package.json:64) scripts, all CI workflows (after refactor) | ⚠️ Has version sync hook (causes inconsistency) |
-| [`.release-it.ci.jsonc`](.release-it.ci.jsonc) | CI/CD non-destructive (TO BE REMOVED) | [`npm-github.yml`](.github/workflows/npm-github.yml:180), [`npm-npmjs.yml`](.github/workflows/npm-npmjs.yml:118,131) | ✅ Correct behavior, but redundant |
-| [`.release-it.release-branch.jsonc`](.release-it.release-branch.jsonc) | CI/CD release (TO BE REMOVED) | [`release.yml`](.github/workflows/release.yml:69,117,126) | ✅ Correct behavior, but redundant |
+| File                                                                   | Purpose                                  | Used By                                                                                                              | Status                                         |
+| ---------------------------------------------------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| [`.release-it.jsonc`](.release-it.jsonc)                               | Single source of truth for all scenarios | [`package.json`](package.json:64) scripts, all CI workflows (after refactor)                                         | ⚠️ Has version sync hook (causes inconsistency) |
+| [`.release-it.ci.jsonc`](.release-it.ci.jsonc)                         | CI/CD non-destructive (TO BE REMOVED)    | [`npm-github.yml`](.github/workflows/npm-github.yml:180), [`npm-npmjs.yml`](.github/workflows/npm-npmjs.yml:118,131) | ✅ Correct behavior, but redundant              |
+| [`.release-it.release-branch.jsonc`](.release-it.release-branch.jsonc) | CI/CD release (TO BE REMOVED)            | [`release.yml`](.github/workflows/release.yml:69,117,126)                                                            | ✅ Correct behavior, but redundant              |
 
 ---
 
 ## Appendix: Workflow File References
 
-| Workflow | Current Configuration | Line Numbers | Target Configuration | CLI Overrides Needed |
-|----------|-------------------|---------------|-------------------|-------------------|
-| [`.github/workflows/release.yml`](.github/workflows/release.yml) | [`.release-it.release-branch.jsonc`](.release-it.release-branch.jsonc) | 69, 117, 126 | [`.release-it.jsonc`](.release-it.jsonc) | `--ci` |
-| [`.github/workflows/npm-github.yml`](.github/workflows/npm-github.yml) | [`.release-it.ci.jsonc`](.release-it.ci.jsonc) | 180 | [`.release-it.jsonc`](.release-it.jsonc) | `--no-git --no-github --no-npm --ci --no-increment` |
-| [`.github/workflows/npm-npmjs.yml`](.github/workflows/npm-npmjs.yml) | [`.release-it.ci.jsonc`](.release-it.ci.jsonc) | 118 | [`.release-it.jsonc`](.release-it.jsonc) | `--no-git --no-github --no-npm --ci --no-increment --git.getLatestTagFromAllRefs=false` |
-| [`.github/workflows/npm-npmjs.yml`](.github/workflows/npm-npmjs.yml) | [`.release-it.ci.jsonc`](.release-it.ci.jsonc) | 131 | [`.release-it.jsonc`](.release-it.jsonc) | `--no-git --no-github --no-npm --ci` |
+| Workflow                                                               | Current Configuration                                                  | Line Numbers | Target Configuration                     | CLI Overrides Needed                                                                    |
+| ---------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------ | ---------------------------------------- | --------------------------------------------------------------------------------------- |
+| [`.github/workflows/release.yml`](.github/workflows/release.yml)       | [`.release-it.release-branch.jsonc`](.release-it.release-branch.jsonc) | 69, 117, 126 | [`.release-it.jsonc`](.release-it.jsonc) | `--ci`                                                                                  |
+| [`.github/workflows/npm-github.yml`](.github/workflows/npm-github.yml) | [`.release-it.ci.jsonc`](.release-it.ci.jsonc)                         | 180          | [`.release-it.jsonc`](.release-it.jsonc) | `--no-git --no-github --no-npm --ci --no-increment`                                     |
+| [`.github/workflows/npm-npmjs.yml`](.github/workflows/npm-npmjs.yml)   | [`.release-it.ci.jsonc`](.release-it.ci.jsonc)                         | 118          | [`.release-it.jsonc`](.release-it.jsonc) | `--no-git --no-github --no-npm --ci --no-increment --git.getLatestTagFromAllRefs=false` |
+| [`.github/workflows/npm-npmjs.yml`](.github/workflows/npm-npmjs.yml)   | [`.release-it.ci.jsonc`](.release-it.ci.jsonc)                         | 131          | [`.release-it.jsonc`](.release-it.jsonc) | `--no-git --no-github --no-npm --ci`                                                    |
 
 ---
 
 ## Appendix: Package.json Scripts
 
-| Script | Command | Configuration Used | Issue |
-|--------|---------|-------------------|--------|
-| `release` | `release-it` | [`.release-it.jsonc`](.release-it.jsonc) (default) | Has version sync hook (to be removed) |
-| `release:dry` | `release-it --dry-run` | [`.release-it.jsonc`](.release-it.jsonc) (default) | Has version sync hook (to be removed) |
-| `release:sync` | `bun run src/scripts/sync-version.ts` | N/A (custom script) | No issues |
+| Script         | Command                               | Configuration Used                                 | Issue                                 |
+| -------------- | ------------------------------------- | -------------------------------------------------- | ------------------------------------- |
+| `release`      | `release-it`                          | [`.release-it.jsonc`](.release-it.jsonc) (default) | Has version sync hook (to be removed) |
+| `release:dry`  | `release-it --dry-run`                | [`.release-it.jsonc`](.release-it.jsonc) (default) | Has version sync hook (to be removed) |
+| `release:sync` | `bun run src/scripts/sync-version.ts` | N/A (custom script)                                | No issues                             |
 
 ---
 

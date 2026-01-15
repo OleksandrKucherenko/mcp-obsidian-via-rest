@@ -1,8 +1,8 @@
 # mcp-obsidian
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker Images](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml) 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker (ghcr.io)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml) [![NPM (npmjs.com)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml) 
 
-[![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
+[![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml) [![Release](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/release.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/release.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml)
 
 ## Configure MCP 
 
@@ -106,8 +106,8 @@ bun run src/index.ts
 
 ## Dockerized Obsidian for Automated Testing
 
-| Startup | Verification |
-| --- | --- |
+| Startup                                                          | Verification                                  |
+| ---------------------------------------------------------------- | --------------------------------------------- |
 | ![Obsidian Main Screenshot](./dockerize/obsidian-screenshot.jpg) | ![Docker](./assets/obsidian-docker-setup.jpg) |
 
 ```bash
@@ -138,10 +138,10 @@ docker run --rm -d --name obsidian-vnc \
 
 > Critical! Keep options: `--cap-add SYS_ADMIN --device /dev/fuse:/dev/fuse --security-opt apparmor:unconfined`, otherwise the docker container will exit.
 
-| Option | Needed For | What happens if omitted? | 
-|-----------------------|-------------------------|---------------------------------------------|
-| --cap-add SYS_ADMIN | FUSE/AppImage mounting | AppImage fails to mount, container exits |
-| --device /dev/fuse | FUSE/AppImage mounting | AppImage fails to mount, container exits |
+| Option                             | Needed For                              | What happens if omitted?                 |
+| ---------------------------------- | --------------------------------------- | ---------------------------------------- |
+| --cap-add SYS_ADMIN                | FUSE/AppImage mounting                  | AppImage fails to mount, container exits |
+| --device /dev/fuse                 | FUSE/AppImage mounting                  | AppImage fails to mount, container exits |
 | --security-opt apparmor:unconfined | FUSE/AppImage on AppArmor-enabled hosts | AppImage may be blocked, container exits |
 
 To connect to the container I can recommend [TightVNC Viewer](https://www.tightvnc.com/).
@@ -387,3 +387,11 @@ curl -H "Authorization: Bearer ${NPMRC_GITHUB_AUTH_TOKEN}" https://npm.pkg.githu
 - [Configuring .npmrc](https://docs.npmjs.com/cli/v9/configuring-npm/npmrc)
 - [release-it](https://github.com/release-it/release-it)
   - [GitHub Releases](https://github.com/release-it/release-it/blob/main/docs/github-releases.md)
+
+## Additional Documentation
+
+- [Release Runbook](./docs/07_pre_release.md) - Complete release workflow guide
+- [Release Publishing](./docs/03_releases_publishing.md) - Manual release verification
+- [Manual Testing](./docs/04_manual_testing.md) - MCP Inspector testing guide
+- [E2E Verification](./docs/05_e2e_verification.md) - End-to-end verification
+- [DIRENV Setup](./docs/06_direnv_setup.md) - Environment variable management
