@@ -49,8 +49,8 @@ function updateChangelog(version: string): void {
     console.log(`\nFetching release branch: ${branchName}`)
     exec(`git fetch origin ${branchName}`)
 
-    console.log(`Checking out CHANGELOG.md from ${branchName}`)
-    exec(`git checkout origin/${branchName} -- CHANGELOG.md`)
+    console.log(`Extracting CHANGELOG.md from ${branchName}`)
+    exec(`git show origin/${branchName}:CHANGELOG.md > CHANGELOG.md`)
 
     console.log("✅ Updated CHANGELOG.md")
   } catch (error) {
