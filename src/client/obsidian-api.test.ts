@@ -175,6 +175,7 @@ describe("ObsidianAPI - Unit Tests", () => {
           headers: {
             "Content-Type": "text/markdown",
           },
+          timeout: 5000, // Write operations have longer timeout
         },
       )
     })
