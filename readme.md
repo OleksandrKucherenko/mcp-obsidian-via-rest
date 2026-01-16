@@ -13,6 +13,10 @@
 <!-- TOC -->
 
 - [mcp-obsidian](#mcp-obsidian)
+  - [MCP Tools \& Resources](#mcp-tools--resources)
+    - [Tools](#tools)
+    - [Resources](#resources)
+    - [Quick Test](#quick-test)
   - [Configure MCP](#configure-mcp)
     - [Multi-URL Configuration (Recommended)](#multi-url-configuration-recommended)
     - [HTTP Transport Configuration](#http-transport-configuration)
@@ -38,6 +42,45 @@
   - [Dockerized Obsidian](#dockerized-obsidian)
 
 <!-- /TOC -->
+
+## MCP Tools & Resources
+
+This MCP server exposes the following tools and resources to AI assistants:
+
+### Tools
+
+| Tool                       | Description                                       | Parameters                             |
+| -------------------------- | ------------------------------------------------- | -------------------------------------- |
+| `get_note_content`         | Retrieve content and metadata of an Obsidian note | `filePath` (string) - Path to the note |
+| `obsidian_search`          | Search notes using a query string                 | `query` (string) - Search query        |
+| `obsidian_semantic_search` | Semantic search for notes                         | `query` (string) - Search query        |
+
+### Resources
+
+| Resource      | URI Pattern         | Description                                                   |
+| ------------- | ------------------- | ------------------------------------------------------------- |
+| Obsidian Note | `obsidian://{path}` | Access notes via URI (e.g., `obsidian://Daily/2025-01-16.md`) |
+
+### Quick Test
+
+```bash
+# 1. Set your Obsidian API key
+export OBSIDIAN_API_KEY="your-obsidian-rest-api-key"
+
+# 2. Add MCP server and test (Claude Code)
+claude mcp add obsidian -- bunx -y @oleksandrkucherenko/mcp-obsidian
+claude "Search my Obsidian vault for monitoring tools, summarize findings"
+
+# 2. Alternative: Codex CLI
+codex mcp add obsidian --command "bunx -y @oleksandrkucherenko/mcp-obsidian"
+codex "Find notes about logging frameworks and create a comparison table"
+```
+
+**Example use-case:** *"Find all tools in my Obsidian vault for tracking logs and metrics, make a summary report"* — the AI searches your vault, finds notes about OpenTelemetry, Datadog, Prometheus, etc., and generates a structured summary.
+
+For other CLI tools (Gemini, OpenCode, Kilo Code, Copilot), see [Manual Testing Guide](./docs/04_manual_testing.md#quick-test-commands).
+
+![Gemini CLI Example](./docs/gemini-cli-example.jpg)
 
 ## Configure MCP
 

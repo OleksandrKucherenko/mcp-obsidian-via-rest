@@ -847,9 +847,167 @@ The script tests:
 
 ## Testing with LLM CLIs
 
-This section captures how to do quick manual checks with popular LLM CLIs (Codex, Gemini, Claude).
-These CLIs typically connect to MCP servers via a `mcp.json` file or CLI-specific flags.
+This section captures how to do quick manual checks with popular LLM CLIs (Claude, Codex, Gemini, OpenCode, Kilo Code, Copilot, Ollama).
+These CLIs typically connect to MCP servers via a config file or CLI-specific flags.
 Use `--help` for the exact wiring in your installed version.
+
+### Quick Test Commands
+
+Copy-paste commands to quickly add the MCP server and test with each CLI tool.
+
+**Prerequisites:**
+```bash
+export OBSIDIAN_API_KEY="your-obsidian-rest-api-key"
+```
+
+#### Claude Code CLI
+
+```bash
+# Add MCP server
+claude mcp add obsidian -- bunx -y @oleksandrkucherenko/mcp-obsidian
+
+# Test prompt
+claude "Search my Obsidian vault for monitoring and observability tools, summarize findings"
+```
+
+#### Codex CLI
+
+```bash
+# Add MCP server
+codex mcp add obsidian --command "bunx -y @oleksandrkucherenko/mcp-obsidian"
+
+# Test prompt
+codex "Find notes about logging frameworks and create a comparison table"
+```
+
+#### Gemini CLI
+
+```bash
+# Add MCP server
+gemini mcp add \
+  -e API_KEY=$OBSIDIAN_API_KEY \
+  -e API_URLS='["https://127.0.0.1:27124"]' \
+  obsidian \
+  bunx -y @oleksandrkucherenko/mcp-obsidian
+
+# Test prompt
+gemini "What authentication methods are documented in my vault?"
+```
+
+#### OpenCode CLI
+
+```bash
+# Create opencode.json in project root
+cat > opencode.json << 'EOF'
+{
+  "mcp": {
+    "obsidian": {
+      "type": "local",
+      "command": ["bunx", "-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "environment": { "API_KEY": "{env:OBSIDIAN_API_KEY}" },
+      "enabled": true
+    }
+  }
+}
+EOF
+
+# Test (interactive mode)
+opencode
+# Then type: "Search for notes about Docker and Kubernetes"
+```
+
+#### Kilo Code CLI
+
+```bash
+# Create .kilocode/mcp.json
+mkdir -p .kilocode
+cat > .kilocode/mcp.json << 'EOF'
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "bunx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": { "API_KEY": "<your-obsidian-api-key>" }
+    }
+  }
+}
+EOF
+
+# Test (interactive mode)
+kilo
+# Then type: "Find all API documentation in my vault"
+```
+
+#### GitHub Copilot CLI
+
+```bash
+# Create ~/.copilot/mcp-config.json
+mkdir -p ~/.copilot
+cat > ~/.copilot/mcp-config.json << 'EOF'
+{
+  "mcpServers": {
+    "obsidian": {
+      "type": "local",
+      "command": "bunx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": { "API_KEY": "${OBSIDIAN_API_KEY}" },
+      "tools": ["*"]
+    }
+  }
+}
+EOF
+
+# Test prompt
+gh copilot "List all project ideas documented in my Obsidian vault"
+```
+
+#### Ollama (via mcp-client-for-ollama)
+
+Ollama doesn't have native MCP support, but you can use [mcp-client-for-ollama](https://github.com/jonigl/mcp-client-for-ollama) - a TUI client for MCP servers with Ollama.
+
+```bash
+# Install the MCP client for Ollama
+pip install mcp-client-for-ollama
+
+# Create config file ~/.mcp-client-for-ollama/config.json
+mkdir -p ~/.mcp-client-for-ollama
+cat > ~/.mcp-client-for-ollama/config.json << 'EOF'
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "bunx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "<your-obsidian-api-key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      }
+    }
+  }
+}
+EOF
+
+# Run the TUI client (requires Ollama running locally)
+ollama pull qwen2.5  # or any model with tool calling support
+mcp-client-for-ollama
+
+# In the TUI, type: "Search my vault for notes about Docker"
+```
+
+**Requirements:**
+- Python 3.10+
+- Ollama installed and running (`ollama serve`)
+- A model with tool calling support (e.g., `qwen2.5`, `llama3.1`, `mistral`)
+
+#### Example Test Prompts
+
+Use these prompts to verify the MCP connection is working:
+
+| Prompt | Expected Behavior |
+|--------|-------------------|
+| "List all MCP tools available from obsidian" | Returns: `get_note_content`, `obsidian_search`, `obsidian_semantic_search` |
+| "Search my vault for notes about TypeScript" | Uses `obsidian_search` tool, returns matching note paths |
+| "Get content of Daily/2025-01-16.md" | Uses `get_note_content` tool, returns note content |
+| "Find tools for tracking logs and metrics, summarize" | Searches vault, finds monitoring tools, generates summary |
 
 ### CLI Capability Snapshot
 
