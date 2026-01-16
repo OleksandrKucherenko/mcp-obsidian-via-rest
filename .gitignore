@@ -56,3 +56,6 @@ reports/screenshots/
 # Deprecation scripts
 deprecate-*.sh
 cleanup-*.sh
+
+# AI Coding
+.kilocode/
