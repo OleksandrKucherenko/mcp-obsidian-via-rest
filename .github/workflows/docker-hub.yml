@@ -106,6 +106,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
           repository: ${{ steps.repo_name.outputs.owner }}/obsidian-vnc
           readme-filepath: ./readme.md
+          logo: https://raw.githubusercontent.com/${{ github.repository_owner }}/mcp-obsidian-via-rest/main/docs/obsidian-logo-bw.webp
 
   build-mcp:
     runs-on: ubuntu-latest
@@ -193,3 +194,4 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_TOKEN }}
           repository: ${{ steps.repo_name.outputs.owner }}/obsidian-mcp
           readme-filepath: ./readme.md
+          logo: https://raw.githubusercontent.com/${{ github.repository_owner }}/mcp-obsidian-via-rest/main/docs/obsidian-logo-bw.webp
