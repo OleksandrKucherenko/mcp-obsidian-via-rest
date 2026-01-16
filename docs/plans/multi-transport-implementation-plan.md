@@ -62,8 +62,7 @@ Implement HTTP and SSE (Server-Sent Events) transports for the MCP server while 
   },
   transports: {
     stdio: { enabled: true },
-    http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" },
-    sse: { enabled: true, path: "/sse" }
+    http: { enabled: true, port: 3000, host: "0.0.0.0", path: "/mcp" }
   }
 }
 ```
@@ -75,8 +74,7 @@ Implement HTTP and SSE (Server-Sent Events) transports for the MCP server while 
 **Transport Layer:**
 - `src/transports/types.ts` - Transport interfaces and types
 - `src/transports/stdio.transport.ts` - Stdio transport wrapper
-- `src/transports/http.transport.ts` - Streamable HTTP transport (MCP JSON-RPC)
-- `src/transports/sse.transport.ts` - SSE transport (legacy support)
+- `src/transports/http.transport.ts` - Streamable HTTP transport (MCP JSON-RPC with built-in SSE streaming)
 - `src/transports/manager.ts` - Transport lifecycle management
 
 **Server Layer:**
@@ -304,7 +302,6 @@ bun test ./src
   ```typescript
   interface TransportContext { close(): Promise<void> }
   interface HttpTransportConfig { enabled, port, host, path, cors }
-  interface SseTransportConfig { enabled, path }
   ```
 - Add Zod schemas for validation
 - Run tests → All pass (GREEN)
@@ -859,15 +856,12 @@ API_KEY="your-api-key-here"
 
 ```bash
 # Enable transports (comma-separated) - NEW
-MCP_TRANSPORTS="stdio,http,sse"  # Default: "stdio"
+MCP_TRANSPORTS="stdio,http"  # Default: "stdio,http"
 
 # HTTP transport settings - NEW
 MCP_HTTP_PORT=3000
 MCP_HTTP_HOST="0.0.0.0"
 MCP_HTTP_PATH="/mcp"
-
-# SSE transport settings - NEW
-MCP_SSE_PATH="/sse"
 
 # Optional authentication - NEW
 MCP_API_TOKEN="your-secret-token"  # If not set, auth disabled
@@ -931,7 +925,7 @@ curl http://localhost:3000/health
 docker run --rm -i -p 3000:3000 \
   -e API_KEY=xxx \
   -e API_URLS='["https://127.0.0.1:27124","https://host.docker.internal:27124","https://192.168.1.100:27124"]' \
-  -e MCP_TRANSPORTS=stdio,http,sse \
+  -e MCP_TRANSPORTS=stdio,http \
   -e DEBUG=mcp:* \
   mcp/obsidian:latest
 ```
@@ -953,30 +947,30 @@ curl -X POST http://localhost:3000/messages \
 
 ## Risk Assessment
 
-| Risk | Impact | Mitigation |
-|------|--------|------------|
-| MCP SDK HTTP transport incompatible with Bun | High | Test early in Phase 3; fallback to Node.js if needed |
-| Multiple transports share state incorrectly | High | Single MCP server instance design; extensive tests |
-| Dependency updates break existing code | Medium | Update dependencies first (Phase 0); run all tests |
-| Docker health check failures | Medium | Support both file-based and HTTP health checks |
-| Connection thrashing in self-healing | Medium | Exponential backoff; configurable retry intervals |
+| Risk                                         | Impact | Mitigation                                           |
+| -------------------------------------------- | ------ | ---------------------------------------------------- |
+| MCP SDK HTTP transport incompatible with Bun | High   | Test early in Phase 3; fallback to Node.js if needed |
+| Multiple transports share state incorrectly  | High   | Single MCP server instance design; extensive tests   |
+| Dependency updates break existing code       | Medium | Update dependencies first (Phase 0); run all tests   |
+| Docker health check failures                 | Medium | Support both file-based and HTTP health checks       |
+| Connection thrashing in self-healing         | Medium | Exponential backoff; configurable retry intervals    |
 
 ---
 
 ## Success Criteria
 
 - [x] Phase 0: All dependencies updated to latest versions
-- [ ] Phase 1: Multi-URL configuration and self-healing works (Issue #7 ✓)
-- [ ] Phase 2: Transport abstraction layer complete
-- [ ] Phase 3: HTTP transport works (Issue #9 partial ✓)
-- [ ] Phase 4: SSE transport works (Issue #9 complete ✓)
-- [ ] Phase 5: Health monitoring complete
-- [ ] Phase 6: Docker integration complete
-- [ ] Phase 7: Documentation complete
-- [ ] All tests pass (>80% coverage for new code)
-- [ ] No breaking changes to existing stdio functionality
-- [ ] Docker image size increase <20MB
-- [ ] GitHub issues #7 and #9 closed
+- [x] Phase 1: Multi-URL configuration and self-healing works (Issue #7 ✓)
+- [x] Phase 2: Transport abstraction layer complete
+- [x] Phase 3: HTTP transport works (Issue #9 partial ✓)
+- [x] Phase 4: SSE transport works (Issue #9 complete ✓)
+- [x] Phase 5: Health monitoring complete
+- [x] Phase 6: Docker integration complete
+- [x] Phase 7: Documentation complete
+- [x] All tests pass (>80% coverage for new code)
+- [x] No breaking changes to existing stdio functionality
+- [x] Docker image size increase <20MB
+- [x] GitHub issues #7 and #9 closed
 
 ---
 

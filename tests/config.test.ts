@@ -32,7 +32,6 @@ describe("Configuration Loading - Multi-URL and Transports", () => {
       "MCP_HTTP_PORT",
       "MCP_HTTP_HOST",
       "MCP_HTTP_PATH",
-      "MCP_SSE_PATH",
       "API_TEST_TIMEOUT",
       "API_RETRY_INTERVAL",
       "WSL_GATEWAY_IP",
