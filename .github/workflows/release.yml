@@ -206,6 +206,39 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Trigger downstream workflows
+        if: inputs.dry_run == 'false'
+        run: |
+          VERSION="${{ needs.pre-flight.outputs.version }}"
+          TAG="v${VERSION}"
+
+          echo "Triggering downstream workflows for tag: ${TAG}"
+
+          # Trigger NPM (npmjs.org) workflow
+          echo "Triggering NPM (npmjs.org) workflow..."
+          gh workflow run npm-npmjs.yml --ref "${TAG}"
+          echo "✅ NPM (npmjs.org) workflow triggered"
+
+          # Trigger Docker (GitHub/GHCR) workflow
+          echo "Triggering Docker (GHCR) workflow..."
+          gh workflow run docker-github.yml --ref "${TAG}"
+          echo "✅ Docker (GHCR) workflow triggered"
+
+          # Trigger Docker (Docker Hub) workflow - only for stable releases
+          PRERELEASE="${{ inputs.prerelease }}"
+          if [ "$PRERELEASE" == "<stable>" ]; then
+            echo "Triggering Docker (Docker Hub) workflow..."
+            gh workflow run docker-hub.yml --ref "${TAG}"
+            echo "✅ Docker (Docker Hub) workflow triggered"
+          else
+            echo "ℹ️ Skipping Docker (Docker Hub) - pre-release detected"
+          fi
+
+          echo ""
+          echo "All workflows triggered successfully"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Release summary
         if: inputs.dry_run == 'false'
         run: |
@@ -222,10 +255,15 @@ jobs:
           echo "- [npm Package](https://www.npmjs.com/package/@oleksandrkucherenko/mcp-obsidian/v/${VERSION})" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### Next Steps" >> $GITHUB_STEP_SUMMARY
-          echo "The following workflows are now triggered:" >> $GITHUB_STEP_SUMMARY
+          echo "The following workflows have been triggered:" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ NPM (npmjs.org)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Docker (GitHub/GHCR)" >> $GITHUB_STEP_SUMMARY
-          echo "- ⚠️  Docker (Docker Hub) - **Manual trigger required**" >> $GITHUB_STEP_SUMMARY
+          PRERELEASE="${{ inputs.prerelease }}"
+          if [ "$PRERELEASE" == "<stable>" ]; then
+            echo "- ✅ Docker (Docker Hub)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- ⚠️  Docker (Docker Hub) - **Skipped for pre-release**" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Monitor workflows at: https://github.com/${{ github.repository }}/actions" >> $GITHUB_STEP_SUMMARY
 
