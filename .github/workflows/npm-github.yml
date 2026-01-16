@@ -1,6 +1,6 @@
 # Publish NPM Package to GitHub Packages (Staging Environment)
 # Triggers on PRs (with SHA-versioned packages) and version tags
-name: NPM (npm.pkg.github.com)
+name: NPM (github.com)
 
 on:
   pull_request:
