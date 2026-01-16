@@ -28,6 +28,7 @@ permissions:
   contents: write
   packages: write
   id-token: write
+  workflow: write
 
 jobs:
   pre-flight:
