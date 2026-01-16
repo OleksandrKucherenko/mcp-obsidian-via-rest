@@ -186,12 +186,13 @@ jobs:
 
       - name: Sync CHANGELOG from latest release
         run: |
-          # Get the latest tag (source of truth for changelog history)
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-          
+          # Get the latest tag from all refs (not just reachable from current commit)
+          # This is necessary because release tags are on release branches, not main
+          LATEST_TAG=$(git tag -l 'v*' --sort='v:refname' | tail -1)
+
           if [ -n "$LATEST_TAG" ]; then
             echo "Latest tag: $LATEST_TAG"
-            
+
             # Fetch CHANGELOG from the latest tag's commit
             # This ensures we have the complete history including all previous releases
             if git show "${LATEST_TAG}:CHANGELOG.md" > /tmp/CHANGELOG.md 2>/dev/null; then
@@ -337,7 +338,7 @@ jobs:
             PRERELEASE=""
           fi
 
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          LATEST_TAG=$(git tag -l 'v*' --sort='v:refname' | tail -1 || echo "none")
           COMMIT_COUNT=$(git rev-list ${LATEST_TAG}..HEAD --count 2>/dev/null || echo "0")
           
           echo "## 🔍 Dry Run Results" >> $GITHUB_STEP_SUMMARY

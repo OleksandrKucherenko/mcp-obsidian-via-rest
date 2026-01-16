@@ -150,21 +150,17 @@ jobs:
           TEMP_SCREENSHOTS=$(mktemp -d)
           cp -r reports/screenshots/* "$TEMP_SCREENSHOTS/"
 
-          # Fetch or create screenshots branch
-          git fetch origin "${SCREENSHOTS_BRANCH}:${SCREENSHOTS_BRANCH}" 2>/dev/null || true
+          # Fetch main and screenshots branch
+          git fetch origin main
+          git fetch origin "${SCREENSHOTS_BRANCH}" 2>/dev/null || true
 
-          # Stash any changes and switch to screenshots branch
+          # Stash any changes and switch to a branch based on main
           git stash --include-untracked 2>/dev/null || true
+          git checkout -B "${SCREENSHOTS_BRANCH}" "origin/main"
 
-          if git show-ref --verify --quiet "refs/heads/${SCREENSHOTS_BRANCH}"; then
-            git checkout "${SCREENSHOTS_BRANCH}"
-          else
-            git checkout --orphan "${SCREENSHOTS_BRANCH}"
-            git rm -rf . 2>/dev/null || true
-            echo "# Screenshots Branch" > README.md
-            echo "This branch contains screenshots from CI runs for PR previews." >> README.md
-            git add README.md
-            git commit -m "Initialize screenshots branch"
+          # Bring forward existing screenshots (only pr-* directories)
+          if git show-ref --verify --quiet "refs/remotes/origin/${SCREENSHOTS_BRANCH}"; then
+            git checkout "origin/${SCREENSHOTS_BRANCH}" -- "pr-*" 2>/dev/null || true
           fi
 
           # Create/update PR directory
@@ -184,10 +180,17 @@ jobs:
           shopt -u nullglob  # Reset nullglob
           echo -e "$IMAGE_LIST" > "${PR_DIR}/images.txt"
 
-          # Commit and push
-          git add "${PR_DIR}"
-          git commit -m "Screenshots for PR #${PR_NUMBER} (run ${{ github.run_id }})" || echo "No changes to commit"
-          git push origin "${SCREENSHOTS_BRANCH}"
+          # Commit and force-push a single squashed commit on top of main
+          git add "pr-*"
+          if git diff --cached --quiet; then
+            echo "No screenshot changes to commit"
+            git checkout - 2>/dev/null || true
+            git stash pop 2>/dev/null || true
+            exit 0
+          fi
+
+          HUSKY=0 git commit -m "chore: update screenshots for PR #${PR_NUMBER} (run ${{ github.run_id }})"
+          git push --force origin "${SCREENSHOTS_BRANCH}"
 
           # Output image URLs for comment
           REPO="${{ github.repository }}"
