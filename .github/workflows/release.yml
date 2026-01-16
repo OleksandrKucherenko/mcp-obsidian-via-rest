@@ -207,7 +207,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Trigger downstream workflows
-        if: inputs.dry_run == 'false'
+        if: inputs.dry_run != true && inputs.dry_run != 'true'
         run: |
           VERSION="${{ needs.pre-flight.outputs.version }}"
           TAG="v${VERSION}"
@@ -240,7 +240,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Release summary
-        if: inputs.dry_run == 'false'
+        if: inputs.dry_run != true && inputs.dry_run != 'true'
         run: |
           VERSION="${{ needs.pre-flight.outputs.version }}"
           echo "## Release Created" >> $GITHUB_STEP_SUMMARY
