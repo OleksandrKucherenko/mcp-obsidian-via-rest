@@ -20,6 +20,14 @@
     - [Stdio Transport Configuration](#stdio-transport-configuration)
     - [Legacy Single-URL Configuration](#legacy-single-url-configuration)
     - [Health Endpoint](#health-endpoint)
+  - [CLI Tools Configuration](#cli-tools-configuration)
+    - [Claude Code CLI](#claude-code-cli)
+    - [Gemini CLI](#gemini-cli)
+    - [OpenCode CLI](#opencode-cli)
+    - [Kilo Code CLI](#kilo-code-cli)
+    - [Codex CLI](#codex-cli)
+    - [GitHub Copilot CLI](#github-copilot-cli)
+    - [Quick Reference](#quick-reference)
   - [Setup and Troubleshooting](#setup-and-troubleshooting)
     - [Setup](#setup)
     - [Verify that the Obsidian REST API is running (Windows Host, MacOS, Linux)](#verify-that-the-obsidian-rest-api-is-running-windows-host-macos-linux)
@@ -254,13 +262,279 @@ For comprehensive health status including Obsidian API connection and all transp
   },
   "transports": {
     "stdio": { "running": true, "enabled": true },
-    "http": { "running": true, "enabled": true },
-    "sse": { "running": false, "enabled": false }
+    "http": { "running": true, "enabled": true }
   },
   "uptime": 3600,
   "timestamp": 1705065600000
 }
 ```
+
+## CLI Tools Configuration
+
+This section shows how to configure popular AI CLI tools to use the MCP Obsidian server.
+
+```bash
+# MacOs or Linux
+curl -fsSL https://bun.sh/install | bash
+
+# Windows
+powershell -c "irm bun.sh/install.ps1 | iex"
+```
+
+### Claude Code CLI
+
+**Docker:**
+```bash
+# Create mcp.json configuration
+cat > mcp.json << 'EOF'
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "-e", "API_KEY", "-e", "API_URLS", "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "env": {
+        "API_KEY": "<your-obsidian-api-key>",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      }
+    }
+  }
+}
+EOF
+
+# Run Claude with MCP config
+claude --mcp-config ./mcp.json
+```
+
+**NPX/Bunx:**
+```bash
+cat > mcp.json << 'EOF'
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "bunx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "<your-obsidian-api-key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      }
+    }
+  }
+}
+EOF
+
+claude --mcp-config ./mcp.json
+```
+
+### Gemini CLI
+
+**Docker:**
+```bash
+gemini mcp add \
+  -e API_KEY=<your-obsidian-api-key> \
+  -e API_URLS='["https://host.docker.internal:27124"]' \
+  obsidian \
+  docker run --rm -i ghcr.io/oleksandrkucherenko/obsidian-mcp:latest
+```
+
+**NPX/Bunx:**
+```bash
+gemini mcp add \
+  -e API_KEY=<your-obsidian-api-key> \
+  -e API_URLS='["https://127.0.0.1:27124"]' \
+  obsidian \
+  bunx -y @oleksandrkucherenko/mcp-obsidian
+```
+
+**HTTP Transport (remote server):**
+```bash
+gemini mcp add --transport http obsidian-http http://localhost:3000/mcp
+```
+
+**List and manage servers:**
+```bash
+gemini mcp list
+gemini mcp remove obsidian
+```
+
+### OpenCode CLI
+
+Create `opencode.json` in your project root:
+
+**Docker:**
+```jsonc
+{
+  "mcp": {
+    "obsidian": {
+      "type": "local",
+      "command": ["docker", "run", "--rm", "-i",
+        "-e", "API_KEY", "-e", "API_URLS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "environment": {
+        "API_KEY": "{env:API_KEY}",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      },
+      "enabled": true
+    }
+  }
+}
+```
+
+**NPX/Bunx:**
+```jsonc
+{
+  "mcp": {
+    "obsidian": {
+      "type": "local",
+      "command": ["bunx", "-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "environment": {
+        "API_KEY": "{env:API_KEY}",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      },
+      "enabled": true
+    }
+  }
+}
+```
+
+**HTTP Transport:**
+```jsonc
+{
+  "mcp": {
+    "obsidian-http": {
+      "type": "remote",
+      "url": "http://localhost:3000/mcp",
+      "enabled": true
+    }
+  }
+}
+```
+
+### Kilo Code CLI
+
+Create `.kilocode/mcp.json` in your project or `~/.kilocode/cli/global/settings/mcp_settings.json` globally:
+
+**Docker:**
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "-e", "API_KEY", "-e", "API_URLS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "env": {
+        "API_KEY": "<your-obsidian-api-key>",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      }
+    }
+  }
+}
+```
+
+**NPX/Bunx:**
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "command": "bunx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "<your-obsidian-api-key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      }
+    }
+  }
+}
+```
+
+**HTTP Transport:**
+```json
+{
+  "mcpServers": {
+    "obsidian-http": {
+      "type": "streamable-http",
+      "url": "http://localhost:3000/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-token>"
+      }
+    }
+  }
+}
+```
+
+### Codex CLI
+
+**Docker:**
+```bash
+# Register MCP server
+codex mcp add obsidian \
+  --command "docker run --rm -i -e API_KEY -e API_URLS ghcr.io/oleksandrkucherenko/obsidian-mcp:latest" \
+  --env API_KEY=<your-obsidian-api-key> \
+  --env 'API_URLS=["https://host.docker.internal:27124"]'
+```
+
+**NPX/Bunx:**
+```bash
+codex mcp add obsidian \
+  --command "bunx -y @oleksandrkucherenko/mcp-obsidian" \
+  --env API_KEY=<your-obsidian-api-key> \
+  --env 'API_URLS=["https://127.0.0.1:27124"]'
+```
+
+### GitHub Copilot CLI
+
+Create `~/.copilot/mcp-config.json` (or `.copilot/mcp-config.json` in repo root):
+
+**Docker:**
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "type": "local",
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "-e", "API_KEY", "-e", "API_URLS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "env": {
+        "API_KEY": "${OBSIDIAN_API_KEY}",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      },
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+**NPX/Bunx:**
+```json
+{
+  "mcpServers": {
+    "obsidian": {
+      "type": "local",
+      "command": "bunx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "${OBSIDIAN_API_KEY}",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      },
+      "tools": ["*"]
+    }
+  }
+}
+```
+
+**Note:** Copilot CLI v0.0.340+ requires `${VAR}` syntax for environment variable expansion. Set `OBSIDIAN_API_KEY` in your shell before running.
+
+### Quick Reference
+
+| CLI Tool    | Config File                  | Docker Support | HTTP Transport |
+| ----------- | ---------------------------- | -------------- | -------------- |
+| Claude Code | `mcp.json`                   | ✅              | ✅              |
+| Gemini      | `settings.json`              | ✅              | ✅              |
+| OpenCode    | `opencode.json`              | ✅              | ✅              |
+| Kilo Code   | `.kilocode/mcp.json`         | ✅              | ✅              |
+| Codex       | CLI commands                 | ✅              | ✅              |
+| Copilot     | `~/.copilot/mcp-config.json` | ✅              | ✅              |
+
+For detailed testing and verification, see [Manual Testing Guide](./docs/04_manual_testing.md).
 
 ## Setup and Troubleshooting
 

@@ -1,5 +1,10 @@
 # Implementation Plan: Multi-Transport MCP Server with Self-Healing
 
+> **Implementation Status (Updated):** This plan has been implemented with one architectural change:
+> **SSE streaming is now built into the HTTP transport** via `WebStandardStreamableHTTPServerTransport`.
+> There is no separate SSE transport - the HTTP transport handles both JSON-RPC POST requests and
+> SSE streaming on the same `/mcp` endpoint. References to separate SSE transport below are historical.
+
 ## Overview
 
 Implement HTTP and SSE (Server-Sent Events) transports for the MCP server while maintaining stdio support. Add smart configuration with self-healing Obsidian API connections, especially for WSL2 environments. Update all dependencies to latest versions.

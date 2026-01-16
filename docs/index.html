@@ -250,8 +250,204 @@ New-NetFirewallRule -DisplayName "WSL2 Obsidian REST API" -Direction Inbound -Lo
     </div>
 
     <div class="container">
+        <h2>Step 6: Configure Your AI CLI Tool</h2>
+        <p>Configure your preferred AI CLI tool to use the MCP Obsidian server. Choose between Docker-hosted or NPX/Bunx-hosted versions.</p>
+
+        <h3>Claude Code CLI</h3>
+        <div class="step">
+            <p><strong>Docker:</strong></p>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "obsidian": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "-e", "API_KEY", "-e", "API_URLS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "env": {
+        "API_KEY": "&lt;your-obsidian-api-key&gt;",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      }
+    }
+  }
+}</code></pre>
+            <p><strong>NPX/Bunx:</strong></p>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "obsidian": {
+      "command": "npx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "&lt;your-obsidian-api-key&gt;",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      }
+    }
+  }
+}</code></pre>
+            <p>Save as <code>mcp.json</code> and run: <code>claude --mcp-config ./mcp.json</code></p>
+        </div>
+
+        <h3>Gemini CLI</h3>
+        <div class="step">
+            <p><strong>Docker:</strong></p>
+            <pre><code class="language-bash">gemini mcp add \
+  -e API_KEY=&lt;your-obsidian-api-key&gt; \
+  -e API_URLS='["https://host.docker.internal:27124"]' \
+  obsidian \
+  docker run --rm -i ghcr.io/oleksandrkucherenko/obsidian-mcp:latest</code></pre>
+            <p><strong>NPX/Bunx:</strong></p>
+            <pre><code class="language-bash">gemini mcp add \
+  -e API_KEY=&lt;your-obsidian-api-key&gt; \
+  -e API_URLS='["https://127.0.0.1:27124"]' \
+  obsidian \
+  npx -y @oleksandrkucherenko/mcp-obsidian</code></pre>
+            <p><strong>HTTP Transport:</strong> <code>gemini mcp add --transport http obsidian-http http://localhost:3000/mcp</code></p>
+        </div>
+
+        <h3>OpenCode CLI</h3>
+        <div class="step">
+            <p>Create <code>opencode.json</code> in your project root:</p>
+            <p><strong>Docker:</strong></p>
+            <pre><code class="language-json">{
+  "mcp": {
+    "obsidian": {
+      "type": "local",
+      "command": ["docker", "run", "--rm", "-i", "-e", "API_KEY", "-e", "API_URLS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "environment": {
+        "API_KEY": "{env:API_KEY}",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      },
+      "enabled": true
+    }
+  }
+}</code></pre>
+            <p><strong>NPX/Bunx:</strong></p>
+            <pre><code class="language-json">{
+  "mcp": {
+    "obsidian": {
+      "type": "local",
+      "command": ["npx", "-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "environment": {
+        "API_KEY": "{env:API_KEY}",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      },
+      "enabled": true
+    }
+  }
+}</code></pre>
+        </div>
+
+        <h3>Kilo Code CLI</h3>
+        <div class="step">
+            <p>Create <code>.kilocode/mcp.json</code> in your project:</p>
+            <p><strong>Docker:</strong></p>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "obsidian": {
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "-e", "API_KEY", "-e", "API_URLS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "env": {
+        "API_KEY": "&lt;your-obsidian-api-key&gt;",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      }
+    }
+  }
+}</code></pre>
+            <p><strong>NPX/Bunx:</strong></p>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "obsidian": {
+      "command": "npx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "&lt;your-obsidian-api-key&gt;",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      }
+    }
+  }
+}</code></pre>
+        </div>
+
+        <h3>Codex CLI</h3>
+        <div class="step">
+            <p><strong>Docker:</strong></p>
+            <pre><code class="language-bash">codex mcp add obsidian \
+  --command "docker run --rm -i -e API_KEY -e API_URLS ghcr.io/oleksandrkucherenko/obsidian-mcp:latest" \
+  --env API_KEY=&lt;your-obsidian-api-key&gt; \
+  --env 'API_URLS=["https://host.docker.internal:27124"]'</code></pre>
+            <p><strong>NPX/Bunx:</strong></p>
+            <pre><code class="language-bash">codex mcp add obsidian \
+  --command "npx -y @oleksandrkucherenko/mcp-obsidian" \
+  --env API_KEY=&lt;your-obsidian-api-key&gt; \
+  --env 'API_URLS=["https://127.0.0.1:27124"]'</code></pre>
+        </div>
+
+        <h3>GitHub Copilot CLI</h3>
+        <div class="step">
+            <p>Create <code>~/.copilot/mcp-config.json</code> (or <code>.copilot/mcp-config.json</code> in repo root):</p>
+            <p><strong>Docker:</strong></p>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "obsidian": {
+      "type": "local",
+      "command": "docker",
+      "args": ["run", "--rm", "-i", "-e", "API_KEY", "-e", "API_URLS",
+        "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"],
+      "env": {
+        "API_KEY": "${OBSIDIAN_API_KEY}",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]"
+      },
+      "tools": ["*"]
+    }
+  }
+}</code></pre>
+            <p><strong>NPX/Bunx:</strong></p>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "obsidian": {
+      "type": "local",
+      "command": "npx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "${OBSIDIAN_API_KEY}",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]"
+      },
+      "tools": ["*"]
+    }
+  }
+}</code></pre>
+            <div class="note">
+                <p>Copilot CLI v0.0.340+ requires <code>${VAR}</code> syntax for env expansion. Set <code>OBSIDIAN_API_KEY</code> in your shell.</p>
+            </div>
+        </div>
+
+        <h3>Quick Reference</h3>
+        <div class="step">
+            <table>
+                <thead>
+                    <tr>
+                        <th>CLI Tool</th>
+                        <th>Config File</th>
+                        <th>Docker</th>
+                        <th>HTTP</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td>Claude Code</td><td><code>mcp.json</code></td><td>✅</td><td>✅</td></tr>
+                    <tr><td>Gemini</td><td><code>settings.json</code></td><td>✅</td><td>✅</td></tr>
+                    <tr><td>OpenCode</td><td><code>opencode.json</code></td><td>✅</td><td>✅</td></tr>
+                    <tr><td>Kilo Code</td><td><code>.kilocode/mcp.json</code></td><td>✅</td><td>✅</td></tr>
+                    <tr><td>Codex</td><td>CLI commands</td><td>✅</td><td>✅</td></tr>
+                    <tr><td>Copilot</td><td><code>~/.copilot/mcp-config.json</code></td><td>✅</td><td>✅</td></tr>
+                </tbody>
+            </table>
+            <p>For detailed testing, see <a href="./04_manual_testing.md">Manual Testing Guide</a>.</p>
+        </div>
+    </div>
+
+    <div class="container">
         <h2>Troubleshooting</h2>
-        
+
         <h3>Connectivity Issues</h3>
         <div class="step">
             <p>To test connectivity from a Docker container:</p>

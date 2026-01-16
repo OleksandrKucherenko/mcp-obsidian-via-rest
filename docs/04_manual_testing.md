@@ -71,8 +71,7 @@ The MCP Obsidian server supports multiple transport modes for different use case
 | Transport | Description | Use Case | Status |
 |-----------|-------------|----------|--------|
 | **stdio** | Standard Input/Output | MCP clients (Claude Desktop, Windsurf) | ✅ Stable |
-| **http** | HTTP with JSON-RPC | Web-based clients, custom integrations | ✅ Stable |
-| **sse** | Server-Sent Events | Real-time streaming (future) | 📋 Planned |
+| **http** | HTTP JSON-RPC with built-in SSE streaming | Web-based clients, remote access | ✅ Stable |
 
 ## Testing with Stdio Transport
 
@@ -882,16 +881,10 @@ gemini mcp add \
   bun run src/index.ts
 ```
 
-#### Add HTTP MCP server (streamable HTTP)
+#### Add HTTP MCP server (streamable HTTP with built-in SSE)
 
 ```bash
 gemini mcp add --transport http obsidian-http http://localhost:3000/mcp
-```
-
-#### Add SSE MCP server
-
-```bash
-gemini mcp add --transport sse obsidian-sse http://localhost:3000/sse
 ```
 
 #### List and remove servers
@@ -970,21 +963,10 @@ Kilo CLI supports MCP servers, but uses its own config files.
 }
 ```
 
-#### Example (SSE)
-
-```json
-{
-  "mcpServers": {
-    "obsidian-sse": {
-      "type": "sse",
-      "url": "http://localhost:3000/sse"
-    }
-  }
-}
-```
-
-Supported options include `command`, `args`, `env`, `type` (`stdio`, `streamable-http`, `sse`),
+Supported options include `command`, `args`, `env`, `type` (`stdio`, `streamable-http`),
 `url`, `headers`, `alwaysAllow`, `disabled`, and `timeout` (seconds).
+
+**Note:** SSE streaming is built into the `streamable-http` transport type. No separate SSE configuration needed.
 
 Project-level config overrides the global config when both are present.
 
@@ -1092,11 +1074,8 @@ Example configuration file:
       "port": 3000,
       "host": "0.0.0.0",
       "path": "/mcp"
-    },
-    "sse": {
-      "enabled": false,
-      "path": "/sse"
     }
+    // Note: SSE streaming is built into HTTP transport, no separate config needed
   }
 }
 ```
