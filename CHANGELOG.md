@@ -1,5 +1,12 @@
 # Changelog
 
+# [0.7.0-beta.0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.6.0-beta.0...v0.7.0-beta.0) (2026-01-16)
+
+
+### Bug Fixes
+
+* **ci:** explicitly trigger downstream workflows after release ([8cafccb](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/8cafccb76bfc744df8da79ffce832c8cbcd014ba))
+
 ## [0.5.1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.5.0...v0.5.1) (2026-01-13)
 
 
