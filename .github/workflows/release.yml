@@ -300,8 +300,8 @@ jobs:
           echo "To create actual release:" >> $GITHUB_STEP_SUMMARY
           echo "1. Re-run this workflow without 'Dry run' enabled" >> $GITHUB_STEP_SUMMARY
           if [ -n "$PRERELEASE" ]; then
-            echo "   \`gh workflow run release.yml -f version_bump=${{ inputs.version_bump }} -f prerelease=${PRERELEASE}\`" >> $GITHUB_STEP_SUMMARY
+            echo "   \`gh workflow run release.yml -f prerelease=${PRERELEASE}\`" >> $GITHUB_STEP_SUMMARY
           else
-            echo "   \`gh workflow run release.yml -f version_bump=${{ inputs.version_bump }}\`" >> $GITHUB_STEP_SUMMARY
+            echo "   \`gh workflow run release.yml\`" >> $GITHUB_STEP_SUMMARY
           fi
           echo "2. Monitor workflows triggered by tag creation" >> $GITHUB_STEP_SUMMARY
