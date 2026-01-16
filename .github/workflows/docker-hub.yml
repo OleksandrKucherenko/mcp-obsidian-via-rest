@@ -99,6 +99,14 @@ jobs:
           tags: ${{ steps.metaVnc.outputs.tags }}
           labels: ${{ steps.metaVnc.outputs.labels }}
 
+      - name: Update Docker Hub description (VNC Obsidian)
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          repository: ${{ steps.repo_name.outputs.owner }}/obsidian-vnc
+          readme-filepath: ./readme.md
+
   build-mcp:
     runs-on: ubuntu-latest
     steps:
@@ -177,3 +185,11 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.metaMcp.outputs.tags }}
           labels: ${{ steps.metaMcp.outputs.labels }}
+
+      - name: Update Docker Hub description (MCP Obsidian)
+        uses: peter-evans/dockerhub-description@v4
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+          repository: ${{ steps.repo_name.outputs.owner }}/obsidian-mcp
+          readme-filepath: ./readme.md
