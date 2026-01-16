@@ -1,5 +1,15 @@
 # Changelog
 
+# [0.9.0-beta.0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.8.0-beta.0...v0.9.0-beta.0) (2026-01-16)
+
+
+### Bug Fixes
+
+* **ci:** add workflow permission to trigger downstream workflows ([73b6db1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/73b6db1e69acfb87e039ce501073ca646bb97413))
+* **ci:** correct permission name to actions:write ([1baffc7](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/1baffc722a329acb95098d46d4f7e6657a5e9934))
+* **docker:** add icon/logo to Docker Hub images ([380eda6](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/380eda6c7e4681dfa5ec3ba15aa507af3474e8f2))
+* **docker:** add README to Docker Hub image description ([3b12b22](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/3b12b2294889b2496617e2596402efa708b658c4))
+
 ## [0.5.1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.5.0...v0.5.1) (2026-01-13)
 
 
