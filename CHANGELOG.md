@@ -1,5 +1,20 @@
 # Changelog
 
+# [0.8.0-beta.0](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.7.0-beta.0...v0.8.0-beta.0) (2026-01-16)
+
+
+### Bug Fixes
+
+* **ci:** add GitHub Packages workflow to downstream triggers ([dc58459](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/dc58459267fff1d4098030ef09233344ec70f90d))
+* **ci:** handle boolean input type correctly in workflow condition ([957d45d](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/957d45d7813e4f6924142739c0b2e55688b9f23e))
+* **ci:** trigger Docker Hub workflow for all releases ([7ef629f](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/7ef629fd62dac5358e4914aa1353627345f943e8))
+
+
+### Features
+
+* **docker:** add icon/logo to Docker Hub images ([51548b9](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/51548b9baf6ecb4e89c920718d7325c443ac47a8))
+* **docker:** add README to Docker Hub image description ([dd75e2b](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/commit/dd75e2be2e9f8df9502a4e16b52e343c760e93ff))
+
 ## [0.5.1](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/compare/v0.5.0...v0.5.1) (2026-01-13)
 
 
