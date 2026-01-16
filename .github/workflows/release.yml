@@ -149,6 +149,7 @@ jobs:
           VERSION="${{ needs.pre-flight.outputs.version }}"
           echo "Creating release branch: release/v${VERSION}"
           git checkout -b release/v${VERSION}
+          git push -u origin release/v${VERSION}
 
       - name: Run release-it
         run: |
