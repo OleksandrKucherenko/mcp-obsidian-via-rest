@@ -229,15 +229,10 @@ jobs:
           gh workflow run docker-github.yml --ref "${TAG}"
           echo "✅ Docker (GHCR) workflow triggered"
 
-          # Trigger Docker (Docker Hub) workflow - only for stable releases
-          PRERELEASE="${{ inputs.prerelease }}"
-          if [ "$PRERELEASE" == "<stable>" ]; then
-            echo "Triggering Docker (Docker Hub) workflow..."
-            gh workflow run docker-hub.yml --ref "${TAG}"
-            echo "✅ Docker (Docker Hub) workflow triggered"
-          else
-            echo "ℹ️ Skipping Docker (Docker Hub) - pre-release detected"
-          fi
+          # Trigger Docker (Docker Hub) workflow
+          echo "Triggering Docker (Docker Hub) workflow..."
+          gh workflow run docker-hub.yml --ref "${TAG}"
+          echo "✅ Docker (Docker Hub) workflow triggered"
 
           echo ""
           echo "All workflows triggered successfully"
@@ -264,12 +259,7 @@ jobs:
           echo "- ✅ NPM (GitHub Packages)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ NPM (npmjs.org)" >> $GITHUB_STEP_SUMMARY
           echo "- ✅ Docker (GitHub/GHCR)" >> $GITHUB_STEP_SUMMARY
-          PRERELEASE="${{ inputs.prerelease }}"
-          if [ "$PRERELEASE" == "<stable>" ]; then
-            echo "- ✅ Docker (Docker Hub)" >> $GITHUB_STEP_SUMMARY
-          else
-            echo "- ⚠️  Docker (Docker Hub) - **Skipped for pre-release**" >> $GITHUB_STEP_SUMMARY
-          fi
+          echo "- ✅ Docker (Docker Hub)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Monitor workflows at: https://github.com/${{ github.repository }}/actions" >> $GITHUB_STEP_SUMMARY
 
