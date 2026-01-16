@@ -51,6 +51,16 @@ jobs:
           echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
           echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
+      - name: Setup Bun
+        if: github.event_name == 'pull_request'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        if: github.event_name == 'pull_request'
+        run: bun install
+
       - name: Determine Docker tags
         id: docker_tags
         uses: ./.github/actions/determine-docker-tags
@@ -147,6 +157,16 @@ jobs:
           # Extract owner and repo name
           echo "owner=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 1 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
           echo "repo_simple=$(echo ${GITHUB_REPOSITORY} | cut -d '/' -f 2 | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Setup Bun
+        if: github.event_name == 'pull_request'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Dependencies
+        if: github.event_name == 'pull_request'
+        run: bun install
 
       - name: Determine Docker tags
         id: docker_tags

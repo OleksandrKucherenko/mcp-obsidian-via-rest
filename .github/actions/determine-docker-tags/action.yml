@@ -28,9 +28,14 @@ runs:
       id: tags
       shell: bash
       run: |
-        BASE_VERSION=$(jq -r '.version' package.json)
-
         if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+          # PR build: use conventional commits via release-it for base version
+          BASE_VERSION=$(bun run release-it --config .release-it.readonly.jsonc --dry-run --ci --release-version 2>&1 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+')
+          if [ -z "$BASE_VERSION" ]; then
+            echo "::error::Failed to calculate PR base version with release-it"
+            exit 1
+          fi
+
           # PR build: use SHA hash for tagging
           SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
           echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
@@ -38,7 +43,7 @@ runs:
           echo "IS_PR=true" >> $GITHUB_OUTPUT
           echo "IS_LATEST=false" >> $GITHUB_OUTPUT
           echo "IS_PRERELEASE=false" >> $GITHUB_OUTPUT
-          echo "::notice::PR build - Tags: sha-${SHORT_SHA}, ${BASE_VERSION}-sha.${SHORT_SHA}"
+          echo "::notice::PR build - Base: ${BASE_VERSION}, Tags: sha-${SHORT_SHA}, ${BASE_VERSION}-sha.${SHORT_SHA}"
         elif [[ "$GITHUB_REF" == refs/tags/v* ]]; then
           VERSION="${GITHUB_REF#refs/tags/v}"
           echo "PRIMARY_TAG=${VERSION}" >> $GITHUB_OUTPUT
@@ -67,6 +72,7 @@ runs:
           fi
         else
           # Manual/other: use SHA hash
+          BASE_VERSION=$(jq -r '.version' package.json)
           SHORT_SHA=$(echo "$GITHUB_SHA" | cut -c1-7)
           echo "PRIMARY_TAG=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
           echo "VERSION_SHA_TAG=${BASE_VERSION}-sha.${SHORT_SHA}" >> $GITHUB_OUTPUT

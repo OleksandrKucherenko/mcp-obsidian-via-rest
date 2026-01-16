@@ -150,44 +150,63 @@ jobs:
           TEMP_SCREENSHOTS=$(mktemp -d)
           cp -r reports/screenshots/* "$TEMP_SCREENSHOTS/"
 
-          # Fetch or create screenshots branch
-          git fetch origin "${SCREENSHOTS_BRANCH}:${SCREENSHOTS_BRANCH}" 2>/dev/null || true
-
-          # Stash any changes and switch to screenshots branch
+          # Stash any changes and retry on lease failures to avoid clobbering newer screenshots.
           git stash --include-untracked 2>/dev/null || true
 
-          if git show-ref --verify --quiet "refs/heads/${SCREENSHOTS_BRANCH}"; then
-            git checkout "${SCREENSHOTS_BRANCH}"
-          else
-            git checkout --orphan "${SCREENSHOTS_BRANCH}"
-            git rm -rf . 2>/dev/null || true
-            echo "# Screenshots Branch" > README.md
-            echo "This branch contains screenshots from CI runs for PR previews." >> README.md
-            git add README.md
-            git commit -m "Initialize screenshots branch"
-          fi
+          MAX_PUSH_ATTEMPTS=3
+          for attempt in $(seq 1 "${MAX_PUSH_ATTEMPTS}"); do
+            # Fetch main and screenshots branch
+            git fetch origin main
+            git fetch origin "${SCREENSHOTS_BRANCH}" 2>/dev/null || true
 
-          # Create/update PR directory
-          rm -rf "${PR_DIR}" 2>/dev/null || true
-          mkdir -p "${PR_DIR}"
-          cp -r "$TEMP_SCREENSHOTS"/* "${PR_DIR}/"
+            # Switch to a branch based on main
+            git checkout -B "${SCREENSHOTS_BRANCH}" "origin/main"
 
-          # Generate image list for comment
-          IMAGE_LIST=""
-          shopt -s nullglob  # Prevent literal glob patterns when no matches
-          for img in "${PR_DIR}"/*.png "${PR_DIR}"/*.jpg; do
-            if [ -f "$img" ]; then
-              filename=$(basename "$img")
-              IMAGE_LIST="${IMAGE_LIST}${filename}\n"
+            # Bring forward existing screenshots (only pr-* directories)
+            if git show-ref --verify --quiet "refs/remotes/origin/${SCREENSHOTS_BRANCH}"; then
+              git checkout "origin/${SCREENSHOTS_BRANCH}" -- "pr-*" 2>/dev/null || true
             fi
-          done
-          shopt -u nullglob  # Reset nullglob
-          echo -e "$IMAGE_LIST" > "${PR_DIR}/images.txt"
 
-          # Commit and push
-          git add "${PR_DIR}"
-          git commit -m "Screenshots for PR #${PR_NUMBER} (run ${{ github.run_id }})" || echo "No changes to commit"
-          git push origin "${SCREENSHOTS_BRANCH}"
+            # Create/update PR directory
+            rm -rf "${PR_DIR}" 2>/dev/null || true
+            mkdir -p "${PR_DIR}"
+            cp -r "$TEMP_SCREENSHOTS"/* "${PR_DIR}/"
+
+            # Generate image list for comment
+            IMAGE_LIST=""
+            shopt -s nullglob  # Prevent literal glob patterns when no matches
+            for img in "${PR_DIR}"/*.png "${PR_DIR}"/*.jpg; do
+              if [ -f "$img" ]; then
+                filename=$(basename "$img")
+                IMAGE_LIST="${IMAGE_LIST}${filename}\n"
+              fi
+            done
+            shopt -u nullglob  # Reset nullglob
+            echo -e "$IMAGE_LIST" > "${PR_DIR}/images.txt"
+
+            # Commit and push a single squashed commit on top of main (with lease)
+            git add "pr-*"
+            if git diff --cached --quiet; then
+              echo "No screenshot changes to commit"
+              git checkout - 2>/dev/null || true
+              git stash pop 2>/dev/null || true
+              exit 0
+            fi
+
+            HUSKY=0 git commit -m "chore: update screenshots for PR #${PR_NUMBER} (run ${{ github.run_id }})"
+            if git push --force-with-lease origin "${SCREENSHOTS_BRANCH}"; then
+              break
+            fi
+
+            if [ "${attempt}" -eq "${MAX_PUSH_ATTEMPTS}" ]; then
+              echo "Failed to push screenshots after ${MAX_PUSH_ATTEMPTS} attempts" >&2
+              git checkout - 2>/dev/null || true
+              git stash pop 2>/dev/null || true
+              exit 1
+            fi
+
+            echo "Push rejected; refetching and retrying..." >&2
+          done
 
           # Output image URLs for comment
           REPO="${{ github.repository }}"
