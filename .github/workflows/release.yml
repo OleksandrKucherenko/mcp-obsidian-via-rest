@@ -25,10 +25,10 @@ on:
         required: false
 
 permissions:
+  actions: write
   contents: write
   packages: write
   id-token: write
-  workflow: write
 
 jobs:
   pre-flight:
@@ -51,6 +51,45 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Verify Git Tags (SemVer)
+        run: |
+          echo "Checking git tags for SemVer compliance..."
+
+          # Get all tags starting with 'v', sort by version
+          TAGS=$(git tag -l 'v*' --sort='v:refname')
+
+          if [ -z "$TAGS" ]; then
+            echo "::notice::No version tags found"
+            exit 0
+          fi
+
+          INVALID_COUNT=0
+          VALID_COUNT=0
+
+          # SemVer regex pattern (supports pre-releases and build metadata)
+          # Matches: v1.0.0, v2.3.4-alpha.1, v3.0.0-rc.2+build.123, etc.
+          SEMVER_PATTERN="^v(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)(-((0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)(\.(0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$"
+
+          echo ""
+          echo "Validating tags..."
+          for TAG in $TAGS; do
+            if echo "$TAG" | grep -qE "$SEMVER_PATTERN"; then
+              echo "  ✅ $TAG"
+              VALID_COUNT=$((VALID_COUNT + 1))
+            else
+              echo "  ❌ $TAG (invalid SemVer)"
+              INVALID_COUNT=$((INVALID_COUNT + 1))
+            fi
+          done
+
+          echo ""
+          echo "Summary: $VALID_COUNT valid, $INVALID_COUNT invalid tags"
+
+          if [ $INVALID_COUNT -gt 0 ]; then
+            echo "::warning::Found $INVALID_COUNT non-compliant tags (will be ignored by release-it)"
+            echo "Non-compliant tags will be skipped during version calculation"
+          fi
 
       - name: Typecheck
         run: bun run checks:types
@@ -144,6 +183,29 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Sync CHANGELOG from latest release
+        run: |
+          # Get the latest tag (source of truth for changelog history)
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          
+          if [ -n "$LATEST_TAG" ]; then
+            echo "Latest tag: $LATEST_TAG"
+            
+            # Fetch CHANGELOG from the latest tag's commit
+            # This ensures we have the complete history including all previous releases
+            if git show "${LATEST_TAG}:CHANGELOG.md" > /tmp/CHANGELOG.md 2>/dev/null; then
+              cp /tmp/CHANGELOG.md CHANGELOG.md
+              echo "✅ Synced CHANGELOG.md from $LATEST_TAG"
+              echo ""
+              echo "First 10 lines of CHANGELOG:"
+              head -10 CHANGELOG.md
+            else
+              echo "::warning::Could not fetch CHANGELOG from $LATEST_TAG, using existing file"
+            fi
+          else
+            echo "::notice::No previous tags found, starting with existing changelog"
+          fi
 
       - name: Create and checkout release branch
         run: |

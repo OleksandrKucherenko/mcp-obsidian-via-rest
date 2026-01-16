@@ -122,6 +122,96 @@ gh workflow run release.yml -f version_bump=major
 gh workflow run release.yml -f version_bump=patch -f dry_run=true
 ```
 
+### Release Types Reference
+
+The release workflow supports several release patterns. Use `version_bump`, `prerelease`, and `custom_version` inputs together:
+
+| Scenario | Command | Result |
+|----------|---------|--------|
+| **Stable releases** | | |
+| Patch release | `gh workflow run release.yml -f version_bump=patch` | `v0.5.2` (from v0.5.1) |
+| Minor release | `gh workflow run release.yml -f version_bump=minor` | `v0.6.0` (from v0.5.x) |
+| **Major release (1.0.0)** | `gh workflow run release.yml -f version_bump=major` | `v1.0.0` (from v0.x.x) |
+| Auto (from conventional commits) | `gh workflow run release.yml -f version_bump=auto` | `v0.6.0` (if `feat:` commits) |
+| **Pre-releases (with bump)** | | |
+| **Beta with patch increment** | `gh workflow run release.yml -f version_bump=patch -f prerelease=beta` | `v0.9.1-beta.0` (from v0.9.0) |
+| Alpha with minor increment | `gh workflow run release.yml -f version_bump=minor -f prerelease=alpha` | `v0.10.0-alpha.0` |
+| **RC with minor increment** | `gh workflow run release.yml -f version_bump=minor -f prerelease=rc` | `v0.10.0-rc.0` |
+| **Pre-release iterations (auto-increment)** | | |
+| **Next beta (same version)** | `gh workflow run release.yml -f prerelease=beta` | `v0.9.0-beta.1` (from v0.9.0-beta.0) |
+| Next RC (same version) | `gh workflow run release.yml -f prerelease=rc` | `v1.0.0-rc.2` (from v1.0.0-rc.1) |
+| Next alpha (same version) | `gh workflow run release.yml -f prerelease=alpha` | `v0.8.0-alpha.3` (from v0.8.0-alpha.2) |
+| **Custom exact versions** | | |
+| Exact version | `gh workflow run release.yml -f custom_version=2.0.0` | `v2.0.0` (exact) |
+| Custom pre-release | `gh workflow run release.yml -f custom_version=1.5.0-rc.1` | `v1.5.0-rc.1` (exact) |
+| **Dry run (any release type)** | | |
+| Dry run patch | `gh workflow run release.yml -f version_bump=patch -f dry_run=true` | Calculates without releasing |
+| Dry run beta | `gh workflow run release.yml -f prerelease=beta -f dry_run=true` | Calculates beta version |
+
+**Key Concepts:**
+
+- **`version_bump`** - Increments version (major/minor/patch/auto), then applies prerelease if set
+- **`prerelease`** - Appends `-alpha.N`, `-beta.N`, or `-rc.N` to the bumped version (N resets to 0 on bump, or auto-increments if no bump specified)
+- **`custom_version`** - Sets exact version, bypassing all auto-calculation (useful for non-standard versions)
+- **`dry_run`** - Shows calculated version without creating release
+
+**SemVer Tag Verification:**
+
+The workflow automatically validates all git tags against SemVer specification before release. Non-compliant tags (e.g., `v1.0`, `v2.x`, `latest`) are logged as warnings and ignored by release-it during version calculation.
+
+**Pre-release iteration workflow:**
+
+Release-it now automatically increments pre-release numbers when you omit `version_bump`:
+
+```bash
+# First beta (with bump)
+gh workflow run release.yml -f version_bump=patch -f prerelease=beta
+# Creates: v0.9.1-beta.0
+
+# Second beta (auto-increment, no bump)
+gh workflow run release.yml -f prerelease=beta
+# Creates: v0.9.1-beta.1
+
+# Third beta
+gh workflow run release.yml -f prerelease=beta
+# Creates: v0.9.1-beta.2
+```
+
+**Important:** When using just `-f prerelease=<type>` (without `version_bump`), release-it finds the latest tag with that prerelease type and increments only the prerelease number. This works across the entire repository history.
+
+### Pre-release Version Behavior
+
+The interaction between conventional commits and prerelease versions follows these rules:
+
+| Commits since last tag | Command | Result |
+|------------------------|---------|--------|
+| Only `wip:`, `docs:`, `chore:`, etc. | `-f prerelease=beta` | `v0.9.1-beta.1` (same base, increments prerelease) |
+| Has `feat:` commits | `-f prerelease=beta` | `v0.10.0-beta.0` (bumps minor, resets prerelease) |
+| Has `fix:` commits | `-f prerelease=beta` | `v0.9.2-beta.0` (bumps patch, resets prerelease) |
+| Any commits | `-f custom_version=0.9.1-beta.1` | `v0.9.1-beta.1` (exact, ignores commits) |
+
+**Key point:** Conventional commits (`feat:`, `fix:`, `BREAKING CHANGE`) drive version bumps even when using `-f prerelease`. Only `wip:`, `docs:`, `chore:`, `test:`, `style:`, `refactor:`, `perf:`, `ci:`, `build:`, `revert:` are treated as "no bump".
+
+**To stay on the same base version despite `feat:` commits:**
+
+```bash
+# Check what version will be calculated (dry run)
+gh workflow run release.yml -f prerelease=beta -f dry_run=true
+# Output might show: v0.10.0-beta.0
+
+# If you want v0.9.1-beta.1 instead, use custom_version
+gh workflow run release.yml -f custom_version=0.9.1-beta.1
+```
+
+**Conventional commit types and their impact:**
+
+| Commit type | Version impact |
+|-------------|----------------|
+| `feat:` | minor bump |
+| `fix:` | patch bump |
+| `feat!:` or `BREAKING CHANGE:` | major bump |
+| All other types (`wip:`, `docs:`, `chore:`, etc.) | no bump |
+
 ### 2. Verify Release
 
 ```bash
