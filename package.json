@@ -1,7 +1,8 @@
 {
   "name": "@oleksandrkucherenko/mcp-obsidian",
   "description": "MCP Server for Obsidian Vault Access via Local REST API",
-  "version": "0.6.0",
+  "version": "1.0.3",
+  "mcpName": "io.github.OleksandrKucherenko/mcp-obsidian-via-rest",
   "license": "MIT",
   "author": "Oleksandr Kucherenko <oleksandr.kucherenko@artfulbits.se>",
   "module": "src/index.ts",
@@ -10,6 +11,16 @@
   "bin": {
     "mcp-obsidian": "dist/index.js"
   },
+  "files": [
+    "dist/index.js",
+    "src/",
+    "!src/**/*.test.ts",
+    "configs/",
+    "server.json",
+    "readme.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "contributors": [
     {
       "name": "OleksandrKucherenko",
@@ -27,9 +38,9 @@
     }
   ],
   "publishConfig": {
-    "registry": "https://npm.pkg.github.com",
+    "registry": "https://registry.npmjs.org",
     "@artfulbits:registry": "https://npm.pkg.github.com",
-    "@oleksandrkucherenko:registry": "https://npm.pkg.github.com",
+    "@oleksandrkucherenko:registry": "https://registry.npmjs.org",
     "access": "public"
   },
   "repository": {

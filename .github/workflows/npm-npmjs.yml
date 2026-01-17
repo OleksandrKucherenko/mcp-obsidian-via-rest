@@ -73,6 +73,17 @@ jobs:
           else
             echo "Version in package.json already matches ${{ steps.get-version.outputs.VERSION }}"
           fi
+
+      - name: Update version in server.json
+        run: |
+          if [ -f server.json ]; then
+            VERSION="${{ steps.get-version.outputs.VERSION }}"
+            jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.json.tmp
+            mv server.json.tmp server.json
+            echo "Updated server.json version to $VERSION"
+          else
+            echo "server.json not found; skipping"
+          fi
           
       - name: Update publishConfig for npmjs.org
         run: |
@@ -172,6 +183,9 @@ jobs:
   publish-to-npmjs:
     needs: prepare-and-dry-run
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == false)
     steps:
       - name: Download Package Artifact
@@ -233,3 +247,25 @@ jobs:
           # used in .npmrc file
           NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Align server.json version with package.json
+        run: |
+          if [ -f server.json ]; then
+            PKG_VERSION=$(node -p "require('./package.json').version")
+            jq --arg v "$PKG_VERSION" '.version = $v | .packages[0].version = $v' server.json > server.json.tmp
+            mv server.json.tmp server.json
+            echo "server.json version set to $PKG_VERSION"
+          else
+            echo "server.json not found; skipping"
+          fi
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
