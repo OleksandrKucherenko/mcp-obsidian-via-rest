@@ -1,6 +1,10 @@
 # mcp-obsidian
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest)  
+## Deployed / Usage
+
+ [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![NPM Version](https://img.shields.io/npm/v/@oleksandrkucherenko/mcp-obsidian)](https://www.npmjs.com/package/@oleksandrkucherenko/mcp-obsidian) [![GitHub Stars](https://img.shields.io/github/stars/OleksandrKucherenko/mcp-obsidian-via-rest)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/stargazers) [![GitHub Forks](https://img.shields.io/github/forks/OleksandrKucherenko/mcp-obsidian-via-rest)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/network/members) [![NPM Downloads](https://img.shields.io/npm/dt/@oleksandrkucherenko/mcp-obsidian?label=mcp-obsidian)](https://www.npmjs.com/package/@oleksandrkucherenko/mcp-obsidian) [![Docker Hub obsidian-mcp](https://img.shields.io/docker/pulls/oleksandrkucherenko/obsidian-mcp?label=obsidian-mcp)](https://hub.docker.com/r/oleksandrkucherenko/obsidian-mcp) [![Docker Hub obsidian-vnc](https://img.shields.io/docker/pulls/oleksandrkucherenko/obsidian-vnc?label=obsidian-vnc)](https://hub.docker.com/r/oleksandrkucherenko/obsidian-vnc) [![License: MIT](https://img.shields.io/github/license/OleksandrKucherenko/mcp-obsidian-via-rest)](LICENSE)
+
+## CI/CD Status
 
 [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml) [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml)
 
@@ -13,6 +17,8 @@
 <!-- TOC -->
 
 - [mcp-obsidian](#mcp-obsidian)
+  - [Deployed / Usage](#deployed--usage)
+  - [CI/CD Status](#cicd-status)
   - [MCP Tools \& Resources](#mcp-tools--resources)
     - [Tools](#tools)
     - [Resources](#resources)

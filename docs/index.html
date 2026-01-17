@@ -145,34 +145,54 @@
 
         <h2>Step 2: Configure MCP</h2>
         <div class="step">
-            <p>Create or update your MCP configuration file with the following:</p>
+            <p>Create or update your MCP configuration file with one of the following options:</p>
+
+            <h3>Option A: Docker (Recommended)</h3>
             <pre><code class="language-json">{
   "mcpServers": {
     "obsidian": {
       "command": "docker",
       "args": [
-        "run",
-        "--name", "mcp-obsidian-windsurf", // optional
-        "--interactive",
-        "--rm",
+        "run", "--rm", "-i",
         "-e", "API_KEY",
-        "-e", "API_HOST",                  // optional
-        "-e", "API_PORT",                  // optional
-        "-e", "DEBUG",                     // optional
+        "-e", "API_URLS",
+        "-e", "DEBUG",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
-        "API_KEY": "{secret_key}",         // required
-        "API_HOST": "https://172.26.32.1", // default: https://localhost
-        "API_PORT": "27124",               // default: 27124
-        "DEBUG": "mcp:*"                   // default: disabled logs
+        "API_KEY": "&lt;your-obsidian-api-key&gt;",
+        "API_URLS": "[\"https://host.docker.internal:27124\"]",
+        "DEBUG": "mcp:*"
       }
-    } 
+    }
   }
 }</code></pre>
+
+            <h3>Option B: NPX/Bunx</h3>
+            <pre><code class="language-json">{
+  "mcpServers": {
+    "obsidian": {
+      "command": "npx",
+      "args": ["-y", "@oleksandrkucherenko/mcp-obsidian"],
+      "env": {
+        "API_KEY": "&lt;your-obsidian-api-key&gt;",
+        "API_URLS": "[\"https://127.0.0.1:27124\"]",
+        "DEBUG": "mcp:*"
+      }
+    }
+  }
+}</code></pre>
+
             <div class="note">
-                <p>Replace <code>{secret_key}</code> with the API Key you copied from Obsidian.</p>
-                <p>For WSL2 users, use your Windows host IP as <code>API_HOST</code> (typically something like <code>172.26.32.1</code>).</p>
+                <p><strong>Configuration Notes:</strong></p>
+                <ul>
+                    <li>Replace <code>&lt;your-obsidian-api-key&gt;</code> with the API Key you copied from Obsidian.</li>
+                    <li><code>API_URLS</code> is a JSON array of URLs. You can specify multiple URLs for automatic failover.</li>
+                    <li>Docker uses <code>host.docker.internal</code> to reach the host machine.</li>
+                    <li>NPX/Bunx runs locally, so use <code>127.0.0.1</code> or <code>localhost</code>.</li>
+                    <li>For WSL2: use <code>["https://127.0.0.1:27124", "https://172.26.32.1:27124"]</code> (replace with your Windows host IP).</li>
+                    <li><code>DEBUG</code> is optional - remove it to disable verbose logging.</li>
+                </ul>
             </div>
         </div>
 

@@ -1,8 +1,15 @@
 # mcp-obsidian
 
-[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![Docker Images](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-docker-publish.yml) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npmjs-npm-publish.yml) 
+[![License: MIT](https://img.shields.io/github/license/OleksandrKucherenko/mcp-obsidian-via-rest)](../LICENSE)
+[![NPM Version](https://img.shields.io/npm/v/@oleksandrkucherenko/mcp-obsidian)](https://www.npmjs.com/package/@oleksandrkucherenko/mcp-obsidian)
+[![GitHub Stars](https://img.shields.io/github/stars/OleksandrKucherenko/mcp-obsidian-via-rest)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/stargazers)
+[![GitHub Forks](https://img.shields.io/github/forks/OleksandrKucherenko/mcp-obsidian-via-rest)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/network/members)
 
-[![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/github-npm-publish.yml) [![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/OleksandrKucherenko/mcp-obsidian-via-rest) [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml) [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml)
+
+[![Docker (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-github.yml) [![Docker (Docker Hub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/docker-hub.yml)
+
+[![Screenshots](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/screenshots.yml) [![Cleanup](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/cleanup.yaml)
 
 <!-- TOC -->
 
@@ -20,7 +27,7 @@
 
 <!-- /TOC -->
 
-## Configure MCP 
+## Configure MCP
 
 ```jsonc
 {
@@ -33,18 +40,16 @@
         "--interactive",
         "--rm",
         "-e", "API_KEY",
-        "-e", "API_HOST",
-        "-e", "API_PORT",
+        "-e", "API_URLS",
         "-e", "DEBUG",
         "ghcr.io/oleksandrkucherenko/obsidian-mcp:latest"
       ],
       "env": {
-        "API_KEY": "<secret_key>",         // required
-        "API_HOST": "https://172.26.32.1", // default: localhost
-        "API_PORT": "27124",               // default: 27124
-        "DEBUG": "mcp:*"                   // default: disabled logs
+        "API_KEY": "<secret_key>",
+        "API_URLS": "[\"https://127.0.0.1:27124\",\"https://172.26.32.1:27124\"]",
+        "DEBUG": "mcp:*" // default: disabled logs
       }
-    } 
+    }
   }
 }
 ```
