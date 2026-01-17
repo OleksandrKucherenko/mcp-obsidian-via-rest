@@ -6,7 +6,7 @@
     "requireCleanWorkingDir": false,
     "pushRepo": "origin",
     "getLatestTagFromAllRefs": true,
-    "tagMatch": "v[0-9]*\\.[0-9]*\\.[0-9]*.*",
+    "tagMatch": "v[0-9]*\\.[0-9]*\\.[0-9]*",
     "push": true
   },
   "github": {
@@ -21,6 +21,14 @@
     "before:init": ["git fetch --prune --prune-tags origin"]
   },
   "plugins": {
+    "@release-it/bumper": {
+      "out": [
+        {
+          "file": "server.json",
+          "path": ["version", "packages.*.version"]
+        }
+      ]
+    },
     "@release-it/conventional-changelog": {
       "preset": "angular",
       "infile": "CHANGELOG.md",

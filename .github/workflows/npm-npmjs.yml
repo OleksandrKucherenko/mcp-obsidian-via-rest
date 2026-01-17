@@ -78,7 +78,8 @@ jobs:
         run: |
           if [ -f server.json ]; then
             VERSION="${{ steps.get-version.outputs.VERSION }}"
-            jq --arg v "$VERSION" '.version = $v | .packages[0].version = $v' server.json > server.json.tmp
+            # Update root version and ALL package versions (not just first one)
+            jq --arg v "$VERSION" '.version = $v | .packages[].version = $v' server.json > server.json.tmp
             mv server.json.tmp server.json
             echo "Updated server.json version to $VERSION"
           else
@@ -257,7 +258,8 @@ jobs:
         run: |
           if [ -f server.json ]; then
             PKG_VERSION=$(node -p "require('./package.json').version")
-            jq --arg v "$PKG_VERSION" '.version = $v | .packages[0].version = $v' server.json > server.json.tmp
+            # Update root version and ALL package versions
+            jq --arg v "$PKG_VERSION" '.version = $v | .packages[].version = $v' server.json > server.json.tmp
             mv server.json.tmp server.json
             echo "server.json version set to $PKG_VERSION"
           else

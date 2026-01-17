@@ -456,3 +456,16 @@ Diagnoses Docker/Colima issues on macOS Apple Silicon:
 - Architecture compatibility (ARM64 vs x86_64 emulation)
 - FUSE capability tests
 - Container build verification
+
+## Additional Resources
+
+- @docs/00_project_knowledge_dump.md
+- @docs/01_cleanup_docker_strategy.md
+- @docs/02_deprecate_npm_package.md
+- @docs/03_releases_publishing.md
+- @docs/04_manual_testing.md
+- @docs/05_e2e_verification.md
+- @docs/06_direnv_setup.md
+- @docs/07_pre_release.md
+- @docs/08_mcp_registry.md
+

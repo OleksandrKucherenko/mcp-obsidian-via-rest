@@ -212,6 +212,36 @@ gh workflow run release.yml -f custom_version=0.9.1-beta.1
 | `feat!:` or `BREAKING CHANGE:` | major bump |
 | All other types (`wip:`, `docs:`, `chore:`, etc.) | no bump |
 
+## NPM Dist-Tag Management (beta/rc)
+
+We use npm dist-tags to point `beta` and `rc` to specific versions. These tags
+are per-registry: npmjs.org and GitHub Packages keep separate tag sets.
+
+**Important:** `.npmrc` routes the `@oleksandrkucherenko` scope through
+`NPM_REGISTRY_URL`. When managing public tags, override that variable to npmjs:
+
+```bash
+NPM_REGISTRY_URL="https://registry.npmjs.org/" \
+  npm dist-tag ls @oleksandrkucherenko/mcp-obsidian
+```
+
+**Add or move a tag (update):**
+
+```bash
+NPM_REGISTRY_URL="https://registry.npmjs.org/" \
+  npm dist-tag add @oleksandrkucherenko/mcp-obsidian@1.0.5 beta
+```
+
+**Remove a tag:**
+
+```bash
+NPM_REGISTRY_URL="https://registry.npmjs.org/" \
+  npm dist-tag rm @oleksandrkucherenko/mcp-obsidian beta
+```
+
+If npm reports permissions or registry errors, confirm your npmjs token is
+active and that `NPM_REGISTRY_URL` is set to npmjs for the scoped package.
+
 ### 2. Verify Release
 
 ```bash

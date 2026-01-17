@@ -7,7 +7,8 @@
     "requireCleanWorkingDir": false,
     "pushRepo": "origin",
     "getLatestTagFromAllRefs": true,
-    "tagMatch": "v[0-9]*\\.[0-9]*\\.[0-9]*.*"
+    // this is glob, not a regexp
+    "tagMatch": "v[0-9]*\\.[0-9]*\\.[0-9]*"
   },
   // GitHub Release is allowed
   "github": {
@@ -22,6 +23,16 @@
   },
   // compose CHANGELOG.md from conventional commits
   "plugins": {
+    // update version in server.json (root and all packages)
+    "@release-it/bumper": {
+      "out": [
+        {
+          "file": "server.json",
+          "path": ["version", "packages.*.version"]
+        }
+      ]
+    },
+    // update CHANGELOG.md with the latest changes
     "@release-it/conventional-changelog": {
       "preset": "angular",
       "infile": "CHANGELOG.md",
@@ -29,14 +40,10 @@
       "ignoreRecommendedBump": false
     }
   },
-  // fetch latest tags from remote before running the release
   "hooks": {
     "before:init": [
-      "git fetch --prune --prune-tags origin",
-      // v1: read tag from current branch only
-      // "npm pkg set version=$(git describe --tags --abbrev=0 | sed 's/^v//')"
-      // v2: read tags from all refs, correspond `getLatestTagFromAllRefs: true`
-      "npm pkg set version=$(git tag -l --sort='v:refname' | tail -1 | sed 's/^v//')"
+      // fetch latest tags from remote before running the release
+      "git fetch --prune --prune-tags origin"
     ]
   }
 }
