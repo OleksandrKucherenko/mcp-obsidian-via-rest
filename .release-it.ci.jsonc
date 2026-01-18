@@ -15,10 +15,13 @@
   },
   "npm": {
     "publish": false,
-    "ignoreVersion": true
+    "ignoreVersion": false
   },
   "hooks": {
-    "before:init": ["git fetch --prune --prune-tags origin"]
+    "before:init": [
+      "git fetch --prune --prune-tags origin",
+      "bun run release:sync:version"
+    ]
   },
   "plugins": {
     "@release-it/bumper": {
