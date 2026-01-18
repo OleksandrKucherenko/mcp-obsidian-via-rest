@@ -7,7 +7,9 @@
   "icons": [
     {
       "src": "https://raw.githubusercontent.com/OleksandrKucherenko/mcp-obsidian-via-rest/main/docs/obsidian-logo-bw.png",
-      "sizes": ["256x256"],
+      "sizes": [
+        "256x256"
+      ],
       "mimeType": "image/png"
     }
   ],
@@ -15,7 +17,7 @@
     "url": "https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest",
     "source": "github"
   },
-  "version": "1.0.3",
+  "version": "1.1.0",
   "packages": [
     {
       "registryType": "npm",
