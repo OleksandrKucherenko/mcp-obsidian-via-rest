@@ -225,6 +225,42 @@ jobs:
           # prepare TGZ file for publishing
           bun run publish:prepare
 
+      - name: Update publishConfig for GitHub Packages
+        if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true'
+        run: |
+          # Update all registry entries in publishConfig to use GitHub Packages instead of npmjs.org
+          echo "Updating publishConfig in package.json to use GitHub Packages"
+
+          # Create a backup of the original package.json
+          cp package.json package.json.original
+
+          # Update main registry
+          jq '.publishConfig.registry = "https://npm.pkg.github.com"' package.json > package.json.tmp
+
+          # Update scoped registries
+          jq '.publishConfig."@artfulbits:registry" = "https://npm.pkg.github.com"' package.json.tmp > package.json.tmp2
+          mv package.json.tmp2 package.json.tmp
+
+          jq '.publishConfig."@oleksandrkucherenko:registry" = "https://npm.pkg.github.com"' package.json.tmp > package.json.tmp2
+          mv package.json.tmp2 package.json.tmp
+
+          # Apply changes
+          mv package.json.tmp package.json
+
+          # Verify the changes
+          echo "Updated registry settings in publishConfig:"
+          jq -r '.publishConfig | to_entries[] | "\(.key): \(.value)"' package.json
+
+          # Verify that the package.json was properly updated
+          if grep -q "npm.pkg.github.com" package.json; then
+            echo "✅ package.json successfully updated to use GitHub Packages"
+            rm package.json.original # cleanup
+          else
+            echo "❌ Failed to update package.json! Restoring from backup."
+            mv package.json.original package.json
+            exit 1
+          fi
+
       - name: Publish to GitHub Packages
         # Skip for forked PRs (no secrets/packages:write permission)
         if: steps.check-published.outputs.ALREADY_PUBLISHED != 'true' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
