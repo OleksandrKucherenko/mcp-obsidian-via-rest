@@ -14,10 +14,6 @@ on:
         description: 'Run cleanup-old-docker-images job'
         type: boolean
         default: true
-      run_screenshots_cleanup:
-        description: 'Run cleanup-old-screenshots job'
-        type: boolean
-        default: true
       run_branch_cleanup:
         description: 'Run cleanup-old-release-branches job'
         type: boolean
@@ -30,56 +26,10 @@ on:
         description: 'Days threshold for release branch cleanup'
         type: number
         default: 7
-      screenshots_keep_count:
-        description: 'Number of recent screenshot builds to keep'
-        type: number
-        default: 10
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 
 jobs:
-  # Cleanup job to remove old screenshot builds from gh-pages
-  cleanup-old-screenshots:
-    if: |
-      ${{
-        ( github.event_name == 'schedule' ) ||
-        ( github.event.inputs.run_screenshots_cleanup == true )
-      }}
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout gh-pages branch
-        uses: actions/checkout@v4
-        with:
-          ref: gh-pages
-          fetch-depth: 0
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Cleanup old screenshot builds
-        env:
-          KEEP_COUNT: ${{ github.event.inputs.screenshots_keep_count || 10 }}
-        run: |
-          node ./assets/ci_cleanup_old_screenshots.js ${KEEP_COUNT}
-
-      - name: Commit and push cleanup
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-
-          if [ -n "$(git status --porcelain)" ]; then
-            git add -A
-            git commit -m "chore: cleanup old screenshot builds"
-            git push origin gh-pages
-            echo "✓ Cleanup committed and pushed"
-          else
-            echo "No changes to commit"
-          fi
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
   # Cleanup job to deprecate old versions (runs weekly)
   cleanup-old-npm-versions:
     if: |
