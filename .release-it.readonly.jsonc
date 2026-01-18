@@ -36,10 +36,8 @@
     }
   },
   "hooks": {
-    // NOTE: DO NOT DO THIS! Fetch latest tags before determining
-    // version we are in release branch with already applied version
-    // tag, so command below will fail, if we did not force it. And
-    // this is actually is not needed. So just skip it.
-    // "before:init": ["git fetch --prune --prune-tags origin"]
+    // Fetch latest tags before determining version
+    // Use --tags only (not --prune-tags) to avoid conflicts in CI
+    "before:init": ["git fetch --tags origin || true"]
   }
 }
