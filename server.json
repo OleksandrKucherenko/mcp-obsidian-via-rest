@@ -114,8 +114,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/oleksandrkucherenko/obsidian-mcp",
-      "version": "1.0.3",
+      "identifier": "ghcr.io/oleksandrkucherenko/obsidian-mcp:1.0.3",
       "runtimeHint": "docker",
       "transport": {
         "type": "streamable-http",
@@ -163,8 +162,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "docker.io/oleksandrkucherenko/obsidian-mcp",
-      "version": "1.0.3",
+      "identifier": "docker.io/oleksandrkucherenko/obsidian-mcp:1.0.3",
       "runtimeHint": "docker",
       "transport": {
         "type": "streamable-http",

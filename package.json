@@ -74,7 +74,8 @@
     "publish:prepare": "bun run build && bun pm pack",
     "release": "release-it",
     "release:dry": "release-it --dry-run",
-    "release:sync": "bun run src/scripts/sync-version.ts",
+    "release:sync:version": "bun run scripts/sync-version-to-latest.ts",
+    "release:sync:server": "bun run scripts/sync-server-json.ts",
     "commit": "git-cz"
   },
   "devDependencies": {

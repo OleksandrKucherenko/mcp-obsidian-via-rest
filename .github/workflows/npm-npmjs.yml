@@ -77,15 +77,11 @@ jobs:
       - name: Update version in server.json
         run: |
           if [ -f server.json ]; then
-            VERSION="${{ steps.get-version.outputs.VERSION }}"
-            # Update root version and ALL package versions (not just first one)
-            jq --arg v "$VERSION" '.version = $v | .packages[].version = $v' server.json > server.json.tmp
-            mv server.json.tmp server.json
-            echo "Updated server.json version to $VERSION"
+            bun run scripts/sync-server-json.ts
           else
             echo "server.json not found; skipping"
           fi
-          
+
       - name: Update publishConfig for npmjs.org
         run: |
           # Update all registry entries in publishConfig to use npmjs.org instead of GitHub Packages
@@ -277,11 +273,7 @@ jobs:
       - name: Align server.json version with package.json
         run: |
           if [ -f server.json ]; then
-            PKG_VERSION=$(node -p "require('./package.json').version")
-            # Update root version and ALL package versions
-            jq --arg v "$PKG_VERSION" '.version = $v | .packages[].version = $v' server.json > server.json.tmp
-            mv server.json.tmp server.json
-            echo "server.json version set to $PKG_VERSION"
+            bun run scripts/sync-server-json.ts
           else
             echo "server.json not found; skipping"
           fi

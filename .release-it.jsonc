@@ -23,15 +23,6 @@
   },
   // compose CHANGELOG.md from conventional commits
   "plugins": {
-    // update version in server.json (root and all packages)
-    "@release-it/bumper": {
-      "out": [
-        {
-          "file": "server.json",
-          "path": ["version", "packages.*.version"]
-        }
-      ]
-    },
     // update CHANGELOG.md with the latest changes
     "@release-it/conventional-changelog": {
       "preset": "angular",
@@ -44,6 +35,10 @@
     "before:init": [
       // fetch latest tags from remote before running the release
       "git fetch --prune --prune-tags origin"
+    ],
+    "before:release": [
+      // update server.json: npm packages get version field, oci packages get version in identifier
+      "bun run scripts/sync-server-json.ts"
     ]
   }
 }

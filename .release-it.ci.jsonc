@@ -18,17 +18,13 @@
     "ignoreVersion": true
   },
   "hooks": {
-    "before:init": ["git fetch --prune --prune-tags origin"]
+    "before:init": ["git fetch --prune --prune-tags origin"],
+    "before:release": [
+      // update server.json: npm packages get version field, oci packages get version in identifier
+      "bun run scripts/sync-server-json.ts"
+    ]
   },
   "plugins": {
-    "@release-it/bumper": {
-      "out": [
-        {
-          "file": "server.json",
-          "path": ["version", "packages.*.version"]
-        }
-      ]
-    },
     "@release-it/conventional-changelog": {
       "preset": "angular",
       "infile": "CHANGELOG.md",
