@@ -46,25 +46,22 @@ function updateServerJson(targetVersion: string): void {
     serverJson.version = targetVersion
   }
 
-  // Update packages
-  let npmCount = 0
-  let ociCount = 0
-
-  for (const pkg of serverJson.packages) {
+  // Update packages - rebuild packages array to properly remove version field from OCI packages
+  const updatedPackages = serverJson.packages.map((pkg) => {
     if (pkg.registryType === "oci") {
       // OCI packages: remove version field, add version to identifier
       const baseIdentifier = pkg.identifier.split(":")[0]
-      pkg.identifier = `${baseIdentifier}:${targetVersion}`
-      delete pkg.version
-      ociCount++
-    } else {
-      // NPM packages: update version field
-      if (pkg.version !== targetVersion) {
-        pkg.version = targetVersion
-      }
-      npmCount++
+      const { version, ...ociPkg } = pkg
+      return { ...ociPkg, identifier: `${baseIdentifier}:${targetVersion}` }
     }
-  }
+    // NPM packages: update version field
+    return { ...pkg, version: targetVersion }
+  })
+
+  serverJson.packages = updatedPackages
+
+  const npmCount = updatedPackages.filter((p) => p.registryType === "npm").length
+  const ociCount = updatedPackages.filter((p) => p.registryType === "oci").length
 
   console.log(`✅ Updated ${npmCount} NPM package(s)`)
   console.log(`✅ Updated ${ociCount} OCI package(s)`)
