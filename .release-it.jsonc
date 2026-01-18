@@ -18,8 +18,8 @@
   // no direct publishing to NPM, only via workflows
   "npm": {
     "publish": false,
-    // do not read package.json version field for the release version computation
-    "ignoreVersion": true
+    // read package.json version field (set by before:init hook) as base
+    "ignoreVersion": false
   },
   // compose CHANGELOG.md from conventional commits
   "plugins": {
@@ -43,7 +43,9 @@
   "hooks": {
     "before:init": [
       // fetch latest tags from remote before running the release
-      "git fetch --prune --prune-tags origin"
+      "git fetch --prune --prune-tags origin",
+      // sync package.json version to latest version tag
+      "bun run release:sync:version"
     ]
   }
 }
