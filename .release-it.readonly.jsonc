@@ -34,5 +34,9 @@
       "strictSemVer": true, // Enforce strict SemVer rules
       "ignoreRecommendedBump": false // Use recommended version bump based on commit types
     }
+  },
+  "hooks": {
+    // Fetch latest tags before determining version
+    "before:init": ["git fetch --prune --prune-tags origin"]
   }
 }

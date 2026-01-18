@@ -147,7 +147,9 @@ jobs:
             fi
 
             # Calculate version using release-it
-            VERSION=$(bun run release-it --config .release-it.ci.jsonc $VERSION_ARGS --dry-run --ci --release-version 2>&1 | grep -E '^[0-9]+\.[0-9]+\.[0-9]+')
+            RAW_VERSION_OUTPUT=$(NO_COLOR=1 bun run release-it --config .release-it.ci.jsonc $VERSION_ARGS --dry-run --ci --release-version 2>&1)
+            echo "$RAW_VERSION_OUTPUT"
+            VERSION=$(printf '%s\n' "$RAW_VERSION_OUTPUT" | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
           fi
           
           if [ -z "$VERSION" ]; then
