@@ -37,6 +37,7 @@
   },
   "hooks": {
     // Fetch latest tags before determining version
-    "before:init": ["git fetch --prune --prune-tags origin"]
+    // Use --tags only (not --prune-tags) to avoid conflicts in CI
+    "before:init": ["git fetch --tags origin || true"]
   }
 }
