@@ -1,0 +1,74 @@
+# Publish to MCP Registry
+# This workflow runs after Docker builds complete and publishes the server.json to the MCP Registry
+name: MCP Registry
+
+on:
+  workflow_run:
+    workflows: ["Docker (ghcr.io)", "Docker (docker.io)"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to publish (e.g., v1.3.2)'
+        required: true
+        type: string
+
+concurrency: ${{ github.workflow }}-${{ github.ref }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    # Only run if both Docker workflows succeeded
+    if: |
+      github.event.workflow_run.event == 'completed' &&
+      github.event.workflow_run.conclusion == 'success' ||
+      github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_branch || inputs.tag || github.ref }}
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Extract version from tag or event
+        id: get-version
+        run: |
+          if [ "${{ inputs.tag }}" != "" ]; then
+            VERSION="${{ inputs.tag }}"
+          elif [ "${{ github.event.workflow_run.head_branch }}" != "" ]; then
+            # Extract version from workflow run (e.g., release/v1.3.2 -> 1.3.2)
+            VERSION=$(echo "${{ github.event.workflow_run.head_branch }}" | sed 's|^release/||' | sed 's|^v||')
+          else
+            # Fallback to package.json version
+            VERSION=$(jq -r '.version' package.json)
+          fi
+          echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Publishing MCP registry for version: ${VERSION}"
+
+      - name: Update server.json version
+        run: |
+          bun run scripts/sync-server-json.ts
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
+          chmod +x mcp-publisher
+
+      - name: Authenticate to MCP Registry (GitHub OIDC)
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish to MCP Registry
+        run: ./mcp-publisher publish
+
+      - name: Summary
+        run: |
+          echo "## MCP Registry Publish ✅" >> $GITHUB_STEP_SUMMARY
+          echo "Published version: ${{ steps.get-version.outputs.VERSION }}" >> $GITHUB_STEP_SUMMARY

@@ -182,7 +182,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      id-token: write
     if: github.ref_type == 'tag' || (github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == false)
     steps:
       - name: Download Package Artifact
@@ -269,14 +268,3 @@ jobs:
           echo "ERROR: Package not visible on npmjs.org after 300s."
           npm view "${PKG_NAME}" --registry="https://registry.npmjs.org/" || true
           exit 1
-
-      - name: Install mcp-publisher
-        run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher
-          chmod +x mcp-publisher
-
-      - name: Authenticate to MCP Registry (GitHub OIDC)
-        run: ./mcp-publisher login github-oidc
-
-      - name: Publish to MCP Registry
-        run: ./mcp-publisher publish
