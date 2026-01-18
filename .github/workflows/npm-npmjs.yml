@@ -249,6 +249,26 @@ jobs:
           NPMRC_DEFAULT_AUTH_TOKEN: ${{ secrets.NPM_PUBLISH_TOKEN }}
           NPM_REGISTRY_URL: "https://registry.npmjs.org/"
 
+      - name: Wait for npmjs.org propagation
+        run: |
+          # Wait until npmjs.org serves the just-published version (prevents MCP registry 404s).
+          PKG_NAME=$(node -p "require('./package.json').name")
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          echo "Waiting for ${PKG_NAME}@${PKG_VERSION} to be visible on npmjs.org..."
+
+          for i in {1..30}; do
+            if npm view "${PKG_NAME}@${PKG_VERSION}" --registry="https://registry.npmjs.org/" >/dev/null 2>&1; then
+              echo "npmjs.org now serves ${PKG_NAME}@${PKG_VERSION}"
+              exit 0
+            fi
+            echo "Not visible yet (attempt ${i}/30). Sleeping 10s..."
+            sleep 10
+          done
+
+          echo "ERROR: Package not visible on npmjs.org after 300s."
+          npm view "${PKG_NAME}" --registry="https://registry.npmjs.org/" || true
+          exit 1
+
       - name: Install mcp-publisher
         run: |
           curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/').tar.gz" | tar xz mcp-publisher

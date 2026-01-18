@@ -40,3 +40,8 @@ curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=io.github.Ole
   If publishing under an org, ensure your membership is public.
 - **Validation failed**: Ensure the npm package is published and the
   `mcpName`/`server.json.name` match.
+
+
+## References
+
+- https://modelcontextprotocol.info/tools/registry/publishing/
