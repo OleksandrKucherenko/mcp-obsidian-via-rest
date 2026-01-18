@@ -33,6 +33,9 @@ RUN bun run build
 
 FROM base AS release
 
+# MCP Registry required label
+LABEL io.modelcontextprotocol.server.name="io.github.OleksandrKucherenko/mcp-obsidian-via-rest"
+
 # Copy files from builder stage
 #COPY --from=builder /app/src ./src
 COPY --from=builder /app/dist ./dist
