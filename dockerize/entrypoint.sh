@@ -82,7 +82,7 @@ setup_dbus() {
   # /run/dbus/system_bus_socket" errors in containers
   if [ ! -S /run/dbus/system_bus_socket ]; then
     mkdir -p /run/dbus
-    dbus-daemon --system --fork 2>/dev/null || log "Warning: could not start system dbus daemon (non-fatal)"
+    dbus-daemon --system --fork 2>/tmp/dbus-system.err || log "Warning: could not start system dbus daemon (non-fatal): $(cat /tmp/dbus-system.err)"
   fi
 
   eval $(dbus-launch --sh-syntax)
