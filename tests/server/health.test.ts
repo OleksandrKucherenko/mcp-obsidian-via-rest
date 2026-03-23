@@ -1,4 +1,4 @@
-import { describe, expect, mock, test } from "bun:test"
+import { afterAll, describe, expect, mock, test } from "bun:test"
 import { SelfHealingObsidianAPI } from "../../src/api/self-healing"
 import { getHealthStatus } from "../../src/server/health"
 
@@ -34,6 +34,10 @@ class MockObsidianAPIImpl {
 mock.module("../../src/client/obsidian-api", () => ({
   ObsidianAPI: MockObsidianAPIImpl,
 }))
+
+afterAll(() => {
+  mock.restore()
+})
 
 describe("Health Monitoring", () => {
   test("should return healthy status when all systems operational", async () => {
