@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process"
 import { afterAll, beforeAll, describe, expect, it, jest } from "bun:test"
 import debug from "debug"
 import type { StartedDockerComposeEnvironment } from "testcontainers"
@@ -7,6 +8,10 @@ import { setupContainers } from "./utils/setup.containers"
 import { gracefulShutdown } from "./utils/teardown.containers"
 
 const log = debug("mcp:e2e")
+
+const isDockerAvailable = spawnSync("docker", ["info"], { stdio: "ignore" }).status === 0
+/** Skip the entire suite when Docker daemon is not accessible */
+const describeIf = isDockerAvailable ? describe : describe.skip
 
 // The JSON-RPC message structure used by MCP
 interface JsonRpcMessage {
@@ -18,7 +23,7 @@ interface JsonRpcMessage {
   error?: unknown
 }
 
-describe("MCP Server E2E with Testcontainers", () => {
+describeIf("MCP Server E2E with Testcontainers", () => {
   let environment: StartedDockerComposeEnvironment
   let mcpStdio: ContainerStdio
 

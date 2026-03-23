@@ -57,7 +57,7 @@
     "build": "bun build --minify --target=bun --outdir=dist --sourcemap=external src/index.ts",
     "start": "bun run src/index.ts",
     "start:dev": "DEBUG=${DEBUG:-mcp:\\*} bun run src/index.ts --watch",
-    "test": "DEBUG=${DEBUG:-mcp:\\*} bun test ./src ./tests/api ./tests/server ./tests/transports ./tests/config.test.ts ./tests/config.documentation-consistency.test.ts ./tests/config.env-vars.test.ts ./tests/config.schema-validation.test.ts",
+    "test": "DEBUG=${DEBUG:-mcp:\\*} bun test ./src && DEBUG=${DEBUG:-mcp:\\*} bun test ./tests",
     "test:e2e": "DEBUG=${DEBUG:-mcp:\\*} bun test ./tests/*.e2e.test.ts",
     "test:containers": "DEBUG=${DEBUG:-mcp:\\*} bun test ./tests/*.containers.test.ts",
     "docker:latest": "docker build -t mcp/obsidian:latest -f Dockerfile .",

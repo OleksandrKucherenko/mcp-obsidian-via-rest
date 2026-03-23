@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, mock, test } from "bun:test"
-import { selectBestUrl, testUrlsInParallel } from "../../src/api/url-tester"
+import { selectBestUrl, testUrlsInParallel } from "./url-tester"
 
 // Create a mock axios instance
 const mockAxiosInstance = {
