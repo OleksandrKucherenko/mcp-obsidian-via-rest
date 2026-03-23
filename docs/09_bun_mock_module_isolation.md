@@ -1,12 +1,25 @@
 # Bun `mock.module()` Isolation Issue
 
+> **Bug present since:** Bun v1.0.3 (September 2023)
+> **Still broken as of:** Bun v1.3.10 (March 2026)
+> **Upstream tracking:** [#7823](https://github.com/oven-sh/bun/issues/7823), [#12823](https://github.com/oven-sh/bun/issues/12823), [#6040](https://github.com/oven-sh/bun/issues/6040)
+
 ## Summary
 
-`mock.module()` overrides in Bun **persist for the entire worker lifetime** and are
-**not isolated between test files** that share the same worker process.
+`mock.module()` overrides in Bun **persist for the entire process lifetime** and are
+**not isolated between test files** that share the same Bun process.
 `mock.restore()` clears function-level mocks (`mock()`, `spyOn()`) but does **not**
 unregister `mock.module()` overrides. This causes test failures that are
-order-dependent and hard to diagnose.
+order-dependent and very hard to diagnose — tests pass when run individually
+(`bun test file.test.ts`) but silently fail when run together (`bun test`).
+
+## Root Cause
+
+All test files running in the same `bun test` invocation share a single
+`GlobalObject`. The module registry maps (`virtualModules`, `esmRegistryMap`,
+`requireMap`) are **never cleaned between files**. When `mock.module("path", factory)`
+is called, its entry is written into the shared registry and stays there until the
+process exits — no per-file scope, no cleanup hook.
 
 ## Observed Behaviour
 
@@ -92,28 +105,44 @@ isolation when many files share a worker.
 
 ## Bun Issue Tracking
 
-This is a known, long-standing bug. All issues below are open as of March 2026.
+This is a known, long-standing bug. All issues below remain open as of March 2026.
 
 ### Issues
 
 | # | Title | Opened | Status |
 |---|---|---|---|
-| [#7823](https://github.com/oven-sh/bun/issues/7823) | `mock.restore()` for `mock.module()` does not work as expected | Dec 2023 | Open |
-| [#12823](https://github.com/oven-sh/bun/issues/12823) | Bun mocks to be scoped to test file | Jul 2024 | Open |
 | [#6040](https://github.com/oven-sh/bun/issues/6040) | `mock` and `spyOn` are not reset after each test | Sep 2023 | Open |
+| [#7823](https://github.com/oven-sh/bun/issues/7823) | `mock.restore()` for `mock.module()` does not work as expected | Dec 2023 | Open (56 comments) |
+| [#12823](https://github.com/oven-sh/bun/issues/12823) | Bun mocks to be scoped to test file | Jul 2024 | Open |
+| [#25712](https://github.com/oven-sh/bun/issues/25712) | `mock.module()` in consuming package leaks into dependency package tests (monorepo) | Dec 2025 | Closed as duplicate of #12823 |
 
-### PRs in progress (not yet merged)
+Issue #12823 contains the most community discussion. Multiple reporters described
+abandoning Bun for test suites that rely on module-level mocking.
 
-| # | Title | Opened |
-|---|---|---|
-| [#27823](https://github.com/oven-sh/bun/pull/27823) | fix(test): `mock.module()` replacements no longer leak across test files | Mar 2026 |
-| [#28077](https://github.com/oven-sh/bun/pull/28077) | fix(test): clear `mock.module()` mocks between test files | Mar 2026 |
-| [#25844](https://github.com/oven-sh/bun/pull/25844) | feat(bun:test): module restoration and partial module mocking | Jan 2026 |
+### PRs in progress (not yet merged as of March 2026)
 
-PR #27823 is the most complete fix: it introduces a dedicated `moduleMocks` map,
-scope-based lifecycle management (`beginModuleMockScope` / `endModuleMockScope`),
-and makes `mock.restore()` properly revert `mock.module()` overrides by saving
-original export values before patching.
+| # | Title | Author | Opened |
+|---|---|---|---|
+| [#25844](https://github.com/oven-sh/bun/pull/25844) | feat(bun:test): module restoration and partial module mocking | guizaodev | Jan 2026 |
+| [#27823](https://github.com/oven-sh/bun/pull/27823) | fix(test): `mock.module()` replacements no longer leak across test files | ivanfilhoz | Mar 2026 |
+| [#28077](https://github.com/oven-sh/bun/pull/28077) | fix(test): clear `mock.module()` mocks between test files and in `mock.restore()` | tdeaks | Mar 2026 |
+
+**PR #27823** and **PR #28077** are the most relevant competing approaches. Both
+introduce `beginModuleMockScope()` / `endModuleMockScope()` lifecycle hooks called
+by the test runner around each file, and both make `mock.restore()` properly revert
+`mock.module()` overrides. PR #27823 also separates `virtualModules`
+(plugin-registered) from `moduleMocks` (test-time) in storage. PR #25844 adds a
+Vitest-compatible `mock.restoreModule()` API and partial mocking via `importOriginal`.
+
+## When to Expect the Fix
+
+Once any of the above PRs merges and ships in a Bun release:
+- `mock.module()` will be automatically scoped to the test file that called it
+- `mock.restore()` will properly revert module-level overrides
+- The process-isolation split in this project's `test` script will become optional
+  hygiene rather than a necessity
+
+Until then, the workaround described below is required.
 
 ## Impact on This Project
 
