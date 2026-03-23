@@ -98,7 +98,7 @@ jobs:
         run: bun run checks:lint
 
       - name: Unit tests
-        run: bun test
+        run: bun run test
 
       - name: Build package
         run: bun run build

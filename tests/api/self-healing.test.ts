@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
+import { afterAll, afterEach, beforeEach, describe, expect, mock, test } from "bun:test"
 import { SelfHealingObsidianAPI } from "../../src/api/self-healing"
 
 // Mock url-tester module
@@ -41,6 +41,10 @@ class MockObsidianAPI {
 mock.module("../../src/client/obsidian-api", () => ({
   ObsidianAPI: MockObsidianAPI,
 }))
+
+afterAll(() => {
+  mock.restore()
+})
 
 describe("SelfHealingObsidianAPI", () => {
   let api: SelfHealingObsidianAPI
