@@ -82,4 +82,7 @@ VOLUME ${OBSIDIAN_APP_CONFIG_DIR}
 ENTRYPOINT ["/tini", "--", "/entrypoint.sh"]
 
 # Default command (can be overridden)
-CMD ["./Obsidian.AppImage", "--no-sandbox"]
+# --no-sandbox: required for AppImage in Docker
+# --disable-gpu: prevents GPU process crash (no GPU hardware in containers)
+# --disable-dev-shm-usage: avoids /dev/shm size issues in containers
+CMD ["./Obsidian.AppImage", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"]

@@ -78,6 +78,13 @@ start_xvfb() {
 setup_dbus() {
   log "Starting DBUS"
 
+  # Start the system bus daemon to prevent Electron "Failed to connect to socket
+  # /run/dbus/system_bus_socket" errors in containers
+  if [ ! -S /run/dbus/system_bus_socket ]; then
+    mkdir -p /run/dbus
+    dbus-daemon --system --fork 2>/tmp/dbus-system.err || log "Warning: could not start system dbus daemon (non-fatal): $(cat /tmp/dbus-system.err)"
+  fi
+
   eval $(dbus-launch --sh-syntax)
   export DBUS_SESSION_BUS_ADDRESS
   export DBUS_SESSION_BUS_PID
