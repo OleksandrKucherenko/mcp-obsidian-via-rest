@@ -6,6 +6,8 @@
 
 [![Obsidian Vault MCP server](https://mcprush.com/badge/oleksandrkucherenko-obsidian-vault-mcp/card.svg)](https://mcprush.com/to/oleksandrkucherenko-obsidian-vault-mcp?ref=badge) 
 
+[![Verified on FreeAPI](https://findfreeapi.com/api/badge/mcp-obsidian-via-rest)](https://findfreeapi.com/en/service/mcp-obsidian-via-rest)
+
 ## CI/CD Status
 
 [![NPM (npmjs.org)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-npmjs.yml) [![NPM (GitHub)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml/badge.svg)](https://github.com/OleksandrKucherenko/mcp-obsidian-via-rest/actions/workflows/npm-github.yml)
